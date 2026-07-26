@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Organic App Prisma Schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id            String    @id @default(dbgenerated("gen_random_uuid()"))
+  legalName     String
+  dbaNames      String[] @default([])
+  hqLocation    String?
+  createdAt     DateTime  @default(now())
+
+  products               Product[]
+  ownershipCertifications OwnershipCertification[]
+  investorFilings         InvestorFiling[]
+}
+
+model Product {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  name        String
+  category    String?
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  createdAt   DateTime @default(now())
+
+  certifications OrganicCertification[]
+}
+
+model OrganicCertification {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()"))
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id])
+  certifyingAgency    String
+  certificateNumber   String
+  certificationStatus String   // Certified / Surrendered / Revoked / Suspended
+  certifiedScopes     String[]
+  effectiveDate       DateTime?
+  lastVerifiedDate    DateTime
+
+  // Provenance
+  sourceUrl      String
+  sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+model OwnershipCertification {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()"))
+  companyId           String
+  company             Company  @relation(fields: [companyId], references: [id])
+  mbeCertified        Boolean  @default(false)
+  wbeCertified        Boolean  @default(false)
+  veteranOwnedCertified Boolean @default(false)
+  dbeCertified        Boolean  @default(false)
+  certifyingBody      String?
+
+  // Provenance
+  sourceUrl      String
+  sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+model InvestorFiling {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()"))
+  companyId                String
+  company                  Company  @relation(fields: [companyId], references: [id])
+  ticker                   String?
+  majorShareholders        Json?
+  institutionalOwnershipPct Float?
+  filingDate               DateTime?
+  publicStatus String @default("public") // "public" | "delisted" | "private" | "acquired"
+  parentCompany String? // e.g., "Mars, Incorporated" if acquired
+
+  // Provenance
+  sourceUrl      String
+  sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}

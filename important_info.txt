@@ -1,0 +1,44 @@
+Connection String: postgresql://postgres:[YOUR-PASSWORD]@db.bqtrhokmeflqyuyjtvxd.supabase.co:5432/postgres
+
+
+Starting set
+
+Alden's Cookies and Cream Ice Cream
+Nature's Path Sunrise Crunchy Maple
+Once Upon A Farm Smoothie Melts Tropical Greens
+Happy Baby teethers blueberry & purple carrot
+Pure Organic Layered Fruit Bar Strawberry Banana
+
+NMSDC (National Minority Supplier Development Council) — for MBE certification
+https://nmsdc.org
+They have a "Certified Supplier Search" / directory tool where you can look up whether a company holds active NMSDC MBE certification.
+
+WBENC (Women's Business Enterprise National Council) — for WBE certification
+https://www.wbenc.org
+Similarly has a certified-business search tool (often called "WBENCLink" or a public directory) to verify active WBE-certified companies.
+
+SBA (Small Business Administration) — for 8(a) certification and veteran-owned status
+https://www.sba.gov
+
+8(a) Business Development Program status: searchable via SBA's certification database
+Veteran-owned: SBA's Veteran Small Business Certification (VetCert) program, https://veterans.certify.sba.gov, has its own public search
+
+State-level DBE (Disadvantaged Business Enterprise) certification
+This one's trickier — it's not centralized. Each state (and sometimes each transportation authority) runs its own DBE directory, typically tied to their Department of Transportation. You'd search "[state] DBE directory" for whichever state a company is registered in.
+
+Investor filing:
+https://www.sec.gov/edgar/search/
+
+-------------------------
+
+// Add dbaNames array
+
+UPDATE "Company" SET "dbaNames" = ARRAY['Brand Name Here'] WHERE id = 'paste-company-uuid';
+
+// Update Certified Scopes
+
+UPDATE "OrganicCertification" 
+SET "certifiedScopes" = ARRAY['Handling', 'Mexico Compliance Program', 'Korea Equivalence', 'US/Canada Equivalence', 'EU & UK Equivalence'] 
+WHERE id = '15184e84-531e-47c0-aaf7-359deb52e5cf';
+
+-------------------------
