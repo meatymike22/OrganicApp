@@ -92,3 +92,11 @@ model InvestorFiling {
   reviewerId     String?
   reviewDate     DateTime?
 }
+
+model IngestionLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()"))
+  source         String   // e.g. "usda_oid" — which pipeline this run belongs to
+  ranAt          DateTime @default(now())
+  recordsMatched Int
+  fileName       String   // which file was ingested, for your own reference later
+}
