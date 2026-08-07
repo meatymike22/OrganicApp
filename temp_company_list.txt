@@ -1,0 +1,29 @@
+Company: Once upon a farm, PBC; dba: Once upon a farm; Product: Organic Smoothie Melts; Notes: 2 entries in USDA database, worth looking into why;
+
+Company: Serenity Kids; dba: Serenity Kids; Product: Dairy-free Smoothie + Collagen Beet & Carrot; Notes: ;
+
+Company: Kendal Nutricare; dba: Kendamil; Product: goat toddler drink; Notes: ;
+
+Company: JDB Pro Inc; dba: Central West Produce; Product: Strawberry Fraises; Notes: ;
+
+Company: Alexandre Family Farm; dba: Alexandre Family Farm; Product: A2/A2 Heavy Whipping Cream; Notes: 2 entries in USDA database, worth looking into why;
+
+Company: CROPP Cooperative; dba: Organic Valley; Product: Mozzarella Shredded Cheese; Notes: ;
+
+Company: Maya Kaimal Foods; dba: Maya Kaimal; Product: Everyday Dal Green Garbanzo, Corn & Coriander; Notes: Apparently USDA discontinued post 2023, research why and determine accurate data input thereafter;
+
+Company: Nature's Path Foods, Inc; dba: Nature's Path Organic; Product: Sunrise Crunchy Maple; Notes: 2 entries in USDA from the USA, for different types of products;
+
+Company: Jovial Foods, Inc; dba: Jovial; Product: Crispy Cocoa Einkorn Cookies; Notes: ;
+
+Company: Adam's Group; dba: Marianne's; Product: Beef Tallow; Notes: Doesn't seem to show up on the organic integrity database for 2025 (but was at some point);
+
+Company: La Tourangelle, Inc.; dba: La Tourangelle; Product: Extra Virgin Olive Oil; Notes: ;
+
+Company: Campbell Soup Supply Co.; dba: Pacific Foods; Product: Chicken Broth low sodium; Notes: ;
+
+Company: Soma Direct Trade, LLC; dba: Moka Origins; Product: Cocoa Powder; Notes: ;
+
+Company: One Degree Organic Foods USA Inc.; dba: One Degree Organics; Product: Sprouted Spelt Flour ; Notes: ;
+
+Company: CITADELLE MAPLE SYRUP PRODUCERS' COOPERATIVE; dba: Shady Maple Farms; Product: 100% pure organic maple syrup; Notes: ;

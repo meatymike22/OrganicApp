@@ -21,6 +21,7 @@ model Company {
   products               Product[]
   ownershipCertifications OwnershipCertification[]
   investorFilings         InvestorFiling[]
+  regulatoryActions RegulatoryAction[]
 }
 
 model Product {
@@ -99,4 +100,27 @@ model IngestionLog {
   ranAt          DateTime @default(now())
   recordsMatched Int
   fileName       String   // which file was ingested, for your own reference later
+}
+
+model RegulatoryAction {
+  id                String    @id @default(dbgenerated("gen_random_uuid()"))
+  companyId         String
+  company           Company   @relation(fields: [companyId], references: [id])
+
+  sourceAgency      String    // "FDA" | "CPSC" | "CBP"
+  actionType        String    // "recall" | "warning_letter" | "withhold_release_order"
+  referenceNumber   String?   // recall_number, WRO number, etc.
+  classification    String?   // e.g. FDA recall Class I/II/III (severity)
+  reason            String    // reason for recall / hazard description
+  productDescription String?
+  status            String?   // ongoing / completed / terminated
+  actionDate        DateTime?
+  terminationDate   DateTime?
+
+  sourceUrl      String
+  sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
 }
