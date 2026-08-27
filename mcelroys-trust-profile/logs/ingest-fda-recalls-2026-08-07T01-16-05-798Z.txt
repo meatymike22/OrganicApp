@@ -1,0 +1,17 @@
+MATCH (food): "Once Upon a Farm, PBC" -> Once Upon a Farm, PBC
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1282-2024",
+  "classification": "Class II",
+  "reason": "Potential contamination with Listeria monocytogenes",
+  "productDescription": "Once Upon a Farm Organic Plant-Rich Meal, Curried Carrots & Beans, 3.5 oz, packed in single serving flexible pouches. Product is distributed frozen and is Not-Ready-To-Eat. The end user must cook the product. Cooking instructions are provided for both microwave and stovetop on pack.",
+  "status": "Terminated",
+  "actionDate": "2024-05-17T00:00:00.000Z",
+  "terminationDate": "2025-01-31T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1282-2024\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-07T01:16:05.797Z",
+  "aiDrafted": true
+}
+[ERROR] {}

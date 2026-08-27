@@ -27,6 +27,7 @@ export default async function CompanyPage({
       },
       ownershipCertifications: true,
       investorFilings: true,
+      regulatoryActions: true, // FDA/CPSC/CBP recalls and other regulatory actions
     },
   })
 
@@ -85,6 +86,52 @@ export default async function CompanyPage({
             <div key={filing.id}>
               <p>Status: {filing.publicStatus}</p>
               {filing.parentCompany && <p>Parent company: {filing.parentCompany}</p>}
+            </div>
+          ))}
+        </>
+      )}
+
+      {company.regulatoryActions.length > 0 && (
+        <>
+          <h2>Regulatory Actions</h2>
+          {/* Important: every regulatory action MUST show productDescription prominently.
+              Recalls match at the legal-entity level, which can pull in a parent company's
+              other, unrelated brands (e.g. a sibling brand's recall showing up here even
+              though it has nothing to do with this specific company's product). Never
+              render these as a bare count or date list — that would misleadingly imply
+              the action affected this company's own product line specifically. */}
+          {company.regulatoryActions.map((action) => (
+            <div
+              key={action.id}
+              style={{
+                border: '1px solid #eee',
+                borderRadius: '6px',
+                padding: '0.75rem',
+                marginBottom: '0.75rem',
+              }}
+            >
+              <p style={{ fontWeight: 'bold' }}>
+                {action.sourceAgency} {action.actionType}
+                {action.classification && ` — ${action.classification}`}
+              </p>
+              {/* Product description shown first and prominently — this is what actually
+                  tells the reader whether this action relates to the product they're
+                  looking at, or to an unrelated product from the same parent company */}
+              {action.productDescription && (
+                <p>
+                  <strong>Product:</strong> {action.productDescription}
+                </p>
+              )}
+              <p>Reason: {action.reason}</p>
+              <p>Status: {action.status}</p>
+              {action.actionDate && (
+                <p>Date: {new Date(action.actionDate).toLocaleDateString()}</p>
+              )}
+              <p>
+                <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  View source record (raw government data)
+                </a>
+              </p>
             </div>
           ))}
         </>

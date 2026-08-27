@@ -22,17 +22,103 @@ model Company {
   ownershipCertifications OwnershipCertification[]
   investorFilings         InvestorFiling[]
   regulatoryActions RegulatoryAction[]
+  supplyChainDisclosures SupplyChainDisclosure[]
+  independentInvestigations IndependentInvestigation[]
 }
 
 model Product {
   id          String   @id @default(dbgenerated("gen_random_uuid()"))
   name        String
+  // Broad structural classification — determines which sections of the product
+  // page apply at all (e.g. a baby bottle never shows a Nutrition Facts panel).
+  // Valid values are documented and enforced at the application layer, not the
+  // database — see src/lib/productTypes.ts
+  productType String
+  // Specific, display-oriented label (e.g. "Ice Cream", "Baby Bottle").
+  // Valid options depend on productType — see PRODUCT_CATEGORIES_BY_TYPE
+  // in src/lib/productTypes.ts
   category    String?
+  // Barcode — required for matching against Open Food Facts and similar
+  // barcode-keyed sources. Nullable since not every product will have one
+  // entered right away.
+  upc         String?
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
 
-  certifications OrganicCertification[]
+  certifications     OrganicCertification[]
+  nutritionFacts     NutritionFacts?
+  productIngredients ProductIngredient[]
+}
+
+model NutritionFacts {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  productId     String   @unique
+  product       Product  @relation(fields: [productId], references: [id])
+  servingSize   String?
+  calories      Float?
+  totalFatG     Float?
+  saturatedFatG Float?
+  sugarG        Float?
+  carbsG        Float?
+  sodiumMg      Float?
+  proteinG      Float?
+
+  // Provenance
+  sourceUrl      String
+  sourceType     String   @default("crowdsourced") // e.g. Open Food Facts is crowdsourced, not a regulatory filing
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+model Ingredient {
+  id                 String @id @default(dbgenerated("gen_random_uuid()"))
+  name               String @unique
+  category           String? // e.g. "seed oil", "preservative", "artificial sweetener", "dye"
+  // True only for additives/processing-flagged ingredients that warrant dedicated
+  // safety research (IngredientStudy records) — mirrors how Yuka only researches
+  // the closed, standardized set of food additives, not every whole-food
+  // ingredient. Whole foods (oats, salt, sugar) are covered by NutritionFacts
+  // instead; they don't get an IngredientStudy record just for existing.
+  flaggedForResearch Boolean @default(false)
+  products           ProductIngredient[]
+  studies            IngredientStudy[]
+}
+
+model ProductIngredient {
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  // Whether THIS ingredient, in THIS specific product, was marked organic in
+  // the source data (e.g. Open Food Facts' "*" convention). This is a
+  // per-product fact, not a property of the ingredient itself — the same
+  // ingredient (e.g. cane sugar) can be organic in one product and not in
+  // another, so it belongs here on the join row, not on Ingredient.
+  // Best-effort signal from crowdsourced text, not certification-grade —
+  // OrganicCertification remains the authoritative source for organic status.
+  isOrganicSourced Boolean @default(false)
+  @@id([productId, ingredientId])
+}
+
+model IngredientStudy {
+  id              String   @id @default(dbgenerated("gen_random_uuid()"))
+  ingredientId    String
+  ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
+  citation        String   // journal, year, DOI
+  findingSummary  String   // paraphrased, not quoted
+  studyType       String   // RCT / observational / review / meta-analysis
+  consensusStatus String   // well-established / mixed evidence / limited evidence / disputed
+
+  // Provenance
+  sourceUrl      String
+  sourceType     String   @default("scientific_literature")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
 }
 
 model OrganicCertification {
@@ -119,6 +205,89 @@ model RegulatoryAction {
 
   sourceUrl      String
   sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+model SupplyChainDisclosure {
+  id                String   @id @default(dbgenerated("gen_random_uuid()"))
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id])
+
+  // Whether this record reflects the company's OWN claim about itself, or
+  // something independently verified by a third party unaffiliated with (and
+  // not paid by) the company. This matters enormously: most corporate supply-
+  // chain disclosures are self-reported, and the audits they describe are
+  // typically self-selected and self-paid by the company being audited — not
+  // independent verification the way a government inspection would be.
+  // Default to "self_reported" unless you have a specific reason (investigative
+  // journalism, an NGO investigation, litigation findings) to mark otherwise.
+  // The UI must always surface this distinction — never present a self-reported
+  // claim with the same visual confidence as an independently verified one.
+  verificationBasis String @default("self_reported") // "self_reported" | "independently_verified"
+
+  // "not_disclosed" | "partial_disclosure" | "full_disclosure"
+  // "not_disclosed" is itself a real, sourced finding — it means a human
+  // (or AI, pending review) actually checked and confirmed nothing is
+  // published, not that nobody has looked yet. Absence of this record
+  // entirely means "not yet researched" — a different, weaker state.
+  disclosureStatus  String
+  // What kind of disclosure exists, if any (e.g. "CDP report", "sustainability
+  // report supplier list", "California Transparency in Supply Chains Act statement")
+  // Named audit framework/standard the company claims to follow, if disclosed
+  // (e.g. "SMETA", "RSPO", "SA8000", "Sedex"). This is usually the most
+  // specific thing companies actually name — the SPECIFIC FIRM that performs
+  // individual audits is almost never publicly disclosed, since the law only
+  // requires stating WHETHER an audit is third-party/independent, not naming
+  // who performs it. Leave null if no named framework is mentioned.
+  auditFramework    String?
+  disclosureType    String?
+  // Direct link to the actual disclosure document, OR — for "not_disclosed" —
+  // the page that was checked and confirmed to have no supplier information
+  // (e.g. the company's own sustainability/ESG page). Required either way,
+  // since "we checked here and found nothing" needs the same citation
+  // discipline as a positive finding.
+  sourceUrl         String
+  notes             String?
+
+  sourceType     String   @default("company_disclosure")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+model IndependentInvestigation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()"))
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id])
+
+  // Who conducted the investigation — an NGO, watchdog org, journalist/outlet,
+  // regulator, etc. Must be an identifiable, named party, not anonymous.
+  investigatingOrg String
+  // e.g. "consumer fraud investigation", "investigative journalism",
+  // "watchdog scorecard/rating downgrade", "whistleblower report"
+  investigationType String?
+  // Paraphrased summary of what is alleged — NEVER a verbatim reproduction of
+  // the source report's text (copyright + accuracy discipline, same as
+  // everywhere else in this schema). State clearly that this is an
+  // ALLEGATION from the named investigatingOrg, not an adjudicated fact.
+  allegationSummary String
+
+  // Whether and how the company has responded — critical for fairness. This
+  // table exists to surface independent scrutiny, not to one-sidedly present
+  // accusations. Leave null (not empty string) if no public response was
+  // found, and treat that as something to actively check for, not skip.
+  companyResponse   String?
+  // "unresolved" | "disputed_by_company" | "confirmed_by_regulator" | "retracted"
+  status            String  @default("unresolved")
+
+  publicationDate DateTime?
+  sourceUrl       String
+
+  sourceType     String   @default("independent_investigation")
   dataPulledDate DateTime @default(now())
   aiDrafted      Boolean  @default(false)
   reviewerId     String?

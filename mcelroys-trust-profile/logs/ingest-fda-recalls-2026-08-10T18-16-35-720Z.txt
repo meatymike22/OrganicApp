@@ -1,0 +1,244 @@
+  REJECTED false-positive match: searched "Honest", but actual recalling_firm was "The Honest Stand" (recall F-0711-2020) — not the same company, skipping.
+  REJECTED false-positive match: searched "Honest", but actual recalling_firm was "HONEST BAKING" (recall F-1011-2023) — not the same company, skipping.
+MATCH (food): "Once Upon a Farm, PBC" -> Once Upon a Farm, PBC (verified recalling_firm: "ONCE UPON A FARM PBC")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1282-2024",
+  "classification": "Class II",
+  "reason": "Potential contamination with Listeria monocytogenes",
+  "productDescription": "Once Upon a Farm Organic Plant-Rich Meal, Curried Carrots & Beans, 3.5 oz, packed in single serving flexible pouches. Product is distributed frozen and is Not-Ready-To-Eat. The end user must cook the product. Cooking instructions are provided for both microwave and stovetop on pack.",
+  "status": "Terminated",
+  "actionDate": "2024-05-17T00:00:00.000Z",
+  "terminationDate": "2025-01-31T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1282-2024\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:21.535Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-0326-2024",
+  "classification": "Class II",
+  "reason": "undeclared peanut",
+  "productDescription": "Nature's Path Organic Pumpkin Spice Waffles, 7 oz., UPC 0 5844959077 4",
+  "status": "Terminated",
+  "actionDate": "2023-10-19T00:00:00.000Z",
+  "terminationDate": "2024-06-18T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-0326-2024\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.284Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1167-2019",
+  "classification": "Class II",
+  "reason": "Gluten-free Cereals may contain undeclared gluten (wheat and barley).",
+  "productDescription": "Nature's Path Organic Chocolate Choco Chimps Organic cereal.  Net Wt. 10 oz (284 g), UPC 58449-87024.  Nature's Path Foods, Inc., Blaine, WA  98230",
+  "status": "Terminated",
+  "actionDate": "2019-02-15T00:00:00.000Z",
+  "terminationDate": "2019-08-22T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1167-2019\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.284Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1168-2019",
+  "classification": "Class II",
+  "reason": "Gluten-free Cereals may contain undeclared gluten (wheat and barley).",
+  "productDescription": "Nature's Path Organic Gorilla Munch Corn Puffs cereal.  Net Wt. 10 oz (284 g), UPC 58449-86002.  Nature's Path Foods, Inc., Blaine, WA  98230.",
+  "status": "Terminated",
+  "actionDate": "2019-02-15T00:00:00.000Z",
+  "terminationDate": "2019-08-22T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1168-2019\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.284Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-0327-2024",
+  "classification": "Class II",
+  "reason": "undeclared peanut",
+  "productDescription": "Nature's Path Organic Dark Chocolate Chip Waffles, 7 oz., UPC 0 5844916701 3",
+  "status": "Terminated",
+  "actionDate": "2023-10-19T00:00:00.000Z",
+  "terminationDate": "2024-06-18T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-0327-2024\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.285Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1169-2019",
+  "classification": "Class II",
+  "reason": "Gluten-free Cereals may contain undeclared gluten (wheat and barley).",
+  "productDescription": "Nature's Path Organic Cinnamon Jungle Munch cereal.  Net Wt. 10 oz (284 g), UPC 58449-87028.  Nature's Path Foods, Inc., Blaine, WA  98230.",
+  "status": "Terminated",
+  "actionDate": "2019-02-15T00:00:00.000Z",
+  "terminationDate": "2019-08-22T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1169-2019\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.285Z",
+  "aiDrafted": true
+}
+MATCH (food): "Nature's Path Foods, Inc" -> Nature's Path Foods, Inc (verified recalling_firm: "Nature'S Path Foods Inc")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-0858-2013",
+  "classification": "Class II",
+  "reason": "Undeclared almond.  Vanilla Almond Granola which contains almonds but it was mis-labeled as Hemp Plus Granola and almond was not declared on label.",
+  "productDescription": "Hemp Plus Granola.  The product is packaged in a 25 lb. container.  The UPC is 0 58449 88001 1.    The product is labeled in parts: \"***HempPlus Granola***INGREDIENTS: Organic rolled oats, organic evaporated cane juice, organic soybean oil, organic brown rice flour, organic flax seeds, organic hemp seed, organic oat syrup solids (organic oat syrups solids, tocopherol, sea salt, organic molasses***25 lb.***Nature's Path Foods, Blaine, WA 98230***www.naturespath.com***\".",
+  "status": "Terminated",
+  "actionDate": "2012-12-10T00:00:00.000Z",
+  "terminationDate": "2013-04-22T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-0858-2013\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:26.285Z",
+  "aiDrafted": true
+}
+MATCH (food): "Campbell Soup Supply Co." -> Campbell Soup Supply Co. (verified recalling_firm: "Campbell Soup Supply Co., LLC")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-2084-2016",
+  "classification": "Class II",
+  "reason": "Potential choking hazard posed by pieces of red plastic found in cans.",
+  "productDescription": "Campbell's SpaghettiOs Original Pasta in Tomato and Cheese Sauce Net Wt. 14.2 ounces in metal cans, NDC: 0-51000-22432-3",
+  "status": "Terminated",
+  "actionDate": "2015-11-12T00:00:00.000Z",
+  "terminationDate": "2017-02-17T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-2084-2016\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:28.598Z",
+  "aiDrafted": true
+}
+MATCH (food): "Campbell Soup Supply Co." -> Campbell Soup Supply Co. (verified recalling_firm: "Campbell Soup Supply Co., LLC")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1421-2012",
+  "classification": "Class III",
+  "reason": "The product has been prepared, packed, or held under insanitary conditions whereby it may have become contaminated with filth, or whereby it may have been rendered injurious to health.",
+  "productDescription": "Campbell's Oyster Stew, Net Wt 10.5 oz (298g), Campbell Soup Company, Camden, NJ 08103-1701",
+  "status": "Terminated",
+  "actionDate": "2012-06-05T00:00:00.000Z",
+  "terminationDate": "2014-05-29T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1421-2012\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:28.598Z",
+  "aiDrafted": true
+}
+MATCH (food): "Campbell Soup Supply Co." -> Campbell Soup Supply Co. (verified recalling_firm: "Campbell Soup Supply Co., LLC")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "F-1748-2014",
+  "classification": "Class II",
+  "reason": "Product may have become spoiled due to an elevated pH caused by dilute cleaning solution in the product.",
+  "productDescription": "Prego Italian Sauce Traditional, NET WT. 24 OZ (1 LB. 80 Z.)(680 g) in glass jars.",
+  "status": "Terminated",
+  "actionDate": "2013-12-31T00:00:00.000Z",
+  "terminationDate": "2014-11-04T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/food/enforcement.json?search=recall_number:\"F-1748-2014\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:28.598Z",
+  "aiDrafted": true
+}
+  REJECTED false-positive match: searched "Pacific Foods", but actual recalling_firm was "Pacific Foods of Oregon, Inc." (recall F-0031-2018) — not the same company, skipping.
+  REJECTED false-positive match: searched "TOMY", but actual recalling_firm was "Tomy International Inc." (recall Z-0766-2023) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1535-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1012-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1537-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1536-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1533-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-1534-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall F-0907-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0248-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0249-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0242-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0247-2024) — not the same company, skipping.
+MATCH (drug): "Procter & Gamble" -> Procter & Gamble (verified recalling_firm: "Procter & Gamble Co")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "D-069-2013",
+  "classification": "Class II",
+  "reason": "Labeling Illegible: Portions of the product labeling in the area of the dosing directions, the warnings & other information sections is obscured.",
+  "productDescription": "Vicks NyQuil Cold & Flu, Nighttime Relief, 12 FL OZ bottle, Dist. by Proctor and Gamble, Cincinnati, OH 45040. NDC 37000-808-12",
+  "status": "Terminated",
+  "actionDate": "2012-11-08T00:00:00.000Z",
+  "terminationDate": "2013-12-23T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/drug/enforcement.json?search=recall_number:\"D-069-2013\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:35.183Z",
+  "aiDrafted": true
+}
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0252-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0251-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0253-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-1290-2022) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0244-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0238-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0239-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0246-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0256-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0254-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0250-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0241-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0240-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0243-2024) — not the same company, skipping.
+MATCH (drug): "Procter & Gamble" -> Procter & Gamble (verified recalling_firm: "Procter & Gamble Co")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "D-1056-2013",
+  "classification": "Class II",
+  "reason": "Incorrect/ Undeclared Excipients: NyQuil Liquid Original bottles were inadvertently overwrapped with NyQuil Liquid Cherry information as a result the outer wrap does not correctly identify color additives, particularly FD&C Yellow No. 6 and FD&C Yellow 10.",
+  "productDescription": "Vicks NyQuil Cold and Flu Nighttime Relief, Liquid Twin Pack, (Acetaminophen 650mg,  Dextromethorphan HBr 30mg, Doxylamine succinate 12.5mg), 12 fl oz (354 ml) bottles, Distributed by Procter & Gamble, Cincinnati, OH 45202,  NDC 37000-807-12",
+  "status": "Terminated",
+  "actionDate": "2013-08-29T00:00:00.000Z",
+  "terminationDate": "2014-09-18T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/drug/enforcement.json?search=recall_number:\"D-1056-2013\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:35.184Z",
+  "aiDrafted": true
+}
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0255-2024) — not the same company, skipping.
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "Procter & Gamble Hair Care Llc" (recall D-167-2013) — not the same company, skipping.
+MATCH (drug): "Procter & Gamble" -> Procter & Gamble (verified recalling_firm: "Procter & Gamble Co")
+{
+  "sourceAgency": "FDA",
+  "actionType": "recall",
+  "referenceNumber": "D-827-2013",
+  "classification": "Class II",
+  "reason": "Unit Dose Mispackaging: Product packaging defect which could result in code date smearing, incomplete blister card cuts, and missing or incorrectly placed liquicaps within the blisters.",
+  "productDescription": "DayQuil Sinex DayTime Sinus Relief (acetaminophen 325 mg and phenylephrine HCl 5 mg) liquicaps and NyQuil Sinex NightTime Sinus Relief (acetaminophen 325 mg, doxylamine succinate 6.25 mg, and phenylephrine HCl 5 mg) liquicaps Combopack, each 48-count liquicaps per carton contains 32 DayQuil Sinex DayTime Liquicaps and 16 NyQuil Sinex NightTime Liquicaps per carton, Made In Canada, Dist. by Procter & Gamble, Cincinnati, OH 45202, UPC 3 23900 01454 1.",
+  "status": "Terminated",
+  "actionDate": "2013-07-03T00:00:00.000Z",
+  "terminationDate": "2014-10-08T00:00:00.000Z",
+  "sourceUrl": "https://api.fda.gov/drug/enforcement.json?search=recall_number:\"D-827-2013\"",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:16:35.185Z",
+  "aiDrafted": true
+}
+  REJECTED false-positive match: searched "Procter & Gamble", but actual recalling_firm was "The Procter & Gamble Company" (recall D-0245-2024) — not the same company, skipping.
+
+Done. 13 recall record(s) found across 24 companies.
+32 candidate match(es) rejected as false positives (search returned a result, but the actual company name didn't genuinely match).
+DRY RUN — nothing was written. Re-run with --live to commit.

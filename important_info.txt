@@ -3,6 +3,10 @@ Connection String: postgresql://postgres:[YOUR-PASSWORD]@db.bqtrhokmeflqyuyjtvxd
 
 Starting set
 
+USDA integrity database
+
+https://organic.ams.usda.gov/integrity/Home
+
 Alden's Cookies and Cream Ice Cream
 Nature's Path Sunrise Crunchy Maple
 Once Upon A Farm Smoothie Melts Tropical Greens
@@ -29,7 +33,14 @@ This one's trickier — it's not centralized. Each state (and sometimes each tra
 Investor filing:
 https://www.sec.gov/edgar/search/
 
+CBP Withold Release data
+https://www.cbp.gov/document/stats/withhold-release-orders-findings
+
 -------------------------
+
+// update legalName
+
+UPDATE "Company" SET "legalName" = 'Honesdale, Pennsylvania' WHERE "legalName" = 'Soma Direct Trade, LLC';
 
 // Add dbaNames array
 

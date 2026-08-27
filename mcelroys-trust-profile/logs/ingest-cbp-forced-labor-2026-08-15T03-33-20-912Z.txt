@@ -1,0 +1,6 @@
+Reading CBP forced labor CSV...
+Loaded 67 WRO/Finding record(s) from CBP.
+
+Done. 0 match(es) found across 24 companies and 67 CBP records.
+Note: WROs/Findings typically target raw-material suppliers and manufacturers deep in a supply chain, not consumer-facing brands — a low or zero match count against your current company list is expected and not necessarily a bug. See SupplyChainDisclosure for the actual supply-chain-mapping work this connects to.
+DRY RUN — nothing was written. Re-run with --live to commit.

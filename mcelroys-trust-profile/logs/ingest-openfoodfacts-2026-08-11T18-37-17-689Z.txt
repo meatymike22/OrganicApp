@@ -1,0 +1,20 @@
+Found 1 product(s) with a UPC set.
+MATCH: UPC 058449772057 -> Sunrise Crunchy Maple (Nature's Path Foods, Inc)
+{
+  "servingSize": "1 serving (40 g)",
+  "calories": 375,
+  "totalFatG": 3.75,
+  "saturatedFatG": null,
+  "sugarG": 22.5,
+  "carbsG": 87.5,
+  "sodiumMg": 500,
+  "proteinG": 5,
+  "sourceUrl": "https://world.openfoodfacts.org/product/058449772057",
+  "sourceType": "crowdsourced",
+  "dataPulledDate": "2026-08-11T18:37:17.688Z",
+  "aiDrafted": false
+}
+  Parsed 17 ingredient(s) from ingredients_text
+
+Done. 1 product(s) matched, 0 not found in Open Food Facts.
+DRY RUN — nothing was written. Re-run with --live to commit.

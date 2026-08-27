@@ -1,0 +1,145 @@
+DEBUG — raw sample record from CPSC API (first match only, for structure verification):
+{
+  "RecallID": 4576,
+  "RecallNumber": "08554",
+  "RecallDate": "2008-03-27T00:00:00",
+  "Description": "The recalled white plush warming bear has a red hat and brown nose. It is about 17 inches long and comes with a buckwheat-filled pouch that is heated in a microwave oven and is inserted into an opening in the bear's belly. \"Avon Products\" is printed on a white tag sewn onto the bear.",
+  "URL": "https://www.cpsc.gov/Recalls/2008/Avon-Products-Recalls-Plush-Warming-Polar-Bears-Due-to-Fire-and-Burn-Hazards",
+  "Title": "Avon Products Recalls Plush Warming Polar Bears Due to Fire and Burn Hazards",
+  "ConsumerContact": "For additional information, contact Avon toll-free at (877) 217-0916 between 6 a.m. and midnight ET Monday through Saturday, and on Sunday between 12 p.m. and midnight ET, or visit the firm's Web site at www.avon.com",
+  "LastPublishDate": "2014-05-23T00:00:00",
+  "Products": [
+    {
+      "Name": "Cozy Warming Polar Bears",
+      "Description": "",
+      "Model": "",
+      "Type": "Heating Pads",
+      "CategoryID": "1991",
+      "NumberOfUnits": "About 113,000"
+    }
+  ],
+  "Inconjunctions": [],
+  "Images": [
+    {
+      "URL": "https://www.cpsc.gov/~/link/78e2acf4556f46559e15f4a017ab45fc.jpg",
+      "Caption": "Recalled Cozy Warming Polar Bear"
+    }
+  ],
+  "Injuries": [
+    {
+      "Name": "Avon has received 41 reports of the warming polar bear overheating, including six reports of minor burns."
+    }
+  ],
+  "Manufacturers": [
+    {
+      "Name": "Haiyan Boai Gifts Factory, of China",
+      "CompanyID": ""
+    },
+    {
+      "Name": "Yangzhou Honesty Arts & Crafts Co. Ltd., of China",
+      "CompanyID": ""
+    }
+  ],
+  "Retailers": [
+    {
+      "Name": "Avon independent sales representatives and at www.avon.com from July 2007 through February 2008 for about $13 when sold alone, or as part of a gift set that sold for about $100.",
+      "CompanyID": ""
+    }
+  ],
+  "Importers": [],
+  "Distributors": [
+    {
+      "Name": "Avon Products Inc., of New York, N.Y.",
+      "CompanyID": ""
+    }
+  ],
+  "SoldAtLabel": null,
+  "ManufacturerCountries": [
+    {
+      "Country": "China"
+    }
+  ],
+  "ProductUPCs": [],
+  "Hazards": [
+    {
+      "Name": "The warming pouch inside the bear can overheat and ignite when heated in a microwave oven, posing a fire and burn hazard to consumers.",
+      "HazardType": "",
+      "HazardTypeID": ""
+    }
+  ],
+  "Remedies": [
+    {
+      "Name": "Consumers should immediately stop using the recalled warming bear and return the buckwheat-filled pouch for a full refund. Avon is directly contacting consumers who purchased the warming bear."
+    }
+  ],
+  "RemedyOptions": []
+}
+  REJECTED false-positive match: searched "Honest", but record 08554 actual names were "Haiyan Boai Gifts Factory, of China; Yangzhou Honesty Arts & Crafts Co. Ltd., of China; Avon Products Inc., of New York, N.Y." — not the same company, skipping.
+MATCH: "Procter & Gamble" -> Procter & Gamble
+{
+  "sourceAgency": "CPSC",
+  "actionType": "recall",
+  "referenceNumber": "24189",
+  "classification": null,
+  "reason": "The outer packaging meant to prevent access to the contents can split open near the zipper track, posing a risk of serious injury to children and other vulnerable populations if the contents of the laundry detergent packets are ingested, as well as posing a risk of skin or eye injuries. Ingestion of a large quantity of any surfactant-containing household cleaning products can cause death among individuals with underlying health issues.",
+  "productDescription": "Tide Pods, Gain Flings, Ace Pods and Ariel Pods liquid laundry detergent packets packaged in flexible film bags. This recall announcement applies only to bags distributed in the United States.",
+  "status": null,
+  "actionDate": "2024-04-05T07:00:00.000Z",
+  "terminationDate": null,
+  "sourceUrl": "https://www.cpsc.gov/Recalls/2024/Procter-Gamble-Recalls-8-2-Million-Defective-Bags-of-Tide-Gain-Ace-and-Ariel-Laundry-Detergent-Packets-Distributed-in-US-Due-to-Risk-of-Serious-Injury",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:19:59.625Z",
+  "aiDrafted": true
+}
+MATCH: "Procter & Gamble" -> Procter & Gamble
+{
+  "sourceAgency": "CPSC",
+  "actionType": "recall",
+  "referenceNumber": "23296",
+  "classification": null,
+  "reason": "The aerosol containers can rupture and leak, posing injury and laceration hazards.",
+  "productDescription": "Zevo Fly, Gnat and Fruit Fly Flying Insect Killer3 Value Packs",
+  "status": null,
+  "actionDate": "2023-09-28T07:00:00.000Z",
+  "terminationDate": null,
+  "sourceUrl": "https://www.cpsc.gov/Recalls/2023/Procter-Gamble-Recalls-Zevo-Fly-Gnat-and-Fruit-Fly-Insect-Spray-Due-to-Injury-and-Laceration-Hazards",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:19:59.626Z",
+  "aiDrafted": true
+}
+MATCH: "Procter & Gamble" -> Procter & Gamble
+{
+  "sourceAgency": "CPSC",
+  "actionType": "recall",
+  "referenceNumber": "10280",
+  "classification": null,
+  "reason": "The mouthwash contains ethyl alcohol and certain bottles have malfunctioning child-resistant closures. Ethyl alcohol is toxic and can cause serious injury or death if ingested by children.",
+  "productDescription": "Scope® Original Mint Mouthwash, 1-Liter Size",
+  "status": null,
+  "actionDate": "2010-06-25T07:00:00.000Z",
+  "terminationDate": null,
+  "sourceUrl": "https://www.cpsc.gov/Recalls/2010/Scope-Original-Mint-Mouthwash-Recalled-by-Procter--Gamble-Due-to-Failure-to-Meet-Child-Resistant-Closure-Requirement",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:19:59.626Z",
+  "aiDrafted": true
+}
+MATCH: "Procter & Gamble" -> Procter & Gamble
+{
+  "sourceAgency": "CPSC",
+  "actionType": "recall",
+  "referenceNumber": "10085",
+  "classification": null,
+  "reason": "The cold and flu medicine contains acetaminophen and is not in child-resistant packaging and lacks the statement, \"This Package for Households Without Young Children,\" as required by the Poison Prevention Packaging Act. This medicine could cause serious health problems or death to a child if several of the capsules are swallowed.",
+  "productDescription": "Vicks Dayquil Cold & Flu 24-Count Bonus Pack Liquicaps",
+  "status": null,
+  "actionDate": "2009-12-18T08:00:00.000Z",
+  "terminationDate": null,
+  "sourceUrl": "https://www.cpsc.gov/Recalls/2010/Vicks-Dayquil-Cold--Flu-Liquicaps-Recalled-by-Procter--Gamble-Due-To-Failure-to-Meet-Child-Resistant-Closure-Requirement",
+  "sourceType": "regulatory_filing",
+  "dataPulledDate": "2026-08-10T18:19:59.626Z",
+  "aiDrafted": true
+}
+
+Done. 4 recall record(s) found across 24 companies.
+1 candidate match(es) rejected as false positives.
+DRY RUN — nothing was written. Re-run with --live to commit.
