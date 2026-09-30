@@ -2,6 +2,11 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { userAgent } from '@/lib/userAgent'
+import { parseIngredientsText } from '@/lib/ingredientParsing'
+import { replaceProductIngredients } from '@/lib/ingredientStore'
+import { pickEnglishIngredientsText } from '@/lib/offIngredients'
+import { buildNutritionFromOff } from '@/lib/offNutrition'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -46,63 +51,35 @@ function writeLogFile(prefix: string) {
 // Usage:
 //   npx tsx scripts/ingest-openfoodfacts.ts            (dry run, safe, prints only)
 //   npx tsx scripts/ingest-openfoodfacts.ts --live      (actually writes to the DB)
-const DRY_RUN = process.argv[2] !== '--live'
+const DRY_RUN = !process.argv.includes('--live')
+
+// --only <upc> limits the run to one product, so a single record can be
+// re-pulled without touching everything else.
+const onlyIdx = process.argv.indexOf('--only')
+const ONLY_UPC = onlyIdx !== -1 ? process.argv[onlyIdx + 1] : null
+
+// Open Food Facts is crowdsourced; USDA FoodData Central comes from the
+// manufacturer. Once a product's ingredients have been taken from USDA, a
+// later OFF run must not silently overwrite them with the weaker source —
+// that would undo the verification pass every time this script is run.
+// --force overrides, for the case where USDA's entry is the poorer one.
+const FORCE_OVER_MANUFACTURER = process.argv.includes('--force')
 
 // Open Food Facts asks every API client to send a descriptive User-Agent
 // identifying the app, so they can contact you if something's wrong with your usage
-const USER_AGENT = 'Rootify/1.0 (contact: your-email@example.com)'
+// Real contact address comes from CONTACT_EMAIL in .env — see src/lib/userAgent.ts
+const USER_AGENT = userAgent()
 
-// Classification rules for ingredients that warrant dedicated safety research
-// (IngredientStudy records) — this is intentionally the SAME scope Yuka
-// actually researches: standardized additives and flagged processing
-// categories, not arbitrary whole-food ingredients. Not exhaustive — expand
-// these lists as you encounter more real examples in your product data.
-const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = [
-  {
-    category: 'seed oil',
-    keywords: [
-      'canola oil', 'rapeseed oil', 'soybean oil', 'corn oil', 'cottonseed oil',
-      'sunflower oil', 'safflower oil', 'grapeseed oil', 'rice bran oil',
-    ],
-  },
-  {
-    category: 'artificial sweetener',
-    keywords: [
-      'aspartame', 'sucralose', 'saccharin', 'acesulfame potassium', 'acesulfame-k',
-      'neotame', 'advantame',
-    ],
-  },
-  {
-    category: 'preservative',
-    keywords: [
-      'sodium benzoate', 'potassium sorbate', 'bha', 'bht', 'sodium nitrite',
-      'sodium nitrate', 'calcium propionate', 'sulfur dioxide', 'sodium metabisulfite',
-    ],
-  },
-  {
-    category: 'artificial dye',
-    keywords: [
-      'red 40', 'yellow 5', 'yellow 6', 'blue 1', 'blue 2', 'green 3',
-      'fd&c', 'titanium dioxide',
-    ],
-  },
-  {
-    category: 'emulsifier',
-    keywords: [
-      'polysorbate', 'carrageenan', 'carboxymethylcellulose', 'mono- and diglycerides',
-    ],
-  },
-]
-
-function classifyIngredient(name: string): { category: string | null; flaggedForResearch: boolean } {
-  const lower = name.toLowerCase()
-  for (const rule of CLASSIFICATION_RULES) {
-    if (rule.keywords.some((keyword) => lower.includes(keyword))) {
-      return { category: rule.category, flaggedForResearch: true }
-    }
-  }
-  return { category: null, flaggedForResearch: false }
+// Open Food Facts returns HTTP 429 (rate limited) when requests come too fast.
+// This script originally had no pacing at all, which was survivable when it
+// processed a single product but caused most of the catalog to fail once there
+// were dozens. This is a volunteer-run nonprofit — pace generously.
+const DELAY_MS = 3000
+const MAX_RETRIES = 3
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
+
 
 // Open Food Facts' ingredient list comes as one raw text string, e.g.:
 //   "Organic oats, organic cane sugar, chocolate (cocoa, sugar, vanilla), sea salt"
@@ -115,101 +92,17 @@ function classifyIngredient(name: string): { category: string | null; flaggedFor
 // This flattening is intentional: for filtering purposes ("does this product
 // contain X"), what matters is every actual substance present, not just the
 // top-level umbrella terms.
-function parseIngredientsText(raw: string): { name: string; isOrganicSourced: boolean }[] {
-  const results: { name: string; isOrganicSourced: boolean }[] = []
-
-  function cleanName(s: string): string {
-    return s
-      .replace(/^\*+/, '')
-      .replace(/\*+$/, '')
-      .replace(/^\d+(\.\d+)?%\s*/, '')
-      .replace(/^[.\s]+|[.\s]+$/g, '')
-      .trim()
-  }
-
-  // The "*" marker (leading or trailing) is Open Food Facts' common convention
-  // for "this specific ingredient is organic." Check before stripping it.
-  function isMarkedOrganic(s: string): boolean {
-    const trimmed = s.trim()
-    return trimmed.startsWith('*') || trimmed.endsWith('*')
-  }
-
-  function splitTopLevel(text: string): string[] {
-    let depth = 0
-    let current = ''
-    const items: string[] = []
-    for (const char of text) {
-      if (char === '(' || char === '[') {
-        depth++
-        current += char
-      } else if (char === ')' || char === ']') {
-        depth--
-        current += char
-      } else if (char === ',' && depth === 0) {
-        items.push(current.trim())
-        current = ''
-      } else {
-        current += char
-      }
-    }
-    if (current.trim()) items.push(current.trim())
-    return items
-  }
-
-  function processItem(item: string) {
-    const parenStart = item.indexOf('(')
-    if (parenStart === -1) {
-      const organic = isMarkedOrganic(item)
-      const cleaned = cleanName(item)
-      if (cleaned.length >= 2) results.push({ name: cleaned, isOrganicSourced: organic })
-      return
-    }
-
-    let depth = 0
-    let parenEnd = -1
-    for (let i = parenStart; i < item.length; i++) {
-      if (item[i] === '(') depth++
-      else if (item[i] === ')') {
-        depth--
-        if (depth === 0) {
-          parenEnd = i
-          break
-        }
-      }
-    }
-
-    const rawBefore = item.slice(0, parenStart)
-    const before = cleanName(rawBefore)
-    const beforeOrganic = isMarkedOrganic(rawBefore)
-    const inside = parenEnd !== -1 ? item.slice(parenStart + 1, parenEnd).trim() : ''
-    const after = parenEnd !== -1 ? item.slice(parenEnd + 1).trim() : ''
-
-    if (before.length >= 2) results.push({ name: before, isOrganicSourced: beforeOrganic })
-    if (inside) {
-      for (const subItem of splitTopLevel(inside)) processItem(subItem)
-    }
-    if (after) processItem(after)
-  }
-
-  for (const topLevelItem of splitTopLevel(raw)) {
-    processItem(topLevelItem)
-  }
-
-  // Dedupe by name, preferring an organic=true entry if the same ingredient
-  // name appears both marked and unmarked (rare, but possible from nested parsing)
-  const byName = new Map<string, { name: string; isOrganicSourced: boolean }>()
-  for (const r of results) {
-    const existing = byName.get(r.name)
-    if (!existing || (!existing.isOrganicSourced && r.isOrganicSourced)) {
-      byName.set(r.name, r)
-    }
-  }
-  return [...byName.values()]
-}
-
 async function main() {
+  // Only process FOOD products. Without the productType filter, this would
+  // also pick up non-food items that happen to have a UPC (e.g. baby wipes)
+  // and write them an all-null NutritionFacts record — meaningless, since
+  // those products have no nutrition panel at all. Non-food products are
+  // handled by ingest-openbeautyfacts.ts instead, which writes ingredients only.
   const products = await prisma.product.findMany({
-    where: { upc: { not: null } },
+    where: {
+      upc: ONLY_UPC ? ONLY_UPC : { not: null },
+      productType: 'food_beverage',
+    },
     include: { company: true },
   })
 
@@ -221,12 +114,24 @@ async function main() {
   for (const product of products) {
     const url = `https://world.openfoodfacts.org/api/v2/product/${product.upc}.json`
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
     })
 
+    // Retry on 429 (rate limited) and 503 (server busy) with escalating
+    // backoff — both are transient and both were common at this volume.
+    let retries = 0
+    while ((response.status === 429 || response.status === 503) && retries < MAX_RETRIES) {
+      retries++
+      const backoff = DELAY_MS * (retries + 1)
+      log(`  HTTP ${response.status} for UPC ${product.upc}, retrying (${retries}/${MAX_RETRIES}) after ${backoff}ms...`)
+      await sleep(backoff)
+      response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } })
+    }
+
     if (!response.ok) {
-      logError(`Error querying Open Food Facts for UPC ${product.upc} (${product.name}): ${response.status}`)
+      logError(`Error querying Open Food Facts for UPC ${product.upc} (${product.name}): ${response.status} (after ${retries} retries)`)
+      await sleep(DELAY_MS)
       continue
     }
 
@@ -235,75 +140,113 @@ async function main() {
     if (data.status !== 1 || !data.product) {
       notFoundCount++
       log(`NOT FOUND: UPC ${product.upc} (${product.name}) — no matching product in Open Food Facts.`)
+      // We checked and found nothing. Record that as a real finding so the
+      // app can tell a shopper no ingredient list was located, rather than
+      // silently showing an empty section.
+      if (!DRY_RUN) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            ingredientDisclosureStatus: 'not_disclosed',
+            ingredientCheckedAt: new Date(),
+          },
+        })
+      }
+      await sleep(DELAY_MS)
       continue
     }
 
     matchCount++
     const offProduct = data.product
-    const n = offProduct.nutriments ?? {}
-
-    // Open Food Facts gives nutrient values per 100g by default. But we're
-    // also storing servingSize (e.g. "1 serving (40 g)") — showing a per-100g
-    // number next to a stated serving size would be misleading (it would look
-    // like "this serving has 375 calories" when the actual 40g serving has
-    // roughly 150). Convert to true per-serving values using serving_quantity
-    // (the numeric gram weight OFF provides separately from the display text),
-    // so the numbers actually match a real nutrition label for this product.
-    const servingGrams = typeof offProduct.serving_quantity === 'number' ? offProduct.serving_quantity : null
-    const conversionFactor = servingGrams ? servingGrams / 100 : null
-
-    if (!conversionFactor) {
-      log(`  WARNING: no serving_quantity available for UPC ${product.upc} — nutrient values will be stored as per-100g, NOT per-serving. Flag this record for manual review before treating servingSize and the nutrient numbers as matching.`)
-    }
-
-    function toServingValue(per100g: number | undefined): number | null {
-      if (per100g === undefined || per100g === null) return null
-      return conversionFactor ? Math.round(per100g * conversionFactor * 100) / 100 : per100g
-    }
-
-    // Sodium: OFF sometimes gives sodium directly (in grams), sometimes only
-    // salt (in grams). Salt-to-sodium conversion: sodium = salt / 2.5
-    const sodiumG100 = n.sodium_100g ?? (n.salt_100g ? n.salt_100g / 2.5 : undefined)
-
-    const nutritionData = {
-      servingSize: offProduct.serving_size ?? null,
-      calories: toServingValue(n['energy-kcal_100g']),
-      totalFatG: toServingValue(n.fat_100g),
-      saturatedFatG: toServingValue(n['saturated-fat_100g']),
-      sugarG: toServingValue(n.sugars_100g),
-      carbsG: toServingValue(n.carbohydrates_100g),
-      sodiumMg: sodiumG100 !== undefined ? toServingValue(sodiumG100 * 1000) : null,
-      proteinG: toServingValue(n.proteins_100g),
-      sourceUrl: `https://world.openfoodfacts.org/product/${product.upc}`,
-      sourceType: 'crowdsourced',
-      dataPulledDate: new Date(),
-      aiDrafted: false, // structured nutriments data is not AI-interpreted, just relayed
-    }
+    // Per-serving conversion and its safety rules live in src/lib/offNutrition.ts,
+    // shared with the bulk import so the two can't drift apart.
+    const nutrition = buildNutritionFromOff(offProduct, product.upc!)
+    for (const note of nutrition.notes) log(`  NOTE (UPC ${product.upc}): ${note}`)
 
     log(`MATCH: UPC ${product.upc} -> ${product.name} (${product.company.legalName})`)
-    log(nutritionData)
+    log(nutrition.data)
 
-    if (!DRY_RUN) {
+    if (!DRY_RUN && nutrition.data) {
       const existing = await prisma.nutritionFacts.findUnique({
         where: { productId: product.id },
       })
 
-      if (existing) {
+      // Never overwrite nutrition that came from somewhere better than OFF
+      // (a hand correction from the manufacturer or a retailer listing, e.g.
+      // the La Tourangelle olive oil fix). Same idea as the USDA-ingredients
+      // guard below; --force overrides.
+      if (existing && existing.sourceType !== 'crowdsourced' && !FORCE_OVER_MANUFACTURER) {
+        log(`  KEPT existing NutritionFacts (source: ${existing.sourceType}) — not overwriting with Open Food Facts. Use --force to override.`)
+      } else if (existing) {
         await prisma.nutritionFacts.update({
           where: { id: existing.id },
-          data: nutritionData,
+          data: nutrition.data,
         })
         log('  Updated existing NutritionFacts record')
       } else {
         await prisma.nutritionFacts.create({
-          data: { ...nutritionData, productId: product.id },
+          data: { ...nutrition.data, productId: product.id },
         })
         log('  Created new NutritionFacts record')
       }
     }
 
     // --- Ingredients (best-effort parse, see parseIngredientsText comment above) ---
-    const ingredientsText = String(offProduct.ingredients_text ?? '')
+    // English only — see src/lib/offIngredients.ts for why.
+    const pick = pickEnglishIngredientsText(offProduct)
+    const ingredientsText = pick.kind === 'english' ? pick.text : ''
+
+    if (
+      product.ingredientSource === 'usda_fooddata_central' &&
+      !FORCE_OVER_MANUFACTURER
+    ) {
+      log(`  SKIPPING ingredients: this product's list came from USDA (manufacturer-submitted). Use --force to overwrite with Open Food Facts.`)
+      await sleep(DELAY_MS)
+      continue
+    }
+
+    // The product HAS an ingredient list, just not in English. That is not
+    // "not disclosed" — saying so would be false. Clear any links left by an
+    // earlier run that parsed the foreign-language text, and mark the product
+    // unchecked, which the UI treats as "say nothing".
+    if (pick.kind === 'not_english') {
+      log(`  SKIPPED ingredients: the only ingredient list is in "${pick.lang}", not English. Marked unchecked.`)
+      if (!DRY_RUN) {
+        await prisma.$transaction([
+          prisma.productIngredient.deleteMany({ where: { productId: product.id } }),
+          prisma.product.update({
+            where: { id: product.id },
+            data: {
+              ingredientDisclosureStatus: 'unchecked',
+              ingredientCheckedAt: new Date(),
+              ingredientSource: null,
+              ingredientSourceUrl: null,
+            },
+          }),
+        ])
+      }
+      await sleep(DELAY_MS)
+      continue
+    }
+
+    // Record whether an ingredient list was actually found. "not_disclosed"
+    // here means the product exists in the source but carries no ingredient
+    // list — a real finding a shopper should see, not an empty section.
+    if (!DRY_RUN) {
+      await prisma.product.update({
+        where: { id: product.id },
+        data: {
+          ingredientDisclosureStatus: ingredientsText ? 'disclosed' : 'not_disclosed',
+          ingredientCheckedAt: new Date(),
+          ingredientSource: ingredientsText ? 'open_food_facts' : null,
+          ingredientSourceUrl: ingredientsText ? `https://world.openfoodfacts.org/product/${product.upc}` : null,
+        },
+      })
+    }
+    if (!ingredientsText) {
+      log('  No ingredients_text available for this product — recorded as not_disclosed.')
+    }
+
     if (ingredientsText) {
       const parsedIngredients = parseIngredientsText(ingredientsText)
       log(`  Parsed ${parsedIngredients.length} ingredient(s) from ingredients_text`)
@@ -320,36 +263,26 @@ async function main() {
         // pattern here — unlike OrganicCertification/RegulatoryAction, where
         // we deliberately update-in-place to preserve reviewerId/reviewDate
         // history on individual records.
-        await prisma.productIngredient.deleteMany({
-          where: { productId: product.id },
-        })
-
-        for (const { name: ingName, isOrganicSourced } of parsedIngredients) {
-          let ingredient = await prisma.ingredient.findUnique({
-            where: { name: ingName },
-          })
-
-          if (!ingredient) {
-            const classification = classifyIngredient(ingName)
-            ingredient = await prisma.ingredient.create({
-              data: {
-                name: ingName,
-                category: classification.category,
-                flaggedForResearch: classification.flaggedForResearch,
-              },
-            })
-          }
-
-          await prisma.productIngredient.create({
-            data: {
-              productId: product.id,
-              ingredientId: ingredient.id,
-              isOrganicSourced,
-            },
-          })
+        // Wrapped in a transaction so the delete and the recreate succeed or
+        // fail together. Without this, a failure partway through (e.g. a
+        // schema mismatch) leaves the product with NO ingredient links at all
+        // — the delete having already committed. Learned the hard way.
+        // Shared helper — resolves ingredients first, then swaps the links in
+        // one short transaction (see src/lib/ingredientStore.ts). A failure
+        // on one product is logged and skipped rather than ending the run.
+        try {
+          const written = await replaceProductIngredients(prisma, product.id, parsedIngredients)
+          log(`  Wrote ${written} ingredient link(s)`)
+        } catch (err) {
+          logError(`  FAILED writing ingredients for UPC ${product.upc} (${product.name}) — left unchanged:`, err)
         }
       }
     }
+
+    // Pace requests so we don't trip Open Food Facts' rate limiter. This runs
+    // at the end of EVERY iteration — including ones that hit `continue`
+    // above, since a failed request still counts against the limit.
+    await sleep(DELAY_MS)
   }
 
   log(`\nDone. ${matchCount} product(s) matched, ${notFoundCount} not found in Open Food Facts.`)

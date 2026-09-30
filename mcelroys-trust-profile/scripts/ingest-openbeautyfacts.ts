@@ -12,6 +12,11 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { userAgent } from '@/lib/userAgent'
+import { classifyIngredient } from '@/lib/ingredientClassification'
+import { parseIngredientsText } from '@/lib/ingredientParsing'
+import { replaceProductIngredients } from '@/lib/ingredientStore'
+import { pickEnglishIngredientsText } from '@/lib/offIngredients'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -54,7 +59,8 @@ const DRY_RUN = process.argv[2] !== '--live'
 
 // Open*Facts asks API clients to identify themselves so they can get in touch
 // about usage issues. Update the contact address to a real one.
-const USER_AGENT = 'Rootify/1.0 (contact: your-email@example.com)'
+// Real contact address comes from CONTACT_EMAIL in .env — see src/lib/userAgent.ts
+const USER_AGENT = userAgent()
 
 // Open*Facts applies global rate limits to protect their infrastructure from
 // abusive crawling. Pause briefly between requests to stay well within them —
@@ -68,137 +74,6 @@ function sleep(ms: number) {
 // ingest-openfoodfacts.ts instead (which also pulls nutrition data).
 const NON_FOOD_PRODUCT_TYPES = ['personal_care', 'baby_child', 'household_general']
 
-// Classification rules — same approach as the food script, but oriented toward
-// cosmetic/personal-care ingredients of concern rather than food additives.
-// Not exhaustive; expand as you encounter real examples in your data.
-const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = [
-  {
-    category: 'paraben preservative',
-    keywords: ['paraben', 'methylparaben', 'propylparaben', 'butylparaben', 'ethylparaben'],
-  },
-  {
-    category: 'phthalate',
-    keywords: ['phthalate', 'dbp', 'dehp', 'diethyl phthalate'],
-  },
-  {
-    category: 'formaldehyde releaser',
-    keywords: ['formaldehyde', 'quaternium-15', 'dmdm hydantoin', 'imidazolidinyl urea', 'diazolidinyl urea'],
-  },
-  {
-    category: 'sulfate surfactant',
-    keywords: ['sodium lauryl sulfate', 'sodium laureth sulfate', 'ammonium lauryl sulfate'],
-  },
-  {
-    category: 'undisclosed fragrance',
-    // "Fragrance"/"parfum" can legally conceal dozens of undisclosed component
-    // chemicals under trade-secret protections — worth flagging for research.
-    keywords: ['fragrance', 'parfum'],
-  },
-  {
-    category: 'ethanolamine',
-    keywords: ['diethanolamine', 'triethanolamine', 'cocamide dea', 'cocamide mea'],
-  },
-]
-
-function classifyIngredient(name: string): { category: string | null; flaggedForResearch: boolean } {
-  const lower = name.toLowerCase()
-  for (const rule of CLASSIFICATION_RULES) {
-    if (rule.keywords.some((keyword) => lower.includes(keyword))) {
-      return { category: rule.category, flaggedForResearch: true }
-    }
-  }
-  return { category: null, flaggedForResearch: false }
-}
-
-// Identical parsing logic to the food script — handles nested parentheticals,
-// organic asterisk markers, and junk fragments. Kept in sync intentionally.
-function parseIngredientsText(raw: string): { name: string; isOrganicSourced: boolean }[] {
-  const results: { name: string; isOrganicSourced: boolean }[] = []
-
-  function cleanName(s: string): string {
-    return s
-      .replace(/^\*+/, '')
-      .replace(/\*+$/, '')
-      .replace(/^\d+(\.\d+)?%\s*/, '')
-      .replace(/^[.\s]+|[.\s]+$/g, '')
-      .trim()
-  }
-
-  function isMarkedOrganic(s: string): boolean {
-    const trimmed = s.trim()
-    return trimmed.startsWith('*') || trimmed.endsWith('*')
-  }
-
-  function splitTopLevel(text: string): string[] {
-    let depth = 0
-    let current = ''
-    const items: string[] = []
-    for (const char of text) {
-      if (char === '(' || char === '[') {
-        depth++
-        current += char
-      } else if (char === ')' || char === ']') {
-        depth--
-        current += char
-      } else if (char === ',' && depth === 0) {
-        items.push(current.trim())
-        current = ''
-      } else {
-        current += char
-      }
-    }
-    if (current.trim()) items.push(current.trim())
-    return items
-  }
-
-  function processItem(item: string) {
-    const parenStart = item.indexOf('(')
-    if (parenStart === -1) {
-      const organic = isMarkedOrganic(item)
-      const cleaned = cleanName(item)
-      if (cleaned.length >= 2) results.push({ name: cleaned, isOrganicSourced: organic })
-      return
-    }
-
-    let depth = 0
-    let parenEnd = -1
-    for (let i = parenStart; i < item.length; i++) {
-      if (item[i] === '(') depth++
-      else if (item[i] === ')') {
-        depth--
-        if (depth === 0) {
-          parenEnd = i
-          break
-        }
-      }
-    }
-
-    const rawBefore = item.slice(0, parenStart)
-    const before = cleanName(rawBefore)
-    const beforeOrganic = isMarkedOrganic(rawBefore)
-    const inside = parenEnd !== -1 ? item.slice(parenStart + 1, parenEnd).trim() : ''
-    const after = parenEnd !== -1 ? item.slice(parenEnd + 1).trim() : ''
-
-    if (before.length >= 2) results.push({ name: before, isOrganicSourced: beforeOrganic })
-    if (inside) {
-      for (const subItem of splitTopLevel(inside)) processItem(subItem)
-    }
-    if (after) processItem(after)
-  }
-
-  for (const topLevelItem of splitTopLevel(raw)) {
-    processItem(topLevelItem)
-  }
-
-  const byName = new Map<string, { name: string; isOrganicSourced: boolean }>()
-  for (const r of results) {
-    const existing = byName.get(r.name)
-    if (!existing || (!existing.isOrganicSourced && r.isOrganicSourced)) {
-      byName.set(r.name, r)
-    }
-  }
-  return [...byName.values()]
-}
 
 async function main() {
   const products = await prisma.product.findMany({
@@ -243,6 +118,17 @@ async function main() {
     if (data.status !== 1 || !data.product) {
       notFoundCount++
       log(`NOT FOUND: UPC ${product.upc} (${product.name}) — not present in any of the four Open*Facts databases.`)
+      // Checked all four databases and found nothing — a real finding, so the
+      // app can tell a shopper no ingredient list was located.
+      if (!DRY_RUN) {
+        await prisma.product.update({
+          where: { id: product.id },
+          data: {
+            ingredientDisclosureStatus: 'not_disclosed',
+            ingredientCheckedAt: new Date(),
+          },
+        })
+      }
       await sleep(DELAY_MS)
       continue
     }
@@ -255,15 +141,58 @@ async function main() {
     const sourceDb = offProduct.product_type ?? 'unknown'
     log(`MATCH: UPC ${product.upc} -> ${product.name} (${product.company.legalName}) [found in: ${sourceDb}]`)
 
-    const ingredientsText = String(offProduct.ingredients_text ?? '')
+    // English only — see src/lib/offIngredients.ts for why.
+    const pick = pickEnglishIngredientsText(offProduct)
+    const ingredientsText = pick.kind === 'english' ? pick.text : ''
+
+    // A list exists but not in English: not "not disclosed" (that would be
+    // false). Clear stale links from any earlier foreign-language parse and
+    // mark unchecked, which the UI treats as "say nothing".
+    if (pick.kind === 'not_english') {
+      log(`  SKIPPED ingredients: the only ingredient list is in "${pick.lang}", not English. Marked unchecked.`)
+      if (!DRY_RUN) {
+        await prisma.$transaction([
+          prisma.productIngredient.deleteMany({ where: { productId: product.id } }),
+          prisma.product.update({
+            where: { id: product.id },
+            data: {
+              ingredientDisclosureStatus: 'unchecked',
+              ingredientCheckedAt: new Date(),
+              ingredientSource: null,
+              ingredientSourceUrl: null,
+            },
+          }),
+        ])
+      }
+      await sleep(DELAY_MS)
+      continue
+    }
+
+    // Record whether an ingredient list was actually found. Non-food items
+    // (wipes, diapers) frequently have none in Open*Facts — worth stating
+    // explicitly so a shopper knows the contents aren't published, rather
+    // than seeing a blank section they might read as "nothing in it".
+    if (!DRY_RUN) {
+      await prisma.product.update({
+        where: { id: product.id },
+        data: {
+          ingredientDisclosureStatus: ingredientsText ? 'disclosed' : 'not_disclosed',
+          ingredientCheckedAt: new Date(),
+          ingredientSource: ingredientsText ? 'open_food_facts' : null,
+          ingredientSourceUrl: ingredientsText ? `https://world.openfoodfacts.org/product/${product.upc}` : null,
+        },
+      })
+    }
+
     if (!ingredientsText) {
-      log('  No ingredients_text available for this product — nothing to write.')
+      log('  No ingredients_text available for this product — recorded as not_disclosed.')
       await sleep(DELAY_MS)
       continue
     }
 
     const parsedIngredients = parseIngredientsText(ingredientsText)
-    log(`  Parsed ${parsedIngredients.length} ingredient(s)`)
+    log(`  Raw ingredients_text from source: ${JSON.stringify(ingredientsText)}`)
+    log(`  Parsed ${parsedIngredients.length} ingredient(s):`, parsedIngredients.map((i) => i.name).join(' | '))
     const flagged = parsedIngredients.filter((i) => classifyIngredient(i.name).flaggedForResearch)
     if (flagged.length > 0) {
       log(`  ${flagged.length} ingredient(s) flagged for research:`, flagged.map((f) => f.name).join(', '))
@@ -272,31 +201,18 @@ async function main() {
     if (!DRY_RUN) {
       // Clear existing links first so re-runs replace rather than accumulate —
       // same delete-then-recreate pattern as the food script
-      await prisma.productIngredient.deleteMany({ where: { productId: product.id } })
-
-      for (const { name: ingName, isOrganicSourced } of parsedIngredients) {
-        let ingredient = await prisma.ingredient.findUnique({ where: { name: ingName } })
-
-        if (!ingredient) {
-          const classification = classifyIngredient(ingName)
-          ingredient = await prisma.ingredient.create({
-            data: {
-              name: ingName,
-              category: classification.category,
-              flaggedForResearch: classification.flaggedForResearch,
-            },
-          })
-        }
-
-        await prisma.productIngredient.create({
-          data: {
-            productId: product.id,
-            ingredientId: ingredient.id,
-            isOrganicSourced,
-          },
-        })
+      // Wrapped in a transaction so the delete and the recreate succeed or
+      // fail together. Without this, a failure partway through (e.g. a schema
+      // mismatch) leaves the product with NO ingredient links at all — the
+      // delete having already committed. Learned the hard way.
+      // Shared helper — see src/lib/ingredientStore.ts. A failure on one
+      // product is logged and skipped rather than ending the run.
+      try {
+        const written = await replaceProductIngredients(prisma, product.id, parsedIngredients)
+        log(`  Wrote ${written} ingredient link(s)`)
+      } catch (err) {
+        logError(`  FAILED writing ingredients for UPC ${product.upc} (${product.name}) — left unchanged:`, err)
       }
-      log('  Wrote ingredient links')
     }
 
     await sleep(DELAY_MS)

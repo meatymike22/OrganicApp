@@ -2,6 +2,7 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { VETTED_COMPANIES } from '@/lib/vetting'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -48,6 +49,11 @@ function normalizeName(name: string): string {
     // since this is a CPSC-specific formatting convention, not part of the
     // company's actual legal name.
     .replace(/,?\s+OF\s+.+$/, '')
+    // Strip parenthetical abbreviations like "(P&G)". Without this,
+    // "Procter & Gamble Company (P&G)" normalizes to "PROCTER & GAMBLE (P&G)"
+    // and fails to match "Procter & Gamble" — a real recall silently dropped.
+    // Safe: an exact match is still required after normalization.
+    .replace(/\([^)]*\)/g, '')
     .replace(/[.,]/g, '')
     .replace(/^\s*THE\s+/, '') // strip a leading "The"
     .replace(/\b(LLC|INC|INCORPORATED|CO|CORP|CORPORATION|LTD|COMPANY)\b/g, '')
@@ -76,7 +82,9 @@ function isGenuineMatch(record: any, candidateNames: string[]): boolean {
 }
 
 async function main() {
-  const companies = await prisma.company.findMany()
+  // Vetted companies only — this script matches by NAME, and an unvetted
+  // company's name is a raw brand string (see src/lib/vetting.ts).
+  const companies = await prisma.company.findMany({ where: VETTED_COMPANIES })
 
   let matchCount = 0
   let rejectedFalsePositiveCount = 0
@@ -85,20 +93,32 @@ async function main() {
     const candidateNames = [company.legalName, ...company.dbaNames]
     const seenReferenceNumbers = new Set<string>()
 
+    // Search every ROLE a company can play on a CPSC record, not just
+    // Manufacturer. A brand that has its product made overseas appears as the
+    // IMPORTER (or distributor), with the foreign factory listed as the
+    // manufacturer. Searching Manufacturer alone missed TOMY's Boon NURSH
+    // bottle recall entirely — the bottles were made in Vietnam, so TOMY was
+    // not the manufacturer of record. For baby products and toys, most of
+    // which are made abroad, this would silently miss the majority of recalls.
+    // isGenuineMatch() below already verifies all three roles; this just makes
+    // sure those records are fetched in the first place.
+    const SEARCH_ROLES = ['Manufacturer', 'Importer', 'Distributor'] as const
+
     for (const candidate of candidateNames) {
+     for (const role of SEARCH_ROLES) {
       const query = encodeURIComponent(candidate)
-      const url = `https://www.saferproducts.gov/RestWebServices/Recall?Manufacturer=${query}&format=json`
+      const url = `https://www.saferproducts.gov/RestWebServices/Recall?${role}=${query}&format=json`
 
       let response: Response
       try {
         response = await fetch(url)
       } catch (err) {
-        logError(`Network error querying CPSC for "${candidate}":`, err)
+        logError(`Network error querying CPSC (${role}) for "${candidate}":`, err)
         continue
       }
 
       if (!response.ok) {
-        logError(`Error querying CPSC for "${candidate}": ${response.status}`)
+        logError(`Error querying CPSC (${role}) for "${candidate}": ${response.status}`)
         continue
       }
 
@@ -166,7 +186,7 @@ async function main() {
           aiDrafted: true,
         }
 
-        log(`MATCH: "${candidate}" -> ${company.legalName}`)
+        log(`MATCH (${role}): "${candidate}" -> ${company.legalName}`)
         log(actionData)
 
         if (!DRY_RUN) {
@@ -194,6 +214,7 @@ async function main() {
           }
         }
       }
+     }
     }
   }
 

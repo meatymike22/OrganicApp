@@ -3,6 +3,7 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { VETTED_COMPANIES } from '@/lib/vetting'
 // SheetJS - reads Excel files in Node. Install with: npm install xlsx
 import * as XLSX from 'xlsx'
 // Node's built-in filesystem and path modules, used to write the log file
@@ -94,8 +95,84 @@ function parseFlexibleDate(raw: unknown): Date | null {
   return null
 }
 
+// ---------------------------------------------------------------------------
+// PRODUCT-LEVEL COVERAGE CHECK
+//
+// A USDA certificate belongs to a certified OPERATION (company/facility), but
+// each certificate also lists the specific products it covers. Attaching a
+// certificate to every product a company makes is wrong once a company has
+// both organic and non-organic lines: Kellanova's organic handling certificate
+// covers its Pure Organic fruit bars, NOT Rice Krispies Treats or Pop-Tarts —
+// attaching it to those would present non-organic products as certified.
+//
+// So a certificate is attached only when every distinctive word of the product
+// name appears in that certificate's own certified-product list. Brand words
+// are removed first (the company match is already established), as are
+// generic words that identify nothing.
+// ---------------------------------------------------------------------------
+const COVERAGE_STOPWORDS = new Set([
+  'organic', 'the', 'and', 'with', 'of', 'a', 'an', 'by', 'oz', 'g', 'ml', 'pack', 'n',
+])
+
+function coverageTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 1 && !COVERAGE_STOPWORDS.has(t))
+    // crude singularisation so "cookies" matches "cookie", "oats" matches "oat"
+    .map((t) => (t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t))
+}
+
+// Splits a certificate's product list into individual items. Parenthetical
+// detail becomes its own item, so "Milk (Heavy Whipping Cream)" yields both
+// "Milk" and "Heavy Whipping Cream", and "Berries (Blackberries, Strawberries)"
+// yields each berry. Category labels like "Other:" or "Fruits/Vegetables:" are
+// dropped.
+function certifiedItems(certifiedText: string): string[][] {
+  return certifiedText
+    .replace(/[A-Za-z /&-]+:/g, ',')          // drop "Other:", "Handling products:" etc.
+    .split(/[,;()]/)
+    .map((item) => coverageTokens(item))
+    .filter((tokens) => tokens.length > 0)
+}
+
+function isProductCovered(productName: string, brandNames: string[], certifiedText: string): boolean {
+  const brandTokens = new Set(brandNames.flatMap(coverageTokens))
+  const distinctive = coverageTokens(productName).filter((t) => !brandTokens.has(t))
+  // If nothing distinctive is left we cannot tell which product this is, so
+  // do NOT claim coverage.
+  if (distinctive.length === 0) return false
+
+  // (A) Every distinctive word of our product name appears on the certificate.
+  //     Works for short names: "Twisted Fruit Bites".
+  const certTokens = new Set(coverageTokens(certifiedText))
+  if (distinctive.every((t) => certTokens.has(t))) return true
+
+  // (B) Some specific certified item appears within our product name. Needed
+  //     because Open Food Facts names carry marketing words the certificate
+  //     never uses — "100% Pure Organic Maple Syrup Canada Grade A Dark" should
+  //     still match a certificate that lists "Maple Syrup".
+  //     Items must be at least TWO words: single-word items like "Strawberry"
+  //     or "Mango" (from a fruit bar's flavour list) would otherwise mark any
+  //     product containing that word as certified — e.g. a Kellanova "Frosted
+  //     Strawberry" Pop-Tart matching the "Strawberry" in a fruit bar listing.
+  //     Uses the FULL product name, brand words included. Stripping brand words
+  //     only helps check (A), where extra words count against a match; here
+  //     they're harmless — and stripping them breaks cases where the brand
+  //     shares a product word ("Shady MAPLE Farms" would remove "maple" from
+  //     "Maple Syrup", so it could never match).
+  const nameTokens = new Set(coverageTokens(productName))
+  return certifiedItems(certifiedText).some(
+    (item) => item.length >= 2 && item.every((t) => nameTokens.has(t))
+  )
+}
+
 async function main() {
+  // Vetted companies only — organic operations are matched by NAME, and an
+  // unvetted company's name is a raw brand string (see src/lib/vetting.ts).
   const companies = await prisma.company.findMany({
+    where: VETTED_COMPANIES,
     include: { products: true },
   })
 
@@ -122,6 +199,9 @@ async function main() {
 
   let matchCount = 0
   let skippedNoSourceCount = 0
+  let coveredCount = 0
+  let notCoveredCount = 0
+  let staleCount = 0
   let fallbackUrlCount = 0
   let hqLocationFilledCount = 0
   const unknownAgencies = new Set<string>()
@@ -243,8 +323,38 @@ async function main() {
       continue
     }
 
-    if (!DRY_RUN) {
-      for (const product of matchedCompany.products) {
+    // Every product-list column on this certificate, combined, is what the
+    // certificate actually covers.
+    const certifiedText = [
+      col(row, 'CR_CertifiedProducts'),
+      col(row, 'LS_CertifiedProducts'),
+      col(row, 'WC_CertifiedProducts'),
+      col(row, 'Han_CertifiedProducts'),
+    ].filter(Boolean).join(' ; ')
+    const brandNames = [matchedCompany.legalName, ...matchedCompany.dbaNames]
+
+    for (const product of matchedCompany.products) {
+      if (!isProductCovered(product.name, brandNames, String(certifiedText))) {
+        notCoveredCount++
+        log(`  NOT COVERED: "${product.name}" is not in this certificate's product list — cert NOT attached`)
+        // A product can still hold this certificate from an earlier run (the
+        // original script attached every certificate to every product). Flag
+        // it rather than delete it: the coverage check has known false
+        // negatives (e.g. "Strawberry Fraises" vs a certificate listing
+        // "Strawberries"), so removal is a human decision.
+        const stale = await prisma.organicCertification.findFirst({
+          where: { productId: product.id, certificateNumber: certData.certificateNumber },
+        })
+        if (stale) {
+          staleCount++
+          log(`  ⚠ STALE: "${product.name}" still holds certificate ${certData.certificateNumber} from an earlier run, but this certificate doesn't list it. Review and remove if it's a false claim.`)
+        }
+        continue
+      }
+      coveredCount++
+      log(`  COVERED: "${product.name}"`)
+
+      if (!DRY_RUN) {
         const existing = await prisma.organicCertification.findFirst({
           where: {
             productId: product.id,
@@ -275,6 +385,8 @@ async function main() {
     }
   }
 
+  log(`\nProduct coverage: ${coveredCount} product(s) covered by a matching certificate, ${notCoveredCount} product-certificate pair(s) skipped as not covered.`)
+  if (staleCount > 0) log(`⚠ ${staleCount} STALE certificate link(s) found — see warnings above.`)
   log(`\nDone. ${matchCount} certification record(s) matched across ${companies.length} companies in database.`)
   if (fallbackUrlCount > 0) {
     log(`${fallbackUrlCount} record(s) used a reconstructed source URL (spreadsheet's own link was blank).`)

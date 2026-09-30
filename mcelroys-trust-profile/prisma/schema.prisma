@@ -18,12 +18,87 @@ model Company {
   hqLocation    String?
   createdAt     DateTime  @default(now())
 
+  // Self-referencing parent/subsidiary relationship. Modeled as a real
+  // relation rather than a text field so it can actually be traversed —
+  // e.g. surfacing "this brand is owned by Mars" on a product page, or
+  // finding every brand under a given parent. A parent company does not
+  // need its own products in the database to be recorded here.
+  parentCompanyId String?
+  parentCompany   Company?  @relation("CompanyOwnership", fields: [parentCompanyId], references: [id])
+  subsidiaries    Company[] @relation("CompanyOwnership")
+  // How the ownership relationship is sourced/characterized, e.g.
+  // "acquisition (SEC 8-K, Dec 2025)" or "majority stake". Keep the citation
+  // itself on the related InvestorFiling record where one exists.
+  ownershipNote   String?
+
+  // WHETHER A HUMAN HAS CONFIRMED THIS IS A REAL, CORRECTLY IDENTIFIED COMPANY.
+  //
+  //   "vetted"   — reviewed: legalName is the actual legal entity, and the
+  //                brand names in dbaNames genuinely belong to it.
+  //   "unvetted" — created automatically by bulk ingestion from a product
+  //                database's free-text brand field. DEFAULT, so anything a
+  //                script creates starts out untrusted.
+  //   "rejected" — reviewed and found not to be a usable company (junk brand
+  //                text, a retailer's generic label, a duplicate). Kept rather
+  //                than deleted so a re-run of bulk ingestion doesn't recreate it.
+  //
+  // IMPORTANT: for an unvetted company, legalName holds the BRAND STRING as
+  // it appeared in the source (e.g. "Kirkland Signature"), which is usually
+  // NOT the legal entity (Costco Wholesale Corporation). Vetting is where
+  // that gets corrected — the brand moves to dbaNames and legalName becomes
+  // the real entity.
+  //
+  // Why this gates so much: recalls, warning letters, SEC filings and organic
+  // certificates all match companies BY NAME. Matching against an unverified
+  // brand string would attach one company's recall to another company that
+  // happens to share a word. So every name-matching script only considers
+  // vetted companies (see VETTED_COMPANIES in src/lib/vetting.ts), and the app
+  // labels unvetted companies "not yet in Rootify's reviewed database".
+  vettingStatus String @default("unvetted")
+
+  // HOW the company was vetted, so any claim about review stays accurate:
+  //   "human"          — checked by a person
+  //   "automated_usda" — its products' barcodes were found in USDA FoodData
+  //                      Central, and the manufacturer-supplied brand there
+  //                      matches this company's name (scripts/vet-companies.ts)
+  //   "automated_ai"   — judged by an AI pass from the collected evidence
+  // Null while unvetted.
+  vettingMethod String?
+  vettedAt      DateTime?
+  // Short plain-language summary of the evidence behind the decision, e.g.
+  // "USDA: 42 of 45 barcodes found; brand matches on 41; owner Conagra Brands"
+  vettingNotes  String?
+  // The company that owns the brand, as the manufacturer reported it to USDA
+  // (brand_owner). Often the legal entity named on recalls and filings, so
+  // matchers can use it alongside legalName.
+  brandOwner    String?
+
+  // Where bulk ingestion first saw this brand (e.g. the Open Food Facts page
+  // of the first product carrying it) — the reviewer's starting point.
+  discoverySourceUrl String?
+
+  // Who vetted (or rejected) this company, and when. Same meaning as on every
+  // other table; null while unvetted.
+  reviewerId String?
+  reviewDate DateTime?
+
   products               Product[]
   ownershipCertifications OwnershipCertification[]
   investorFilings         InvestorFiling[]
   regulatoryActions RegulatoryAction[]
+  // Recalls tied to this company as a BRAND (see RegulatoryActionLink).
+  regulatoryActionLinks RegulatoryActionLink[]
   supplyChainDisclosures SupplyChainDisclosure[]
   independentInvestigations IndependentInvestigation[]
+
+  // Loose-produce origin reports where a reviewer confirmed this company as
+  // the shipper/grower. Back-reference only — no column on this table.
+  originObservations OriginObservation[]
+
+  @@index([vettingStatus])
+
+  // Finds a parent company's brands (the "Owns:" list).
+  @@index([parentCompanyId])
 }
 
 model Product {
@@ -38,17 +113,108 @@ model Product {
   // Valid options depend on productType — see PRODUCT_CATEGORIES_BY_TYPE
   // in src/lib/productTypes.ts
   category    String?
+  // Where the category came from, so the app can say honestly how sure it is:
+  //   "usda_fdc"        — USDA FoodData Central's branded food category, which
+  //                       the manufacturer supplied (via GS1). Most objective.
+  //                       Mapped in src/lib/usdaCategoryMap.ts.
+  //   "open_food_facts" — Open Food Facts' category tags (crowdsourced).
+  //                       Mapped in src/lib/offCategoryMap.ts.
+  //   "name_estimate"   — estimated from the product name
+  //                       (src/lib/nameCategoryMap.ts). Show as an estimate.
+  //   "manual"          — set by a person. Scripts never change these.
+  // Null when category is null. Set by scripts/categorize-products.ts and
+  // scripts/bulk-import-off.ts.
+  categorySource String?
   // Barcode — required for matching against Open Food Facts and similar
   // barcode-keyed sources. Nullable since not every product will have one
   // entered right away.
-  upc         String?
+  //
+  // UNIQUE: one barcode identifies exactly one product, so bulk ingestion can
+  // safely re-run and update rows instead of creating duplicates. Always
+  // stored in the canonical 13-digit form produced by normalizeUpc() in
+  // src/lib/upc.ts — never write a raw barcode here. (Postgres allows any
+  // number of NULLs under a unique constraint, so products without a barcode
+  // are unaffected.)
+  upc         String?  @unique
+
+  // Whether an ingredient list could be found for this product, and where.
+  //
+  // Three distinct states, deliberately NOT two — an empty ingredient list
+  // could otherwise mean either "nobody published what's in this" or "we
+  // haven't looked yet", and conflating those would let the app state
+  // something false:
+  //
+  //   "unchecked"     — no lookup has been attempted. DEFAULT. The UI must
+  //                     say NOTHING about disclosure for these; claiming
+  //                     "not disclosed" without checking would be a false
+  //                     statement about the manufacturer.
+  //   "disclosed"     — an ingredient list was found; see ProductIngredient.
+  //   "not_disclosed" — every source we query was checked and none had an
+  //                     ingredient list. This IS a finding worth showing:
+  //                     a shopper learns the manufacturer does not publish
+  //                     what is in the product. Note it means "not found in
+  //                     the sources we check", not "does not exist anywhere",
+  //                     so the UI should word it that way.
+  ingredientDisclosureStatus String @default("unchecked")
+
+  // When the disclosure status was last determined, so the UI can say how
+  // current the finding is — "as of [date], no ingredient list was found"
+  // is honest in a way an undated claim is not.
+  ingredientCheckedAt DateTime?
+
+  // WHERE the ingredient list came from. Every other fact in this database
+  // carries a citation; an ingredient list shouldn't be the exception.
+  //   "open_food_facts"   — crowdsourced label data (see ingredientSourceUrl)
+  //   "manufacturer_site" — the company's own published ingredient/material list
+  //   "label_photo"       — read from a photo of the physical package
+  //   "usda_fooddata_central" — USDA FoodData Central, sourced from the
+  //                         manufacturer's own label submission
+  //   "retailer_listing"  — the package's ingredient list as reproduced on a
+  //                         retailer's product page (used when the manufacturer
+  //                         doesn't publish the full list itself)
+  // Null while ingredientDisclosureStatus is "unchecked" or "not_disclosed".
+  //
+  // For non-food items (bottles, diapers, wipes) the "ingredients" are the
+  // component materials, recorded the same way so the same flags and studies
+  // apply — e.g. a plastic that belongs in a chemical-of-concern category.
+  ingredientSource    String?
+  ingredientSourceUrl String?
+
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id])
   createdAt   DateTime @default(now())
 
+  // BRANDED PRODUCE ONLY — the generic commodity this product is a branded
+  // version of (Driscoll's Strawberries → Strawberries). Lets a branded
+  // produce page also show regional sourcing and commodity-wide recalls.
+  // Null for every non-produce product. Branded produce otherwise lives here
+  // exactly like any packaged good, with productType "fresh_produce".
+  commodityId String?
+  commodity   Commodity? @relation(fields: [commodityId], references: [id])
+
   certifications     OrganicCertification[]
+  productCertifications ProductCertification[]
   nutritionFacts     NutritionFacts?
   productIngredients ProductIngredient[]
+
+  // WHICH BULK IMPORT created this product, if any. Null for products added
+  // by hand or by the per-product scripts. Set to "open_food_facts_bulk" by
+  // scripts/bulk-import-off.ts. Lets you find, review or roll back an import
+  // as a unit, and tell the hand-curated catalog apart from bulk data —
+  // createdAt alone can't reliably do that once the catalog grows.
+  importSource String?
+
+  // Recalls tied to this product (see RegulatoryActionLink).
+  regulatoryActionLinks RegulatoryActionLink[]
+
+  // Indexes for the queries the app runs at scale: a company's products, a
+  // category's products, and bulk-import housekeeping. Postgres does NOT
+  // index relation columns automatically, so without these each lookup
+  // would scan every product.
+  @@index([commodityId])
+  @@index([companyId])
+  @@index([category])
+  @@index([importSource])
 }
 
 model NutritionFacts {
@@ -73,6 +239,50 @@ model NutritionFacts {
   reviewDate     DateTime?
 }
 
+model IngredientRegulatoryStatus {
+  id           String     @id @default(dbgenerated("gen_random_uuid()"))
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  // Where this status applies, e.g. "United States", "European Union",
+  // "Canada", "Australia / New Zealand", "United Kingdom".
+  jurisdiction String
+
+  //   "permitted_no_limit"   — allowed with no maximum residue/use limit set
+  //   "permitted_with_limit" — allowed, but capped (see limitValue)
+  //   "requires_warning"     — allowed, but a mandatory consumer warning applies
+  //   "restricted"           — allowed only in certain products or settings
+  //   "banned"               — prohibited
+  //   "not_assessed"         — the authority has not evaluated it
+  status String
+
+  // The actual numeric limit or the wording of the required warning, so the
+  // comparison is concrete rather than a vague "stricter/looser".
+  limitValue String?
+
+  notes String?
+
+  // WHY THIS EXISTS: where one country permits something its peers restrict,
+  // that divergence is a real, checkable fact and consumers rarely see it.
+  //
+  // Recorded in BOTH directions deliberately. It is tempting to log only
+  // cases where the US is more permissive, but a field that only ever points
+  // one way is an advocacy instrument rather than a factual one, and a reader
+  // who notices the asymmetry has reason to distrust everything else on the
+  // page. Divergence is also genuinely two-way — the US bans some things the
+  // EU permits. Recording both is what makes the comparison persuasive.
+  //
+  // Record the divergence; let the reader draw the conclusion. Stating WHY a
+  // jurisdiction decided as it did (regulatory capture, precaution, lobbying)
+  // is interpretation, not a sourced fact, and belongs outside these records.
+  sourceUrl      String
+  sourceType     String   @default("regulatory_filing")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
 model Ingredient {
   id                 String @id @default(dbgenerated("gen_random_uuid()"))
   name               String @unique
@@ -85,6 +295,7 @@ model Ingredient {
   flaggedForResearch Boolean @default(false)
   products           ProductIngredient[]
   studies            IngredientStudy[]
+  regulatoryStatuses IngredientRegulatoryStatus[]
 }
 
 model ProductIngredient {
@@ -100,7 +311,38 @@ model ProductIngredient {
   // Best-effort signal from crowdsourced text, not certification-grade —
   // OrganicCertification remains the authoritative source for organic status.
   isOrganicSourced Boolean @default(false)
+
+  // Position in the product's ingredient list, 1-indexed.
+  //
+  // This is meaningful, not incidental: FDA requires ingredients to be listed
+  // in DESCENDING ORDER OF PREDOMINANCE BY WEIGHT. So position is a real,
+  // regulator-mandated signal about relative concentration — the 2nd
+  // ingredient is present in greater quantity than the 12th. It is not an
+  // absolute amount, and it says nothing about the gap between positions,
+  // but it is the only concentration information most labels provide.
+  //
+  // This matters for interpreting IngredientStudy records, which attach to an
+  // ingredient GLOBALLY. Whether a flagged ingredient is a genuine concern in
+  // a SPECIFIC product often depends on how much is present — an irritant
+  // studied at 0.5% concentration is a different situation as the 2nd
+  // ingredient versus a trace in position 30.
+  listPosition Int?
+
+  // True when the source label explicitly marks this as a trace or minor
+  // component — e.g. appearing after a "Contains 2% or less of:" marker, or
+  // described as "contains trace of X". Distinct from listPosition because
+  // it is an explicit manufacturer statement rather than an inference.
+  isTrace Boolean @default(false)
+
+  // Any concentration qualifier stated on the label, verbatim-ish
+  // (e.g. "2% or less", "trace"). Null when the label says nothing.
+  concentrationNote String?
+
   @@id([productId, ingredientId])
+  // The primary key already covers "ingredients of this product". This covers
+  // the reverse — "products containing this ingredient" — used by ingredient
+  // pages, filters, and the orphaned-ingredient cleanup.
+  @@index([ingredientId])
 }
 
 model IngredientStudy {
@@ -109,8 +351,94 @@ model IngredientStudy {
   ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
   citation        String   // journal, year, DOI
   findingSummary  String   // paraphrased, not quoted
-  studyType       String   // RCT / observational / review / meta-analysis
+  // RCT / observational / review / meta-analysis / regulatory_framework
+  // "regulatory_framework" covers records where the finding is about a LAW or
+  // REGULATION rather than a scientific study — e.g. "natural flavor" is a
+  // legally-defined labeling category (21 CFR 101.22) that permits undisclosed
+  // component substances. The concern there is non-disclosure, not established
+  // harm, and citing the regulation is both more accurate and more defensible
+  // than implying a safety finding that does not exist.
+  studyType       String
   consensusStatus String   // well-established / mixed evidence / limited evidence / disputed
+
+  // How findings should be PHRASED to the user. Kept separate from
+  // consensusStatus because "what the evidence shows" and "how confidently we
+  // should state it publicly" are different questions.
+  //
+  //   "potential_concern_unproven" — studies raise questions but causation in
+  //       humans is not established. Present as "some studies suggest X; it is
+  //       inconclusive whether this has adverse effects in humans." NEVER state
+  //       or imply proven harm.
+  //   "regulator_confirmed"        — a regulator (FDA/EFSA/etc.) has taken formal
+  //       action (ban, restriction, warning). This CAN be stated plainly as fact,
+  //       because it is a citable regulatory action, not our own conclusion.
+  //   "generally_recognized_safe"  — reviewed and no significant concern found.
+  //   "insufficient_research"      — genuinely too little study to say anything.
+  //
+  // Rationale: a blanket "inconclusive" would understate genuinely settled
+  // cases (e.g. FDA's 2025 Red Dye No. 3 ban) while a blanket "harmful" would
+  // overstate contested ones. This field forces that distinction explicitly.
+  evidenceFraming String   @default("potential_concern_unproven")
+
+  // The specific regulatory action taken, if any (e.g. "FDA revoked food
+  // authorization, Jan 2025"). Only populate for evidenceFraming =
+  // "regulator_confirmed" — this is what makes a plain factual statement
+  // defensible rather than an opinion we are asserting.
+  regulatoryAction String?
+
+  // WHO PAID FOR THE RESEARCH, and what the authors declared.
+  //
+  // Nutrition science is unusually exposed to funding bias: trade bodies
+  // routinely fund research into their own commodity, and a favourable review
+  // can be authored by people directly employed by the industry it assesses.
+  // A study's conclusion cannot be weighed without knowing this, so it is
+  // recorded as a first-class field rather than buried in prose — and a study
+  // whose funding could NOT be determined must say so rather than stay blank,
+  // since blank would read as "no conflict" when it means "unknown".
+  //
+  //   "independent"        — public/academic funding, no industry tie found
+  //   "industry_funded"    — funded or authored by a party with a direct
+  //                          commercial interest in the outcome
+  //   "mixed"              — some authors independent, some industry-tied
+  //   "undetermined"       — funding could not be established. NOT the same
+  //                          as independent. DEFAULT, so nothing is silently
+  //                          presented as conflict-free.
+  fundingBasis String @default("undetermined")
+
+  // WHAT ROLE THIS RECORD PLAYS relative to the others on the same ingredient.
+  //
+  //   "primary_finding" — a finding in its own right. DEFAULT.
+  //   "dissenting_view" — exists to CONTEST another record's finding.
+  //   "replication"     — tested another finding and reproduced (or failed to).
+  //   "critique"        — challenges another study's methods rather than its
+  //                       conclusion (sample size, exposure model, endpoints).
+  //
+  // Dissent is recorded but NOT treated as equivalent to the finding it
+  // contests. A contested claim should be visible as contested; it should not
+  // be silently demoted, nor should the objection inherit the authority of the
+  // thing it objects to. The UI must render a dissenting_view attached to what
+  // it challenges, never free-standing beside it as an equal finding.
+  //
+  // Deliberately neutral about direction. Dissent is not "critics vs.
+  // industry": a trade body contesting a health finding and an advocacy group
+  // contesting a safety finding are the same shape, and fundingBasis is what
+  // tells a reader who paid for either. Recording only one direction would
+  // make this an advocacy tool rather than an evidence one.
+  positionType String @default("primary_finding")
+
+  // The record this one contests. Required in practice for dissenting_view,
+  // replication and critique — an objection with nothing to object to is not
+  // interpretable. Self-relation, so challenges and findings live in one table
+  // and share the same provenance and funding fields.
+  challengesStudyId String?
+  challenges        IngredientStudy?  @relation("StudyChallenges", fields: [challengesStudyId], references: [id])
+  challengedBy      IngredientStudy[] @relation("StudyChallenges")
+
+  // The declared conflicts, verbatim enough to be checkable — e.g. "author
+  // M.M. is an employee of Soy Nutrition Institute Global, funded by the
+  // United Soybean Board". Null only when a disclosure statement was located
+  // and genuinely declared none.
+  conflictOfInterestNote String?
 
   // Provenance
   sourceUrl      String
@@ -119,6 +447,49 @@ model IngredientStudy {
   aiDrafted      Boolean  @default(false)
   reviewerId     String?
   reviewDate     DateTime?
+}
+
+model ProductCertification {
+  id        String  @id @default(dbgenerated("gen_random_uuid()"))
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  // The certification scheme, e.g. "Non-GMO Project Verified", "Fair Trade
+  // Certified", "Certified Humane", "RSPO". Kept generic deliberately: USDA
+  // organic has its own model because its data source and scope semantics are
+  // unique, but every other third-party product mark fits this shape.
+  scheme String
+
+  // The body that actually performs the evaluation, where the scheme uses
+  // independent administrators — the Non-GMO Project, for instance, is
+  // verified by technical administrators such as FoodChain ID or SCS Global,
+  // not by the Project itself. Recording it matters: it's the difference
+  // between "who owns the label" and "who checked the product".
+  certifyingBody String?
+
+  certificateNumber String?
+  status            String   @default("verified") // verified | expired | withdrawn
+  effectiveDate     DateTime?
+  lastVerifiedDate  DateTime?
+
+  // WHAT THE MARK DOES AND DOESN'T MEAN. A certification mark is evidence of
+  // compliance with a specific standard, not a general quality claim, and the
+  // gap between the two is where consumers are most often misled. Use this to
+  // record documented limits of the scheme — e.g. the Non-GMO Project verifies
+  // products in categories where no GMO version commercially exists (salt,
+  // orange juice), so the butterfly on such a product signals far less than a
+  // shopper might assume.
+  scopeNote String?
+
+  sourceUrl      String
+  sourceType     String   @default("certifier_database")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+
+  // A product's certifications (shown on every product page).
+  @@index([productId])
 }
 
 model OrganicCertification {
@@ -139,6 +510,9 @@ model OrganicCertification {
   aiDrafted      Boolean  @default(false)
   reviewerId     String?
   reviewDate     DateTime?
+
+  // A product's organic certificates (shown on every product page).
+  @@index([productId])
 }
 
 model OwnershipCertification {
@@ -203,12 +577,89 @@ model RegulatoryAction {
   actionDate        DateTime?
   terminationDate   DateTime?
 
+  // Whether this action actually relates to the product(s) tracked for this
+  // company, or merely to the same legal entity operating in an unrelated
+  // business line.
+  //
+  // This exists because regulatory actions match at the LEGAL ENTITY level,
+  // which routinely pulls in unrelated business units — e.g. a Procter &
+  // Gamble pharmaceutical warning letter surfacing on a page about diapers,
+  // or a SpaghettiOs recall appearing under Pacific Foods broth. Both are
+  // TRUE facts about the company and MISLEADING facts about the product.
+  //
+  //   "direct"        — concerns the tracked product or its production line
+  //   "supply_chain"  — concerns a facility/supplier the tracked product passes through
+  //   "unrelated_line" — same legal entity, different business (do NOT surface
+  //                      on the product page; misleads more than it informs)
+  //   "unreviewed"    — not yet assessed; default. Treat as not-displayable
+  //                     until a human decides.
+  //
+  // UI RULE: only "direct" and "supply_chain" should appear on a product page.
+  productRelevance  String    @default("unreviewed")
+
+  // PRODUCE RECALLS ONLY — the commodity the action names (e.g. a romaine
+  // outbreak recall → Romaine Lettuce), so a LOOSE produce page can list
+  // recent recalls for that commodity. The action still belongs to the
+  // shipper via companyId; this is an extra link, not a replacement.
+  // UI RULE (same as above): always show productDescription with it, since
+  // the recall concerns that shipper's lots, not every item of the commodity.
+  commodityId String?
+  commodity   Commodity? @relation(fields: [commodityId], references: [id])
+
   sourceUrl      String
   sourceType     String   @default("regulatory_filing")
   dataPulledDate DateTime @default(now())
   aiDrafted      Boolean  @default(false)
   reviewerId     String?
   reviewDate     DateTime?
+
+  // Brand/product links for this action (see RegulatoryActionLink).
+  links RegulatoryActionLink[]
+
+  @@index([commodityId])
+
+  // A company's recalls and actions (shown on every company page).
+  @@index([companyId])
+}
+
+// Which BRAND (and optionally which PRODUCTS) a regulatory action concerns.
+//
+// RegulatoryAction.companyId is the firm the notice NAMES — a brand, a
+// subsidiary or a parent — and that is the company page the action lives on.
+// This table is the extra link from the action to the brand it is tied to,
+// which is what a product page uses:
+//   - productId set   → the notice lists this product (by barcode). Show the
+//                       link on this product only.
+//   - productId NULL  → the notice is tied to the brand but gives no barcodes.
+//                       Show the link on every product of companyId, always
+//                       with the action's productDescription, since it may
+//                       concern only some of the brand's products.
+// An action with no rows here (e.g. a parent-company notice not tied to any
+// brand) appears on the company page only, never on a product page.
+//
+// Written by scripts/match-recalls.ts; safe to delete and rebuild per action.
+model RegulatoryActionLink {
+  id        String           @id @default(dbgenerated("gen_random_uuid()"))
+  actionId  String
+  action    RegulatoryAction @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // How the link was made: "barcode" (UPC in the notice), "brand_name"
+  // (brand named in the notice), "owner_brand" (notice names the owner and
+  // the brand).
+  matchMethod String
+  // The text in the notice that produced the match (a UPC or brand name),
+  // kept so a disputed link can be traced back to its source.
+  matchedText String?
+  createdAt   DateTime @default(now())
+
+  // A product page's recalls, a brand's recalls, and rebuilding an action.
+  @@index([productId])
+  @@index([companyId])
+  @@index([actionId])
 }
 
 model SupplyChainDisclosure {
@@ -292,4 +743,184 @@ model IndependentInvestigation {
   aiDrafted      Boolean  @default(false)
   reviewerId     String?
   reviewDate     DateTime?
+}
+
+// =====================================================================
+// PRODUCE
+//
+// Two kinds of produce, handled differently:
+//
+//   BRANDED produce (Driscoll's clamshell, Taylor Farms salad kit) is a
+//   normal Product under a Company — same recalls, organic, ownership as
+//   any packaged good. It can optionally point at its Commodity below.
+//
+//   LOOSE produce (a banana with only a PLU sticker) has no company to
+//   attach to — many growers ship under the same PLU. It gets a Commodity
+//   page instead: generic nutrition, country of origin as observed at the
+//   store, regional sourcing from USDA Market News, and recalls naming the
+//   commodity. Which specific farm grew it is known only to the store, so
+//   the page says so and tells the shopper to ask the produce manager.
+// =====================================================================
+
+model Commodity {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+
+  // Display name, e.g. "Strawberries". Unique so ingestion scripts can
+  // upsert by name without creating duplicates.
+  name      String   @unique
+
+  // Broad grouping for browsing, e.g. "berries", "leafy_greens", "citrus".
+  category  String?
+
+  // USDA FoodData Central ID of the generic entry (e.g. "Strawberries, raw"),
+  // kept so the nutrition ingest can re-pull it without searching again.
+  fdcId     Int?
+
+  createdAt DateTime @default(now())
+
+  pluCodes              PluCode[]
+  nutrition             CommodityNutrition?
+  originObservations    OriginObservation[]
+  regionalSupplyReports RegionalSupplyReport[]
+  brandedProducts       Product[]
+  regulatoryActions     RegulatoryAction[]
+}
+
+model PluCode {
+  id          String    @id @default(dbgenerated("gen_random_uuid()"))
+
+  // The BASE 4-digit PLU from the sticker, stored as text like Product.upc.
+  //
+  // ORGANIC: organic produce uses the same code with a "9" prefix
+  // (94011 = organic banana). Only the base code is stored; the scan lookup
+  // strips a leading 9, looks up the base code, and marks the result
+  // organic. The prefix tells you it's organic — it does NOT tell you the
+  // certifier, so the UI must not imply a specific certification.
+  code        String    @unique
+
+  commodityId String
+  commodity   Commodity @relation(fields: [commodityId], references: [id])
+
+  // What distinguishes this PLU within its commodity.
+  variety     String?   // e.g. "Cavendish", "Honeycrisp"
+  sizeNote    String?   // e.g. "large", "small"
+
+  // Provenance — the IFPS PLU registry entry.
+  sourceUrl      String
+  sourceType     String   @default("industry_registry")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+
+  @@index([commodityId])
+}
+
+// Generic nutrition for a commodity from USDA FoodData Central. A separate
+// table rather than reusing NutritionFacts, because NutritionFacts.productId
+// is required and loosening it would ripple through existing code. Columns
+// mirror NutritionFacts so the UI can render both with the same component.
+model CommodityNutrition {
+  id            String    @id @default(dbgenerated("gen_random_uuid()"))
+  commodityId   String    @unique
+  commodity     Commodity @relation(fields: [commodityId], references: [id])
+
+  servingSize   String?   // USDA reports per "100 g"
+  calories      Float?
+  totalFatG     Float?
+  saturatedFatG Float?
+  sugarG        Float?
+  carbsG        Float?
+  sodiumMg      Float?
+  proteinG      Float?
+  fiberG        Float?    // not on NutritionFacts; relevant for produce
+
+  // Provenance — link to the specific FDC food page.
+  sourceUrl      String
+  sourceType     String   @default("government_database")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+}
+
+// One observation of where LOOSE produce came from at a specific store:
+// the country on the bin sign (retailers must post it under USDA Country of
+// Origin Labeling), or a shipper/grower name from a case label or the
+// produce manager. User-submitted, so it always goes through review.
+//
+// PRIVACY: deliberately no user ID column. Which stores someone visits and
+// when is personal data, and "completely private" is a brand pillar. If
+// submitter identity is ever needed for abuse handling, keep it in a
+// separate private table, never on the published record.
+model OriginObservation {
+  id              String    @id @default(dbgenerated("gen_random_uuid()"))
+  commodityId     String
+  commodity       Commodity @relation(fields: [commodityId], references: [id])
+
+  //   "country_of_origin" — from the COOL bin sign or sticker
+  //   "shipper"           — packer/shipper named on the case or by staff
+  //   "grower"            — a specific farm, when known
+  observationType String
+
+  countryOfOrigin String?   // e.g. "Mexico"
+  regionOfOrigin  String?   // e.g. "California" — only if the sign says so
+  shipperName     String?   // raw name as observed
+
+  // Set ONLY during human review, when the shipper matches a vetted Company.
+  // Per the scan rules, a user submission never auto-creates a Company.
+  shipperCompanyId String?
+  shipperCompany   Company? @relation(fields: [shipperCompanyId], references: [id])
+
+  // Store-level location only — a business, never the user's whereabouts.
+  storeName       String
+  storeCity       String?
+  storeState      String?
+  observedAt      DateTime
+
+  //   "bin_sign_photo" | "sticker_photo" | "case_label_photo" | "staff_answer"
+  evidenceType    String
+
+  // Provenance — the photo, or for "staff_answer" the submission record.
+  sourceUrl       String
+  sourceType      String   @default("user_submission")
+  dataPulledDate  DateTime @default(now())
+  aiDrafted       Boolean  @default(false)
+  reviewerId      String?
+  reviewDate      DateTime?
+
+  @@index([commodityId])
+  @@index([shipperCompanyId])
+}
+
+// Which growing regions are shipping a commodity, from USDA AMS Market News.
+// This is REGIONAL SUPPLY data, not a claim about the item in the shopper's
+// hand — the UI must word it that way ("in September, US strawberries ship
+// mainly from…"), dated, with the report linked.
+model RegionalSupplyReport {
+  id            String    @id @default(dbgenerated("gen_random_uuid()"))
+  commodityId   String
+  commodity     Commodity @relation(fields: [commodityId], references: [id])
+
+  reportDate    DateTime  // the date the report covers
+
+  //   "shipping_point"  — where it's shipping FROM
+  //   "terminal_market" — what's arriving at a wholesale market
+  reportType    String
+
+  originRegion  String    // as the report names it, e.g. "Central California"
+  originCountry String    // e.g. "USA", "Mexico"
+  marketName    String?   // only for terminal_market reports
+
+  // Market News report identifier, so re-runs can upsert instead of duplicate.
+  reportSlug    String?
+
+  sourceUrl      String
+  sourceType     String   @default("government_database")
+  dataPulledDate DateTime @default(now())
+  aiDrafted      Boolean  @default(false)
+  reviewerId     String?
+  reviewDate     DateTime?
+
+  @@index([commodityId, reportDate])
 }

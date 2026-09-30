@@ -40,6 +40,17 @@ async function dumpDatabase() {
       ownershipCertifications: true,
       investorFilings: true,
       regulatoryActions: true,
+      supplyChainDisclosures: true,    // what the company says about its own supply chain
+      independentInvestigations: true, // adversarial third-party findings about the company
+      // Parent/subsidiary ownership. Only scalar fields are selected on the
+      // related companies to avoid recursing infinitely through the
+      // self-referencing relation.
+      parentCompany: {
+        select: { id: true, legalName: true, hqLocation: true },
+      },
+      subsidiaries: {
+        select: { id: true, legalName: true, hqLocation: true },
+      },
     },
   })
 

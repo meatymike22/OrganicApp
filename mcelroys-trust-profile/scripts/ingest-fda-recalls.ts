@@ -5,6 +5,7 @@ import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 // The generated client that knows about your schema's models
 import { PrismaClient } from '@prisma/client'
+import { VETTED_COMPANIES } from '@/lib/vetting'
 // Node's built-in filesystem and path modules, used to write the log file
 import * as fs from 'fs'
 import * as path from 'path'
@@ -59,6 +60,10 @@ function parseOpenFdaDate(raw: string | undefined): Date | null {
 function normalizeName(name: string): string {
   return name
     .toUpperCase()
+    // Strip parenthetical abbreviations like "(P&G)" — the CPSC script silently
+    // dropped a real Procter & Gamble recall because "(P&G)" survived
+    // normalization and broke the exact match. Same fix applied here.
+    .replace(/\([^)]*\)/g, '')
     .replace(/[.,]/g, '')
     .replace(/^\s*THE\s+/, '') // strip a leading "The"
     .replace(/\b(LLC|INC|INCORPORATED|CO|CORP|CORPORATION|LTD|COMPANY)\b/g, '')
@@ -83,7 +88,9 @@ function isGenuineMatch(actualFirmName: string, candidateNames: string[]): boole
 }
 
 async function main() {
-  const companies = await prisma.company.findMany()
+  // Vetted companies only — this script matches by NAME, and an unvetted
+  // company's name is a raw brand string (see src/lib/vetting.ts).
+  const companies = await prisma.company.findMany({ where: VETTED_COMPANIES })
 
   let matchCount = 0
   let rejectedFalsePositiveCount = 0

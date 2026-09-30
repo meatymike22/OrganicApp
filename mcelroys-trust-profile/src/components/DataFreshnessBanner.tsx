@@ -14,6 +14,12 @@ const SOURCE_LABELS: Record<string, string> = {
   cbp_forced_labor: 'CBP Forced Labor (WROs & Findings)',
   open_food_facts: 'Open Food Facts (nutrition & ingredients)',
   open_beauty_facts: 'Open Beauty/Products Facts (non-food ingredients)',
+  sec_edgar: 'SEC EDGAR (investor filings)',
+  fda_warning_letters: 'FDA Warning Letters',
+  nongmo_project: 'Non-GMO Project Verified',
+  nonupf_project: 'Non-UPF Verified',
+  fsis_recalls: 'USDA FSIS Recalls (meat, poultry, egg)',
+  usda_fooddata_central: 'USDA FoodData Central (label verification)',
 }
 
 // This is a Server Component (no "use client" needed) since it just reads

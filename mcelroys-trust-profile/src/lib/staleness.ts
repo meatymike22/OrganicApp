@@ -50,6 +50,12 @@ export async function getAllFreshnessStatuses(): Promise<FreshnessStatus[]> {
     'cbp_forced_labor',
     'open_food_facts',
     'open_beauty_facts',
+    'sec_edgar',
+    'fda_warning_letters',
+    'nongmo_project',
+    'nonupf_project',
+    'fsis_recalls',
+    'usda_fooddata_central',
   ]
   return Promise.all(sources.map(getFreshnessStatus))
 }

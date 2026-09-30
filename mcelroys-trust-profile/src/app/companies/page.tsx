@@ -3,6 +3,7 @@
 import Link from 'next/link'
 // "prisma" is the shared database client set up in src/lib/prisma.ts
 import { prisma } from '@/lib/prisma'
+import { VETTED_COMPANIES } from '@/lib/vetting'
 
 // This file lives at src/app/companies/page.tsx (no [id] folder), so Next.js
 // serves it at exactly the URL /companies — always the same content for everyone,
@@ -10,16 +11,39 @@ import { prisma } from '@/lib/prisma'
 //
 // "async function" because querying the database takes time, and this component
 // needs to wait for that data before it can render anything.
-export default async function CompaniesListPage() {
+// How many companies per page. Automated vetting (scripts/vet-companies.ts)
+// can list tens of thousands of companies, far too many for one page.
+const PAGE_SIZE = 50
+
+// searchParams holds the URL's ?page=N (a Promise in Next.js 15+, like params)
+export default async function CompaniesListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>
+}) {
+  const { page: pageParam } = await searchParams
+  const page = Math.max(1, Number(pageParam) || 1)
+  const totalCompanies = await prisma.company.count({ where: VETTED_COMPANIES })
+  const lastPage = Math.max(1, Math.ceil(totalCompanies / PAGE_SIZE))
+
   // Ask Prisma for every row in the Company table.
   // "include" tells it to also fetch related rows from other tables in the same
   // query, instead of us having to run separate queries for each company's products.
   const companies = await prisma.company.findMany({
+    // Only reviewed companies are listed. Bulk ingestion will create thousands
+    // of unvetted brand-name companies; browsing is for the reviewed database,
+    // while an unvetted company's page stays reachable by scan/search and
+    // carries a "not yet reviewed" label (see [id]/page.tsx).
+    where: VETTED_COMPANIES,
     include: {
+      // Only the NUMBER of products — loading every product of every company
+      // would mean hundreds of thousands of rows once companies are vetted
+      // automatically.
+      _count: { select: { products: true } },
+      // Certification statuses, fetched only for products that have one
       products: {
-        include: {
-          certifications: true, // go one level deeper: each product's certification(s) too
-        },
+        where: { certifications: { some: {} } },
+        select: { certifications: { select: { certificationStatus: true } } },
       },
     },
     // Sort results alphabetically by legal name, so the list order is predictable
@@ -27,6 +51,9 @@ export default async function CompaniesListPage() {
     orderBy: {
       legalName: 'asc',
     },
+    // This page's slice of the alphabetical list
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
   })
 
   // Everything from here down is JSX (HTML-like syntax that becomes real webpage elements).
@@ -86,13 +113,22 @@ export default async function CompaniesListPage() {
             <p style={{ margin: '0.25rem 0' }}>
               {/* Template literal-style logic: show "1 product" (singular) or
                   "2 products" (plural) depending on the actual count */}
-              {company.products.length} product{company.products.length !== 1 ? 's' : ''}
+              {company._count.products} product{company._count.products !== 1 ? 's' : ''}
               {/* Only add this part of the sentence if there's at least one status to show */}
               {statuses.length > 0 && ` — Organic status: ${statuses.join(', ')}`}
             </p>
           </div>
         )
       })}
+
+      {/* Page links — plain text for now; styling is up to the design work */}
+      {lastPage > 1 && (
+        <p>
+          {page > 1 && <Link href={`/companies?page=${page - 1}`}>Previous</Link>}
+          {` Page ${page} of ${lastPage} `}
+          {page < lastPage && <Link href={`/companies?page=${page + 1}`}>Next</Link>}
+        </p>
+      )}
     </div>
   )
 }

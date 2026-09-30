@@ -2,6 +2,7 @@
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '@prisma/client'
+import { VETTED_COMPANIES } from '@/lib/vetting'
 import * as fs from 'fs'
 import * as path from 'path'
 // Proper CSV parser — needed because company name fields in this file can
@@ -97,7 +98,9 @@ function isGenuineMatch(companyNamesField: string, candidateNames: string[]): bo
 }
 
 async function main() {
-  const companies = await prisma.company.findMany()
+  // Vetted companies only — this script matches by NAME, and an unvetted
+  // company's name is a raw brand string (see src/lib/vetting.ts).
+  const companies = await prisma.company.findMany({ where: VETTED_COMPANIES })
 
   log('Reading CBP forced labor CSV...')
   const fileContent = fs.readFileSync(FILE_PATH, 'utf-8')

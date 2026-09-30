@@ -34,6 +34,54 @@ export const PRODUCT_CATEGORIES_BY_TYPE: Record<ProductType, string[]> = {
     'Ice Cream',
     'Fruit bar',
     'Cooking Fat',
+    // Added reactively as real products required them, same approach as the
+    // ingredient classification rules — categories are added when a product
+    // needs one, not speculatively.
+    'Soup',
+    'Pasta',
+    'Sauce',
+    'Chocolate',
+    'Supplement',
+    'Canned Vegetable',
+    'Canned Meat',
+    'Toaster Pastry',
+    // Infant formula is deliberately a FOOD category rather than living only
+    // under baby_child: productType drives which sections render, and the
+    // nutrition panel is the single most important thing to show for formula.
+    // Filing it as baby_child would suppress exactly the data parents need.
+    'Infant Formula',
+    // Added for the bulk Open Food Facts import (Sept 2026). A bulk import
+    // brings in whole grocery aisles at once, so these are the aisles OFF's
+    // taxonomy actually contains, each mapped from specific OFF categories in
+    // src/lib/offCategoryMap.ts — not a speculative list.
+    'Bread & Bakery',
+    'Candy',
+    'Spread',
+    'Sweetener',
+    'Condiment',
+    'Spices & Seasoning',
+    'Cheese',
+    'Dairy Alternative',
+    'Eggs',
+    'Meat',
+    'Seafood',
+    'Beans & Legumes',
+    'Grains & Rice',
+    'Frozen Vegetable',
+    // Branded fresh produce (a Driscoll's clamshell). Loose produce is a
+    // Commodity, not a Product — see the Commodity model.
+    'Fresh Produce',
+    'Nuts & Seeds',
+    'Juice',
+    'Coffee & Tea',
+    'Dessert',
+    // Added after the first bulk dry run
+    'Canned Fruit',
+    'Meat Alternative',
+    // Added 2026-09-29. Beer, wine and spirits are in scope: they can carry
+    // additives (sulfites, colorings, flavorings) and their makers can have
+    // recalls. Non-alcoholic beer and wine stay under Beverage.
+    'Alcoholic Beverage',
   ],
   personal_care: [
     'Toothpaste',
@@ -58,6 +106,7 @@ export const PRODUCT_CATEGORIES_BY_TYPE: Record<ProductType, string[]> = {
     'Food Storage Container',
     'Cleaning Product',
     'Furniture',
+    'Bedding',
   ],
 }
 
