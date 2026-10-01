@@ -2,6 +2,11 @@ import Link from 'next/link'
 // "prisma" is the shared database client we set up in src/lib/prisma.ts
 import { prisma } from '@/lib/prisma'
 import { describeCategory } from '@/lib/categoryDisplay'
+import { companyAndParents, evidenceNote, getCompanyRecalls, getRecallsListingProducts, getUnlinkedProcessRecalls, type RecallItem } from '@/lib/recalls'
+
+// How many recalls each list shows before "Show all". Some firms have
+// hundreds of notices (one product line per notice); ?recalls=all lists them all.
+const RECALLS_SHOWN = 20
 
 // This is a Next.js "page" component — Next.js automatically renders this file
 // for any URL matching /companies/[whatever-id-was-in-the-url]
@@ -10,11 +15,14 @@ import { describeCategory } from '@/lib/categoryDisplay'
 // rather than a plain object, so it has to be awaited before you can read "id" from it.
 export default async function CompanyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   // Unwrap the Promise to get the actual id string from the URL
   const { id } = await params
+  const showAllRecalls = (await searchParams).recalls === 'all'
 
   // Query the database for one Company matching this id.
   // "include" tells Prisma to also fetch related rows from other tables,
@@ -29,7 +37,6 @@ export default async function CompanyPage({
       },
       ownershipCertifications: true,
       investorFilings: true,
-      regulatoryActions: true, // FDA/CPSC/CBP recalls and other regulatory actions
       supplyChainDisclosures: true,
       independentInvestigations: true,
       parentCompany: {
@@ -52,6 +59,17 @@ export default async function CompanyPage({
 
   const isUnvetted = company.vettingStatus !== 'vetted'
 
+  // Recalls: loaded only for verified companies, as the unverified banner
+  // says. See src/lib/recalls.ts for how they are matched and linked.
+  const recalls = isUnvetted ? null : await getCompanyRecalls(company.id, showAllRecalls ? undefined : RECALLS_SHOWN)
+  const listedProducts = isUnvetted ? new Map<string, RecallItem[]>() : await getRecallsListingProducts(company.products.map((p) => p.id))
+  // Recalls by this company or its parents about how food was made or
+  // handled that name no product, so we can't say whether these products
+  // were affected. Shown once as a hint above the products, never as a
+  // recall of any of them.
+  const family = isUnvetted ? [] : await companyAndParents(company.id)
+  const processHint = isUnvetted ? null : await getUnlinkedProcessRecalls(family.map((c) => c.id))
+
   // Everything below is JSX — HTML-like syntax that React turns into actual webpage elements.
   // {company.legalName} etc. embeds a JavaScript value directly into the HTML.
   return (
@@ -68,6 +86,26 @@ export default async function CompanyPage({
           <strong>Not yet verified.</strong> This brand and its products come
           from Open Food Facts and haven&apos;t been verified yet. Recalls,
           ownership and certifications appear once it&apos;s verified.
+        </p>
+      )}
+
+      {/* Middlemen between source and shelf (co-packers, importers,
+          distributors). Their recalls usually concern other companies'
+          brands, so the page says so up front. */}
+      {company.businessRole === 'supply_chain' && (
+        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
+          <strong>Supply-chain company.</strong> {company.legalName} mainly makes,
+          packs, imports or distributes food sold under other companies&apos;
+          brands. Its recalls often concern those brands&apos; products.
+        </p>
+      )}
+
+      {/* Stores and chains. Their recalls are usually of store-brand products
+          or items they sold. */}
+      {company.businessRole === 'retailer' && (
+        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
+          <strong>Retailer.</strong> {company.legalName} sells food to consumers.
+          Its recalls usually concern its store-brand products or items it sold.
         </p>
       )}
 
@@ -108,6 +146,28 @@ export default async function CompanyPage({
       )}
 
       <h2>Products</h2>
+      {processHint && processHint.count > 0 && (
+        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
+          <strong>Manufacturing-related recalls.</strong>{' '}
+          {[...new Set(processHint.items.map((a) => a.company.id))]
+            .map((cid) => family.find((c) => c.id === cid)?.legalName)
+            .filter(Boolean)
+            .join(' and ')}{' '}
+          {processHint.count === 1 ? 'has had 1 recall' : `has had ${processHint.count} recalls`} about how
+          food was made or handled (for example contamination, unsanitary
+          conditions or foreign material) that {processHint.count === 1 ? "doesn't" : "don't"} name
+          a specific product. There is no evidence linking {processHint.count === 1 ? 'it' : 'them'} to
+          the products below, and we can&apos;t say whether they were affected.{' '}
+          {[...new Set(processHint.items.map((a) => a.company.id))].map((cid, i) => (
+            <span key={cid}>
+              {i > 0 && ' · '}
+              <Link href={`/companies/${cid}?recalls=all#recalls`}>
+                See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
+              </Link>
+            </span>
+          ))}
+        </p>
+      )}
       {/* .map() loops over every product and returns a block of JSX for each one.
           "key" is required by React so it can track each item in the list efficiently. */}
       {company.products.map((product) => (
@@ -123,6 +183,23 @@ export default async function CompanyPage({
               a blank section for both would let a shopper read absence of data
               as absence of ingredients. Nothing is shown for "unchecked",
               since asserting non-disclosure without checking would be false. */}
+          {/* A recall notice lists this product's barcode. Only exact
+              barcode matches are flagged per product; brand-level recalls
+              are listed once, below. */}
+          {listedProducts.get(product.id)?.map((action) => (
+            <p key={action.id} style={{ background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
+              <strong>Listed in a recall notice.</strong> A {action.sourceAgency}{' '}
+              {action.actionType.replace(/_/g, ' ')}
+              {action.actionDate && ` of ${new Date(action.actionDate).toLocaleDateString()}`}
+              {action.company.id !== company.id && ` issued by ${action.company.legalName}`} lists this
+              product&apos;s barcode
+              {action.reason && `. Reason given: ${action.reason}`}{' '}
+              <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
+                Source
+              </a>
+            </p>
+          ))}
+
           {product.ingredientDisclosureStatus === 'not_disclosed' && (
             <p style={{ background: '#fff3cd', border: '1px solid #ffe69c', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
               <strong>No ingredient list found.</strong> We checked the public
@@ -169,68 +246,89 @@ export default async function CompanyPage({
         </>
       )}
 
-      {/* Only surface actions actually tied to this company's tracked products
-          or their supply chain. Actions against the same legal entity in an
-          unrelated business line (e.g. a pharmaceutical warning letter on a
-          company whose tracked product is diapers) are TRUE but MISLEADING in
-          a product context, so they are filtered out here rather than shown
-          with a caveat. "unreviewed" is also withheld — a human hasn't yet
-          judged which category it falls into. */}
-      {company.regulatoryActions.filter(
-        (a) => a.productRelevance === 'direct' || a.productRelevance === 'supply_chain'
-      ).length > 0 && (
+      {recalls && recalls.issued.count > 0 && (
         <>
-          <h2>Regulatory Actions</h2>
-          {/* Important: every regulatory action MUST show productDescription prominently.
-              Recalls match at the legal-entity level, which can pull in a parent company's
-              other, unrelated brands (e.g. a sibling brand's recall showing up here even
-              though it has nothing to do with this specific company's product). Never
-              render these as a bare count or date list — that would misleadingly imply
-              the action affected this company's own product line specifically. */}
-          {company.regulatoryActions
-            .filter((a) => a.productRelevance === 'direct' || a.productRelevance === 'supply_chain')
-            .map((action) => (
-            <div
-              key={action.id}
-              style={{
-                border: '1px solid #eee',
-                borderRadius: '6px',
-                padding: '0.75rem',
-                marginBottom: '0.75rem',
-              }}
-            >
-              <p style={{ fontWeight: 'bold' }}>
-                {action.sourceAgency} {action.actionType}
-                {action.classification && ` — ${action.classification}`}
-              </p>
-              {action.productRelevance === 'supply_chain' && (
-                <p style={{ fontSize: '0.85rem', color: '#555' }}>
-                  Relates to a facility or supplier in this product&apos;s supply chain,
-                  not to the product itself.
-                </p>
-              )}
-              {/* Product description shown first and prominently — this is what actually
-                  tells the reader whether this action relates to the product they're
-                  looking at, or to an unrelated product from the same parent company */}
-              {action.productDescription && (
-                <p>
-                  <strong>Product:</strong> {action.productDescription}
-                </p>
-              )}
-              <p>Reason: {action.reason}</p>
-              <p>Status: {action.status}</p>
-              {action.actionDate && (
-                <p>Date: {new Date(action.actionDate).toLocaleDateString()}</p>
-              )}
-              <p>
-                <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
-                  View source record (raw government data)
-                </a>
-              </p>
-            </div>
-          ))}
+          <h2 id="recalls">Recalls and regulatory actions</h2>
+          <p style={{ fontSize: '0.9rem', color: '#555' }}>
+            Notices that name {company.legalName}. Each notice covers the product
+            described in it, not every product listed on this page.
+          </p>
+          <RecallList list={recalls.issued} companyId={company.id} showAll={showAllRecalls} />
+        </>
+      )}
+
+      {/* Recalls issued under another firm's name (a parent company, or a
+          manufacturer making the product for this brand) that concern this
+          brand. Without this section a brand whose recall was filed under its
+          parent's name would show nothing. */}
+      {recalls && recalls.naming.count > 0 && (
+        <>
+          <h2>Recalls of this brand issued by other companies</h2>
+          <RecallList list={recalls.naming} companyId={company.id} showAll={showAllRecalls} />
         </>
       )}
     </div>
+  )
+}
+
+// One list of recalls, newest first, with a "Show all" link when capped.
+// Every action MUST show productDescription prominently: a notice covers the
+// product it describes, which is often only one of a company's products.
+// Never render these as a bare count or date list.
+function RecallList({ list, companyId, showAll }: { list: { count: number; items: RecallItem[] }; companyId: string; showAll: boolean }) {
+  return (
+    <>
+      {list.items.map((action) => (
+        <div
+          key={action.id}
+          id={`recall-${action.id}`}
+          style={{
+            border: '1px solid #eee',
+            borderRadius: '6px',
+            padding: '0.75rem',
+            marginBottom: '0.75rem',
+          }}
+        >
+          <p style={{ fontWeight: 'bold' }}>
+            {action.sourceAgency} {action.actionType.replace(/_/g, ' ')}
+            {action.classification && ` — ${action.classification}`}
+          </p>
+          {action.company.id !== companyId && (
+            <p style={{ fontSize: '0.85rem', color: '#555' }}>
+              Issued by{' '}
+              <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>
+              {evidenceNote(action) && <span style={{ display: 'block' }}>{evidenceNote(action)}</span>}
+            </p>
+          )}
+          {action.productRelevance === 'supply_chain' && (
+            <p style={{ fontSize: '0.85rem', color: '#555' }}>
+              Relates to a facility or supplier in this product&apos;s supply chain,
+              not to the product itself.
+            </p>
+          )}
+          {action.productDescription && (
+            <p>
+              <strong>Product:</strong> {action.productDescription}
+            </p>
+          )}
+          <p>Reason: {action.reason}</p>
+          {action.status && <p>Status: {action.status}</p>}
+          {action.actionDate && (
+            <p>Date: {new Date(action.actionDate).toLocaleDateString()}</p>
+          )}
+          <p>
+            <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
+              View source record (raw government data)
+            </a>
+          </p>
+        </div>
+      ))}
+      {!showAll && list.count > list.items.length && (
+        <p>
+          Showing the {list.items.length} most recent of {list.count}.{' '}
+          <Link href={`/companies/${companyId}?recalls=all`}>Show all</Link>
+        </p>
+      )}
+    </>
   )
 }

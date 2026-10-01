@@ -51,7 +51,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { normalizeBrandName } from '@/lib/brandMatching'
 import { normalizeUpc } from '@/lib/upc'
-import { brandPhrases, extractUpcs, mentionsBrand, firmKeys, stripHtml, unzip, wordForm } from '@/lib/recallMatching'
+import { brandPhrases, buildBrandIndex, extractUpcs, findLabelBrands, mentionsBrand, stripLocation, firmKeys, stripHtml, unzip, wordForm } from '@/lib/recallMatching'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const prisma = new PrismaClient({ adapter } as unknown as ConstructorParameters<typeof PrismaClient>[0])
@@ -81,6 +81,10 @@ function log(...parts: unknown[]) {
   fs.appendFileSync(LOG_FILE, line + '\n')
 }
 const oneLine = (v: unknown) => String(v ?? '').replace(/[\t\r\n]+/g, ' ').trim()
+// A firm name as written in a notice, tidied for a company record: location
+// dropped, trailing punctuation removed. "ACME FOODS, INC., of Dallas, TX" →
+// "ACME FOODS, INC."
+const cleanFirmName = (firm: string) => stripLocation(firm).replace(/[\s,;:]+$/, '').trim()
 
 // ---------------------------------------------------------------------------
 // types
@@ -112,7 +116,7 @@ type PlanLink = {
   companyName: string
   productId: string | null
   productName: string | null
-  matchMethod: 'barcode' | 'brand_name' | 'owner_brand' | 'firm_is_brand'
+  matchMethod: 'barcode' | 'brand_name' | 'owner_brand' | 'firm_is_brand' | 'named_brand'
   matchedText: string
   flag: 'ok' | 'review'
   note: string
@@ -127,6 +131,8 @@ type PlanAction = {
   companyName: string
   existingActionId: string | null
   existingReviewed: boolean
+  firmReview?: boolean // non-food recall matched to a food-only company: check the firm is really this company
+  newFirm?: boolean // the recalling firm isn't in our database yet; created on apply (companyId is "new:<key>")
   data: Omit<Notice, 'firms' | 'brandText' | 'upcText' | 'listedUpcs' | 'domain'>
   links: PlanLink[]
 }
@@ -319,7 +325,7 @@ async function loadCpsc(): Promise<Notice[]> {
 // ---------------------------------------------------------------------------
 // dry run: match and write a plan
 // ---------------------------------------------------------------------------
-type Co = { id: string; name: string; dba: string[]; parentId: string | null; products: number; human: boolean; nonFood: boolean }
+type Co = { id: string; name: string; dba: string[]; parentId: string | null; products: number; human: boolean; nonFood: boolean; recallKey: string | null }
 
 async function dryRun() {
   log(`match-recalls — DRY RUN (nothing is written to the database). Sources: ${[...SOURCES].join(', ')}`)
@@ -334,7 +340,18 @@ async function dryRun() {
   )
   const byId = new Map<string, Co>()
   for (const c of companies)
-    byId.set(c.id, { id: c.id, name: c.legalName, dba: c.dbaNames ?? [], parentId: c.parentCompanyId, products: Number(c.n), human: c.vettingMethod === 'human', nonFood: Number(c.nonfood) > 0 })
+    byId.set(c.id, {
+      id: c.id,
+      name: c.legalName,
+      dba: c.dbaNames ?? [],
+      parentId: c.parentCompanyId,
+      products: Number(c.n),
+      human: c.vettingMethod === 'human',
+      nonFood: Number(c.nonfood) > 0,
+      // Firms this script created keep the key they were planned under, so
+      // review decisions (reject-file keys) still apply on later runs.
+      recallKey: c.vettingMethod === 'automated_recall' ? `new:${firmKeys(c.legalName)[0] ?? c.id}` : null,
+    })
   const children = new Map<string, string[]>()
   for (const c of byId.values()) if (c.parentId && byId.has(c.parentId)) children.set(c.parentId, [...(children.get(c.parentId) ?? []), c.id])
   const descendants = (id: string): string[] => {
@@ -368,13 +385,28 @@ async function dryRun() {
   }
   log(`Verified companies: ${byId.size.toLocaleString()} (${children.size.toLocaleString()} with brands under them)`)
 
+  // Decisions about recalling firms (scripts/recall-firms.json): firm names
+  // that were merged into an existing company, and brands a firm owns that
+  // aren't under it in the database.
+  const firmsFile = path.join('./scripts', 'recall-firms.json')
+  const firmDecisions: { aliases?: Record<string, string[]>; owns?: Record<string, string[]>; firmPicks?: Record<string, string> } = fs.existsSync(firmsFile)
+    ? JSON.parse(fs.readFileSync(firmsFile, 'utf8'))
+    : {}
+  const ownsOf = (id: string) => new Set(firmDecisions.owns?.[id] ?? [])
+  // A firm name that matches several of our companies (duplicate records,
+  // say) and was settled by a decision → the company to use. Matched on the
+  // firm's whole set of name keys, so "X dba Y" settles only that exact pair.
+  const pickKey = (name: string) => firmKeys(name).join('|')
+  const pickIndex = new Map<string, string>()
+  for (const [name, id] of Object.entries(firmDecisions.firmPicks ?? {})) pickIndex.set(pickKey(name), id)
+
   // name key → company ids
   const keyIndex = new Map<string, Set<string>>()
   const keysOf = new Map<string, Set<string>>()
   const legalKeysOf = new Map<string, Set<string>>()
   for (const c of byId.values()) {
     const ks = new Set<string>()
-    for (const n of [c.name, ...c.dba]) for (const k of firmKeys(n)) ks.add(k)
+    for (const n of [c.name, ...c.dba, ...(firmDecisions.aliases?.[c.id] ?? [])]) for (const k of firmKeys(n)) ks.add(k)
     keysOf.set(c.id, ks)
     legalKeysOf.set(c.id, new Set(firmKeys(c.name)))
     for (const k of ks) {
@@ -426,6 +458,8 @@ async function dryRun() {
   // --- firm → company ---
   type Resolved = { company: Co; firm: string } | { ambiguous: string[]; firm: string } | null
   const resolveFirm = (firm: string): Resolved => {
+    const picked = pickIndex.get(pickKey(firm))
+    if (picked && byId.has(picked)) return { company: byId.get(picked)!, firm }
     const ids = new Set<string>()
     for (const k of firmKeys(firm)) for (const id of keyIndex.get(k) ?? []) ids.add(id)
     if (ids.size === 0) return null
@@ -453,6 +487,10 @@ async function dryRun() {
     return phraseCache.get(id)!
   }
 
+  // Every brand we sell, for spotting a brand named as a product's label.
+  const brandIndex = buildBrandIndex([...byId.values()].filter((c) => c.products > 0).map((c) => ({ id: c.id, phrases: phrasesOf(c.id) })))
+  const newFirms = new Map<string, { key: string; name: string; variants: Set<string> }>()
+
   const plan: PlanAction[] = []
   const ambiguous: { agency: string; ref: string; firm: string; companies: string[] }[] = []
   const strayBarcodes: { agency: string; ref: string; firm: string; upc: string; product: string; company: string }[] = []
@@ -472,24 +510,82 @@ async function dryRun() {
     }
 
     const resolvedCompanies = new Map<string, string>() // companyId → firm name as written
+    let ambiguousHere = false
     for (const firm of n.firms) {
       const r = resolveFirm(firm)
       if (!r) continue
       if ('ambiguous' in r) {
         ambiguous.push({ agency: n.agency, ref: n.ref, firm, companies: r.ambiguous.map((id) => byId.get(id)!.name) })
+        ambiguousHere = true
         continue
       }
       resolvedCompanies.set(r.company.id, firm)
     }
 
+    // Label brands count only on FOOD notices (a drug, device or consumer-
+    // product notice naming a food brand is almost always a coincidence), and
+    // a ONE-word name at the very start of the description is not evidence on
+    // its own (too often a generic word or the product itself).
+    const labelBrands =
+      n.domain === 'food'
+        ? findLabelBrands(wordForm(n.brandText), brandIndex).filter(
+            (lb) => !(lb.where === 'start of description' && lb.phrase.trim().split(/\s+/).length === 1)
+          )
+        : []
+
     if (resolvedCompanies.size === 0) {
-      // No company page to put it on. Barcode hits are listed for later
-      // (a firm we don't have, e.g. a co-packer), never applied.
-      if (hits.size) bump(`${n.agency} barcode hits with unknown firm`)
-      for (const [upc] of hits) {
-        const p = byUpc.get(upc)!
-        strayBarcodes.push({ agency: n.agency, ref: n.ref, firm: n.firms.join(' / '), upc, product: p.name, company: allCompanyNames.get(p.companyId) ?? '' })
+      // The recalling firm isn't one of our companies — typically a
+      // co-packer, importer or distributor making or moving a product for a
+      // brand we list. If the notice is tied to our catalogue (a barcode of
+      // ours, or one of our brands named as the label), the firm is created
+      // as a new company (a "supply_chain" middleman) on apply, and the
+      // recall lives on its page with links to our products. Otherwise the
+      // notice concerns nothing we list and is skipped.
+      const firm = n.firms[0]
+      const fk = firmKeys(cleanFirmName(firm))[0]
+      const tied = hits.size > 0 || labelBrands.length > 0
+      if (!tied || !fk || fk.length < 3 || ambiguousHere) {
+        if (hits.size) bump(`${n.agency} barcode hits with unknown firm`)
+        for (const [upc] of hits) {
+          const p = byUpc.get(upc)!
+          strayBarcodes.push({ agency: n.agency, ref: n.ref, firm: n.firms.join(' / '), upc, product: p.name, company: allCompanyNames.get(p.companyId) ?? '' })
+        }
+        continue
       }
+      const nf = newFirms.get(fk) ?? { key: fk, name: cleanFirmName(firm), variants: new Set<string>() }
+      nf.variants.add(firm)
+      newFirms.set(fk, nf)
+      const links: Omit<PlanLink, 'lid' | 'key'>[] = []
+      const barcodeBrands = new Set<string>()
+      for (const [upc, text] of hits) {
+        const p = byUpc.get(upc)!
+        barcodeBrands.add(p.companyId)
+        links.push({ companyId: p.companyId, companyName: allCompanyNames.get(p.companyId) ?? '', productId: p.id, productName: p.name, matchMethod: 'barcode', matchedText: text, flag: 'review', note: 'recalling firm is not the brand owner (new supply-chain company)' })
+      }
+      for (const lb of labelBrands) {
+        if (barcodeBrands.has(lb.id)) continue
+        links.push({ companyId: lb.id, companyName: byId.get(lb.id)!.name, productId: null, productName: null, matchMethod: 'named_brand', matchedText: lb.phrase, flag: 'review', note: `brand named ${lb.where}; recalling firm is not the brand owner` })
+      }
+      for (const l of links) bump(`links: ${l.matchMethod} (review)`)
+      bump(`${n.agency} placed on a new supply-chain company`)
+      const { firms: _f, brandText: _b, upcText: _u, listedUpcs: _l, domain: _d, ...data } = n
+      const cid = `new:${fk}`
+      const actionKey = `${n.agency}|${n.ref}|${cid}`
+      plan.push({
+        aid: `A${++aSeq}`,
+        key: actionKey,
+        agency: n.agency,
+        ref: n.ref,
+        firm,
+        companyId: cid,
+        companyName: nf.name,
+        existingActionId: null,
+        existingReviewed: false,
+        newFirm: true,
+        data,
+        links: links.map((l) => ({ ...l, lid: `L${++lSeq}`, key: `${actionKey}|${l.companyId}|${l.productId ?? '*'}` })),
+      })
+      bump('new actions')
       continue
     }
 
@@ -508,20 +604,18 @@ async function dryRun() {
       const family = new Set([X.id, ...descendants(X.id)])
       const wider = new Set([...descendants(root(X.id)), root(X.id)])
 
-      // Drug, medical-device and consumer-product recalls: our catalogue is
-      // food, so a match here on a food-only company is almost always a
+      // Drug, medical-device and consumer-product recalls are kept like any
+      // other: every recall a firm is named on belongs on its page. But our
+      // catalogue is food, so a match here on a food-only company is often a
       // different business with the same name (Cook Inc. catheters vs. a
-      // food brand called COOK). Placed only if the company sells non-food
-      // products, was checked by a person, or a barcode in the notice is
-      // one of its products.
-      if (n.domain === 'other' && !exact) {
-        const familyBarcode = [...hits.keys()].some((u) => family.has(byUpc.get(u)!.companyId))
-        const eligible = [...family].some((id) => byId.get(id)!.nonFood || byId.get(id)!.human)
-        if (!familyBarcode && !eligible) {
-          bump(`${n.agency} skipped: non-food recall for a food-only company`)
-          continue
-        }
-      }
+      // food brand called COOK). Those are flagged so the firm-to-company
+      // review checks them before anything is applied.
+      const otherDomainOnFoodCompany =
+        n.domain === 'other' &&
+        !exact &&
+        ![...hits.keys()].some((u) => family.has(byUpc.get(u)!.companyId)) &&
+        ![...family].some((id) => byId.get(id)!.nonFood || byId.get(id)!.human)
+      if (otherDomainOnFoodCompany) bump(`${n.agency} non-food recall on a food-only company (firm review needed)`)
       const links: Omit<PlanLink, 'lid' | 'key'>[] = []
 
       // 1. barcodes
@@ -552,16 +646,31 @@ async function dryRun() {
       let childText = ' ' + wordForm(n.brandText) + ' '
       for (const fp of firmPhrases.sort((a, b) => b.length - a.length)) childText = childText.split(' ' + fp + ' ').join(' | ')
       childText = childText.trim()
-      for (const b of family) {
+      //    Brands the firm owns per recall-firms.json ("owns") count too; their
+      //    names are looked for in the full text, since a store brand often
+      //    contains the owner's own name ("Fresh from Meijer").
+      const ownedHere = ownsOf(X.id)
+      const fullText = wordForm(n.brandText)
+      for (const b of new Set([...family, ...ownedHere])) {
         if (b === X.id || barcodeBrands.has(b)) continue
-        const B = byId.get(b)!
-        if (!B.products) continue
+        const B = byId.get(b)
+        if (!B || !B.products) continue
+        const owned = !family.has(b)
+        const ownName = new Set(brandPhrases(B.name))
         const hit = phrasesOf(b).find((ph) => {
-          // An alias that is really the owner's name isn't the brand's name.
-          if (firmKeys(ph).some((k) => firmKeySet.has(k))) return false
+          if (owned) return mentionsBrand(fullText, ph)
+          if (firmPhrases.includes(ph) || firmKeys(ph).some((k) => firmKeySet.has(k))) {
+            // An alias that is really the owner's name isn't the brand's name,
+            // but a brand whose OWN name is the firm's ("Del Monte" under
+            // "Del Monte Foods Inc.") is named whenever that name is.
+            return ownName.has(ph) && mentionsBrand(fullText, ph)
+          }
+          // A brand name that contains the firm's name ("Fresh from Meijer"
+          // under Meijer) is looked for in the full text.
+          if (firmPhrases.some((fp) => fp !== ph && (' ' + ph + ' ').includes(' ' + fp + ' '))) return mentionsBrand(fullText, ph)
           return mentionsBrand(childText, ph)
         })
-        if (hit) links.push({ companyId: b, companyName: B.name, productId: null, productName: null, matchMethod: 'owner_brand', matchedText: hit, flag: 'review', note: '' })
+        if (hit) links.push({ companyId: b, companyName: B.name, productId: null, productName: null, matchMethod: 'owner_brand', matchedText: hit, flag: 'review', note: owned ? 'brand the firm owns (recall-firms.json)' : '' })
       }
 
       // 3. the firm itself as a brand
@@ -573,16 +682,31 @@ async function dryRun() {
         const otherBarcodes = links.some((l) => l.matchMethod === 'barcode' && l.flag === 'review')
         if (hit) {
           links.push({ companyId: X.id, companyName: X.name, productId: null, productName: null, matchMethod: 'brand_name', matchedText: hit, flag: otherBarcodes ? 'review' : 'ok', note: otherBarcodes ? 'notice also lists barcodes of another company' : '' })
-        } else if (!links.length && family.size === 1) {
+        } else if (!links.length && ![...family].some((id) => id !== X.id && byId.get(id)!.products > 0) && !otherDomainOnFoodCompany && !labelBrands.some((lb) => !family.has(lb.id))) {
+          // (Not when the notice names another company's brand as the label:
+          // then the product was sold under that brand, not the firm's.)
           links.push({ companyId: X.id, companyName: X.name, productId: null, productName: null, matchMethod: 'firm_is_brand', matchedText: firm, flag: 'review', note: 'notice does not repeat the brand name' })
         }
+      }
+
+      // 4. other companies' brands named as the product's label (a store
+      //    brand the firm makes, say). Never the firm's own family.
+      const owned = ownsOf(X.id)
+      for (const lb of labelBrands) {
+        if (family.has(lb.id) || links.some((l) => l.companyId === lb.id)) continue
+        if (otherDomainOnFoodCompany) continue
+        if (owned.has(lb.id)) {
+          links.push({ companyId: lb.id, companyName: byId.get(lb.id)!.name, productId: null, productName: null, matchMethod: 'owner_brand', matchedText: lb.phrase, flag: 'review', note: `brand named ${lb.where}; recalling firm owns it (recall-firms.json)` })
+          continue
+        }
+        links.push({ companyId: lb.id, companyName: byId.get(lb.id)!.name, productId: null, productName: null, matchMethod: 'named_brand', matchedText: lb.phrase, flag: 'review', note: `brand named ${lb.where}; recalling firm does not own it` })
       }
 
       if (!links.length) bump(`${n.agency} on company page only (no brand named)`)
       for (const l of links) bump(`links: ${l.matchMethod}${l.flag === 'review' ? ' (review)' : ''}`)
 
       const { firms: _f, brandText: _b, upcText: _u, listedUpcs: _l, domain: _d, ...data } = n
-      const actionKey = `${n.agency}|${n.ref}|${X.id}`
+      const actionKey = `${n.agency}|${n.ref}|${X.recallKey ?? X.id}`
       plan.push({
         aid: `A${++aSeq}`,
         key: actionKey,
@@ -593,6 +717,7 @@ async function dryRun() {
         companyName: X.name,
         existingActionId: exact?.id ?? null,
         existingReviewed: !!exact?.reviewerId,
+        firmReview: otherDomainOnFoodCompany,
         data,
         links: links.map((l) => ({ ...l, lid: `L${++lSeq}`, key: `${actionKey}|${l.companyId}|${l.productId ?? '*'}` })),
       })
@@ -602,7 +727,8 @@ async function dryRun() {
 
   // --- outputs ---
   const planFile = path.join('./logs', `match-recalls-plan-${STAMP}.json`)
-  fs.writeFileSync(planFile, JSON.stringify({ createdAt: new Date().toISOString(), sources: loaded, plan, ambiguous, strayBarcodes }, null, 0))
+  const newFirmList = [...newFirms.values()].map((f) => ({ key: f.key, name: f.name, variants: [...f.variants] }))
+  fs.writeFileSync(planFile, JSON.stringify({ createdAt: new Date().toISOString(), sources: loaded, plan, newFirms: newFirmList, ambiguous, strayBarcodes }, null, 0))
 
   const tsv = [['id', 'key', 'action', 'agency', 'ref', 'firm', 'firm_company', 'method', 'flag', 'link_company', 'product', 'matched_text', 'note', 'product_description'].join('\t')]
   for (const a of plan) {
@@ -626,6 +752,7 @@ async function dryRun() {
   log('Results')
   for (const k of Object.keys(stats).sort()) log(`  ${k}: ${stats[k].toLocaleString()}`)
   log(`  firms matching more than one company (not placed): ${ambiguous.length.toLocaleString()}`)
+  log(`  new supply-chain companies to create (recalling firms tied to our products): ${newFirmList.length.toLocaleString()}`)
   log(`\nPlan:        ${planFile}`)
   log(`Review list: ${tsvFile}`)
   log(`Not placed:  ${side}`)
@@ -637,7 +764,11 @@ async function dryRun() {
 // live: apply a plan
 // ---------------------------------------------------------------------------
 async function applyPlan(planFile: string) {
-  const { plan, sources } = JSON.parse(fs.readFileSync(planFile, 'utf8')) as { plan: PlanAction[]; sources: string[] }
+  const { plan, sources, newFirms = [] } = JSON.parse(fs.readFileSync(planFile, 'utf8')) as {
+    plan: PlanAction[]
+    sources: string[]
+    newFirms?: { key: string; name: string; variants: string[] }[]
+  }
   // One entry per line (first tab-separated column): a plan id (A123, L456)
   // or a stable key from the review list's "key" column, which still works
   // after the dry run is repeated.
@@ -650,14 +781,44 @@ async function applyPlan(planFile: string) {
 
   const existing = await prisma.$queryRawUnsafe<Record<string, unknown>[]>(`SELECT * FROM "RegulatoryAction"`)
   const existingByKey = new Map(existing.map((e) => [`${e.sourceAgency}|${e.referenceNumber}|${e.companyId}`, e]))
-  const applied = { planFile, createdActionIds: [] as string[], updatedActions: [] as Record<string, unknown>[], deletedLinks: [] as Record<string, unknown>[], createdLinkIds: [] as string[] }
+  const applied = { planFile, createdCompanyIds: [] as string[], createdActionIds: [] as string[], updatedActions: [] as Record<string, unknown>[], deletedLinks: [] as Record<string, unknown>[], createdLinkIds: [] as string[] }
   const appliedFile = path.join('./logs', `match-recalls-applied-${STAMP}.json`)
   const save = () => fs.writeFileSync(appliedFile, JSON.stringify(applied))
 
   const toDate = (s: string | null) => (s ? new Date(s) : null)
+
+  // New supply-chain companies: only those still tied to our products after
+  // the reject list (at least one recall with at least one kept link).
+  // A firm created by an earlier run is reused, not duplicated.
+  const keptLinks = (a: PlanAction) => a.links.filter((l) => !rejected.has(l.lid) && !rejected.has(l.key))
+  const neededFirms = new Set(
+    plan.filter((a) => a.newFirm && !rejected.has(a.aid) && !rejected.has(a.key) && keptLinks(a).length > 0).map((a) => a.companyId.slice(4))
+  )
+  const earlier = await prisma.company.findMany({ where: { vettingMethod: 'automated_recall' }, select: { id: true, legalName: true } })
+  const firmIdByKey = new Map<string, string>()
+  for (const c of earlier) for (const k of firmKeys(c.legalName)) firmIdByKey.set(k, c.id)
+  const toCreate = newFirms.filter((f) => neededFirms.has(f.key) && !firmIdByKey.has(f.key))
+  for (const f of toCreate) firmIdByKey.set(f.key, randomUUID())
+  if (toCreate.length) {
+    await prisma.company.createMany({
+      data: toCreate.map((f) => ({
+        id: firmIdByKey.get(f.key)!,
+        legalName: f.name,
+        dbaNames: f.variants.filter((v) => v !== f.name).slice(0, 10),
+        vettingStatus: 'vetted',
+        vettingMethod: 'automated_recall',
+        vettedAt: new Date(),
+        vettingNotes: 'Named as the recalling firm in a government recall notice that lists or names products we carry. Not a brand owner of those products.',
+        businessRole: 'supply_chain',
+      })),
+    })
+    applied.createdCompanyIds.push(...toCreate.map((f) => firmIdByKey.get(f.key)!))
+  }
+  log(`  new supply-chain companies created: ${toCreate.length.toLocaleString()} (reused ${[...neededFirms].filter((k) => !toCreate.some((f) => f.key === k)).length})`)
+  const realCompanyId = (a: PlanAction) => (a.newFirm ? firmIdByKey.get(a.companyId.slice(4)) ?? null : a.companyId)
   let created = 0, updated = 0, kept = 0, linksMade = 0
   const CHUNK = 250
-  const todo = plan.filter((a) => !rejected.has(a.aid) && !rejected.has(a.key))
+  const todo = plan.filter((a) => !rejected.has(a.aid) && !rejected.has(a.key) && (!a.newFirm || neededFirms.has(a.companyId.slice(4))))
   for (let i = 0; i < todo.length; i += CHUNK) {
     const chunk = todo.slice(i, i + CHUNK)
     const newActions: Record<string, unknown>[] = []
@@ -680,7 +841,8 @@ async function applyPlan(planFile: string) {
         dataPulledDate: new Date(),
         aiDrafted: true,
       }
-      const ex = existingByKey.get(`${a.agency}|${a.ref}|${a.companyId}`)
+      const companyId = realCompanyId(a)!
+      const ex = existingByKey.get(`${a.agency}|${a.ref}|${companyId}`)
       let actionId: string
       if (ex) {
         actionId = String(ex.id)
@@ -694,7 +856,7 @@ async function applyPlan(planFile: string) {
         actionId = randomUUID()
         // productRelevance: "direct" when the notice is tied to one of our
         // brands or products; otherwise left for the company page only.
-        newActions.push({ id: actionId, companyId: a.companyId, ...fields, productRelevance: links.length ? 'direct' : 'unreviewed' })
+        newActions.push({ id: actionId, companyId, ...fields, productRelevance: links.length ? 'direct' : 'unreviewed' })
         applied.createdActionIds.push(actionId)
         created++
       }
@@ -728,9 +890,9 @@ async function applyPlan(planFile: string) {
 // undo
 // ---------------------------------------------------------------------------
 async function undo(file: string) {
-  const a = JSON.parse(fs.readFileSync(file, 'utf8')) as { createdActionIds: string[]; updatedActions: Record<string, any>[]; deletedLinks: Record<string, any>[]; createdLinkIds: string[] }
+  const a = JSON.parse(fs.readFileSync(file, 'utf8')) as { createdCompanyIds?: string[]; createdActionIds: string[]; updatedActions: Record<string, any>[]; deletedLinks: Record<string, any>[]; createdLinkIds: string[] }
   log(`match-recalls — UNDO ${file}${LIVE ? '' : ' (DRY RUN: add --live to reverse)'}`)
-  log(`  would delete ${a.createdLinkIds.length} links and ${a.createdActionIds.length} actions, restore ${a.updatedActions.length} actions and ${a.deletedLinks.length} earlier links`)
+  log(`  would delete ${a.createdLinkIds.length} links, ${a.createdActionIds.length} actions and ${(a.createdCompanyIds ?? []).length} created companies, restore ${a.updatedActions.length} actions and ${a.deletedLinks.length} earlier links`)
   if (!LIVE) return
   for (let i = 0; i < a.createdLinkIds.length; i += 1000) await prisma.regulatoryActionLink.deleteMany({ where: { id: { in: a.createdLinkIds.slice(i, i + 1000) } } })
   for (let i = 0; i < a.createdActionIds.length; i += 1000) await prisma.regulatoryAction.deleteMany({ where: { id: { in: a.createdActionIds.slice(i, i + 1000) } } })
@@ -739,6 +901,7 @@ async function undo(file: string) {
     for (const k of ['actionDate', 'terminationDate', 'dataPulledDate', 'reviewDate']) if (rest[k]) rest[k] = new Date(rest[k])
     await prisma.regulatoryAction.update({ where: { id }, data: rest })
   }
+  for (const id of a.createdCompanyIds ?? []) await prisma.company.delete({ where: { id } }).catch(() => undefined)
   if (a.deletedLinks.length) await prisma.regulatoryActionLink.createMany({ data: a.deletedLinks.map((l) => ({ ...l, createdAt: new Date(l.createdAt) })) as never, skipDuplicates: true })
   log('  reversed.')
 }

@@ -1,0 +1,3105 @@
+{
+ "_about": "Decisions about companies created from recall notices (vettingMethod automated_recall), from an AI review on 2026-10-01. Applied by scripts/classify-recall-firms.ts; read by scripts/match-recalls.ts. merged: firm id -> existing company it is the same business as (its recalls move there; the firm record is deleted). aliases: names of merged firms, treated as names of that company when matching recalls. roles: businessRole per company (null = not determined). parents: firm id -> parent company. owns: brands a recalling firm owns or owned, so its recalls naming them link as owner_brand. firmPicks: a recalling-firm name (exactly as written in notices) that matches several of our companies, mapped to the one to use. Related dba pairs were settled on 2026-10-01 by making the trade-name company a child of the legal entity (backup: review_backup.dba_parent_plan).",
+ "merged": {
+  "00a03046-e4da-44b9-8f41-30d8fb159469": "93906568-0b4d-421c-9ef9-2901c2b4e603",
+  "01a34160-4fcf-49fa-9a53-442172df98d0": "a84558ca-edcb-4665-99a2-adc2406ecb15",
+  "01c5960b-a26c-4d53-9193-cc2d84a61d4a": "4e19d3e4-6204-4476-b400-a662d08728bc",
+  "0790ec20-71e0-49b7-987e-78707bbd3ca9": "4dcc13d1-78be-40fe-a9c0-ddb85cd04ecb",
+  "08355a55-471a-4bf7-87ea-6ca1629d5d47": "ad88547d-c768-4143-b80c-f456826b0c00",
+  "08cb9197-21da-4a1d-acaa-576b0479bfd5": "cf70b4e4-9250-44de-976c-eca3db2d5188",
+  "0a3c1528-4f6f-4e95-90a9-4d0cb9e0ec68": "0de1459b-31d8-4ee7-bba4-c823395e9d74",
+  "0d089281-3a4c-40fd-aa0d-7b831cf6b64f": "8a33f5cc-d771-4139-aafa-bb64323903af",
+  "0d1ca189-8976-4028-95a6-af35418b65bf": "328211cf-1c20-462d-a6e7-450d27b5cd1e",
+  "0ec1c7be-f8b2-4085-af60-0cf855416d35": "c18548e9-b284-4fb3-b9b2-9128c3717918",
+  "0eec01ca-3045-464a-ade8-619999d767b6": "369748c3-433a-4219-bf4f-2ae6cf8622c1",
+  "0f42cce4-c48b-442b-9a42-756b42f5c04a": "b28fe165-a3b6-405b-aac6-920e9b09eda9",
+  "11671a5b-b524-4e26-b3d7-a6a3ec6ebb85": "fa1c0be4-c573-4fcb-9cb6-33541600d727",
+  "11f1d9a5-d134-4682-b6e9-f25c102358e3": "2958cb50-7b78-4f28-a5dd-665b7f44e576",
+  "1243d404-5213-4f0e-821a-7c926f97c22e": "eba165d1-1d10-4734-93e0-045466ff11fb",
+  "12bc4e9a-6ea0-4560-8dcd-d690b154c5c5": "4a8632e5-c8ee-4756-9cb2-5b473495327d",
+  "189f492a-2e1f-4a09-a2d1-4035a5e79f3c": "dc240412-4695-4484-ae2f-b21c150fab25",
+  "1958c0f1-0218-48c8-9580-10d93a36fdfd": "3222e2dd-3f4f-4742-acfc-9ad2060ee95d",
+  "1d01a48c-b67b-4377-a3f8-14928ab1bcbb": "e09aa5ea-51ac-4567-a241-5bd4fa8deaa2",
+  "1d77adee-b2cd-4bac-bf26-40774e8d2a0b": "bf8954b2-f0c3-4e79-bb81-3f68ff173f53",
+  "1e136b16-e046-4433-81c0-66cb525d3674": "a0879aa3-168a-489b-b7c8-6f88a52c4e69",
+  "1f8ca922-e6ea-41ad-9248-4d88005d7986": "55296248-1d85-420e-8949-69cf3847152c",
+  "21e02408-1157-472f-96e8-cb2ef045abfb": "4fcf0313-8392-4165-80d8-7b38aef66515",
+  "227fef2b-3c40-4ddd-b4e5-5db47043abff": "b39f710d-8f39-476b-8eb4-25c7ab0b6433",
+  "233fbb1f-0d48-4728-bce2-ef3d7d16b052": "25562041-ccc0-4fce-89fd-b12b23ab2e4f",
+  "24ef12ec-b2f0-4b1b-8f00-498df56d2053": "6427aad5-a1ad-41ac-b34d-6783af255d44",
+  "255e2961-fa0d-4b11-9a0b-a909c9a41fbe": "bcebb7f7-6197-4a85-a6eb-d81b9a965110",
+  "25cf8d2e-b588-435f-ba7b-c20e6076ba09": "28f4d43e-5175-475c-b22b-a20b348e54d0",
+  "25e202dc-71a6-48a6-a4c9-412416d6c4f6": "d21097cd-806b-4084-90f4-df1c2045305e",
+  "260127d5-4f65-440d-8faa-c72b0a44a68d": "55f9bc7b-3ad2-4b9e-a441-bedcd72325dd",
+  "26c39c7e-d6d7-404d-bb51-6ea6aaf2a13c": "007c0408-464a-40c0-abb1-ef2c4738f10a",
+  "289f9051-7723-492b-ac3c-5649d85a9fe5": "6b2f9923-5d50-43f4-bd6d-701eb68e6cb3",
+  "2a21b11e-96ac-4a97-8678-102b2f1111d7": "f86ca773-68b6-4057-9b1e-76c7633c35a4",
+  "2a828d0f-a84e-4635-a760-9236b440cdfc": "ae68af31-1585-423f-a5e6-a3daf0f3529e",
+  "2b3dc92d-e54a-4f4f-b95e-9b271df5c238": "6ddca393-f191-4c6e-93df-e306c072c73c",
+  "2bfc9ea2-94ec-4a10-b6f7-aca7a7c78fab": "4846b839-c65d-4552-bdc5-89c71409f62b",
+  "2c21b3b0-77b1-4775-8e48-bf087c26b30e": "c3bbfc44-c525-4fba-9f04-4d624b3d8732",
+  "2cd0f88d-4d35-4fe4-adac-883d0fb02b72": "cab60782-0f55-4044-87e8-a97059af20e0",
+  "2e4ee978-e6b6-45de-a850-6e6086f3a4eb": "7536d2a5-961b-4f02-87a9-4c467078a25b",
+  "32d46760-de91-4bf1-839b-a024faf4451b": "6c3ed708-7a22-49a4-8ccf-32e22dee5c60",
+  "33fcdf65-8238-4cf7-bf8c-fb597225c2a2": "4786454b-71e0-4b9e-96f8-46ddc03ed643",
+  "38ac529c-0200-4c95-b3f6-3c7a929e40a4": "f7137fb6-2bef-4214-8d0e-9f63f2b5db5e",
+  "38b3d9eb-5b7b-4776-adf7-295e0ff8ab53": "73bf379e-f86a-412f-bea0-7086cf234c46",
+  "3a523131-91b1-4ce9-a2a4-bb4f32d0d208": "1137706d-0cbd-4ad7-906d-22918268b345",
+  "3afaa2bb-c176-46a7-911e-6e098890f7bc": "05a3b169-8f77-4a65-9e9f-d5252bfedf8d",
+  "3d01e754-ad91-4b07-a664-9c1caf217967": "23a235d4-38df-4467-85dc-be62f2f2b8a3",
+  "3f94c141-8903-4a8c-8021-f579658a3514": "a21ffe79-bfd4-4399-b84b-2b3633c87afc",
+  "3ffe1561-e344-4f3a-ac34-8d21b16e7ff3": "95792bd3-a589-40af-936d-fed57bd5a74f",
+  "419fa129-ef68-442a-b967-3d9dd7a7a8af": "1f1fa841-8800-4676-9bb6-c27849a67cae",
+  "459abebf-e1f4-4dbb-ab55-e7856cf8962f": "ebf7f26b-7d81-4c7b-9553-07c8f945fce5",
+  "45a3adca-ef4a-4bf9-995b-84eae5a055b1": "3bdacdd9-eb58-446d-9a4c-0d87c567d9b0",
+  "460162b3-7c47-464c-a170-c9ccf65d6741": "bd0a1e8e-c3f3-4e30-bb23-d41d81d8303d",
+  "47b15959-c6aa-47b6-8d36-11159c3ae8a5": "91de8d22-67b2-4924-8e79-c8f69e169d9b",
+  "49a40ea6-c6bf-415f-ba7e-18c615b109fe": "212b4d13-9e50-479c-a8b5-3afa910b15b5",
+  "4bd7b1de-19da-4e61-ab18-0e5a6045da09": "9c233e1e-f6f6-4472-a96b-122936247a19",
+  "4d1d83f9-0e66-407a-830d-d76362183cca": "840cce4d-24f5-41b0-81f1-ccf4548f2d46",
+  "50244582-bca0-4923-bd57-74fbc0d44fa8": "4e184d98-97e2-4dce-bcbb-c06cf57276a4",
+  "52767c33-db04-48ba-a097-399e190772a9": "ad88547d-c768-4143-b80c-f456826b0c00",
+  "532501dc-9b05-45f7-a42b-498cd0c0d53b": "9834b42a-3192-4aa4-b0bd-0b5657a40620",
+  "55454c58-19a2-4ee8-bc90-b3f4870595fd": "23078b37-ccca-4087-851a-abcf9519009b",
+  "577f4809-5062-4dec-a3fa-13840640af97": "6cb7f4dd-d2ee-4c07-9973-772f41c83b93",
+  "57cffe71-d485-419a-8525-fc705d75c96b": "bd23ae4c-4f04-4469-b2cc-f34b8ab4a8c5",
+  "57d49f06-ae0f-4d85-bd94-be056dfafce3": "7bbf7df9-4cdb-495e-894c-fa5da072b535",
+  "583d3f1a-2ba7-424d-a936-0f020bc44a1a": "ca4a4bef-bd62-48da-8623-5b177d43dd82",
+  "5a439192-1dcb-469c-b652-b3707c910451": "d2ef88ed-1ff3-400e-b402-80bab8b2c21e",
+  "5caa811d-df3d-4afd-8aeb-54ee0817b591": "ceeb6098-7adc-4045-9981-e80539e83a37",
+  "5d0f61c9-7198-46de-aa68-f51d49b7a876": "c7719ea2-983c-428c-bbfb-20d824b340aa",
+  "5e7cf8ae-a0d2-4712-a5f9-f58cdc35ad65": "7b3c9799-7e37-4b25-a1c8-2d2d6ab5c813",
+  "5ea3df13-6a0e-44bc-9b7e-1bbf72baf554": "fd717e72-130d-406c-a762-b996d6d86d6b",
+  "5fa5efa7-3756-49d7-babf-c5b42ccbc5d7": "307b7fef-b838-48cf-bc89-72093ad6e1e4",
+  "6029ce26-e0ae-426e-8f88-c0830e458b53": "633c44db-36e1-498d-bdea-6f56bace9c2e",
+  "602cce05-718c-4f76-b3bc-a5be21ef5905": "f81156e8-f355-45c1-8ab9-d036fb7ee0c1",
+  "606b6244-2693-4fbe-a011-53ebb3a9ca65": "bbaf7357-6d73-48a6-b11c-b7564ce79626",
+  "624b7614-2b8e-4de4-96e3-9997f525c2de": "74fc914b-d7cd-425b-b666-73f7fb7af8e3",
+  "68d28716-f261-4ce4-8097-787534e11a77": "b17ffe2b-c512-428f-808f-9ec22d85436c",
+  "69065785-d287-426d-b6c9-711d899e9dc9": "0703a6bc-56e9-4b81-8212-e960ddefab7f",
+  "6a82db73-e5d5-42d7-a53e-6994f8e747a7": "569f7719-bdc7-4702-b6be-22d4a89b98b8",
+  "6d69eb81-eeb2-4b18-9b97-14101a645023": "c5824243-9d32-4cbb-9be3-70fb52a9110c",
+  "6f9b8cc7-6f2a-4412-9b8b-d46475d771b6": "b06af378-e68e-4145-9985-0aba88d9cd5c",
+  "7236cf1e-7077-4b47-98ee-4d89dee41c76": "ca4a4bef-bd62-48da-8623-5b177d43dd82",
+  "725360f3-7027-41d1-9a82-1f110d097e77": "09d5d007-4dc8-4ce1-9446-d2b85603e8a0",
+  "743a5c5e-73c3-4dac-9bd5-7b6935013a2d": "b3fb4f88-9715-4d7e-9644-04dfed13e425",
+  "7668b8a0-6a02-4dbe-a718-ee293d7808e7": "08f372ba-5e1d-452a-bb04-0c98d710fae6",
+  "76adfaef-9cd1-435e-9524-98526811a062": "5a3c4bff-e45c-4df3-a7f4-ca495de5e432",
+  "77012e53-cea7-452c-921e-55e961368f94": "fc51d34b-5bda-453a-ab91-14de0a8881ea",
+  "77ff83be-c260-447e-a9cf-e84070076e96": "ab57e0d5-b7d8-40ab-969d-9d2b4ce7db54",
+  "78918acf-b8c2-4313-892e-8b7ba92af93b": "79093475-92fb-427e-8a17-35fbb0ebb5ba",
+  "78b90eea-563b-4adb-852d-98160342eca1": "54a8d2c4-2c26-43df-bfdb-dbbb2111b93c",
+  "7b6fbd92-9c7f-4c52-82d3-0a7171ddc2cc": "eb7bd680-f17f-413c-84ec-ee6847356aa2",
+  "7b99bc08-b87e-4b39-9c5d-df1158888812": "f776f440-7c12-4a3f-be4f-7791e9194216",
+  "7bb92783-5451-460c-87d0-564767d2c96f": "13217960-9ec6-4c08-9199-8ae51e3844ca",
+  "7c0cf41d-802a-47b1-bb4e-203c073ac935": "279366ce-a9fe-4d2c-9b8d-e02135f4fb59",
+  "7deca980-aad6-4bda-bf5f-c795394f6041": "a3c00e02-73d2-4b60-a5b5-c2e48bb48b91",
+  "7dff84f2-bc14-4a1e-ab61-de0fbb8b8532": "9cf52672-852a-4f9d-a71c-c36a666695d5",
+  "7e399ecf-201b-4045-9a78-275c4d0f4c94": "82f2d8fa-e2bc-4997-8cfc-6f8de296d214",
+  "7e5a928c-14b6-4d45-91ce-f779928ae42f": "649dd073-86f5-4a38-b78a-90507f9c8ec7",
+  "7f0bc951-809a-4531-a685-9314d217e38d": "a8baf61d-31b7-4390-b3d0-48824c65395e",
+  "7f9e0813-c74b-4806-a595-bc1962459013": "6390d097-75ee-4a55-aa43-f26bdf8f475c",
+  "80363754-e8e1-4c64-9a43-0b063f1e0f51": "eda42b2a-e5eb-44a2-b18d-52303ddbe223",
+  "83114a02-2552-4727-8771-3710013ebee3": "778d5a06-cbee-4c56-949b-e1801bb72003",
+  "834c21e2-fb9c-46ac-9a32-eee92ba02090": "2c225d6e-dbcc-4837-8bda-760157c15193",
+  "863361d9-c8f0-4484-9d1f-55e0162b714a": "5335dd2b-4eff-4321-a669-bd0cefba053a",
+  "86637004-936b-4fce-99eb-802afe9b9da7": "3d2cdb3c-ad40-4983-8c70-06ef43dd10d4",
+  "86a2720b-8315-4605-8896-0f2052475425": "42fa7741-cb4f-412c-8a6c-4d9a4ab00a04",
+  "87c95cff-d4b3-4160-a0bb-5e139ee95b38": "ad88547d-c768-4143-b80c-f456826b0c00",
+  "8b8c0445-214c-4347-b3e3-dfe516552bef": "0de8bfc3-fe77-4412-92c3-6a81d21cf836",
+  "8cf159f2-4195-421d-8cfc-f25dd9c6371b": "d348ebbe-6857-42de-b289-2f041f5d0c7d",
+  "8dd50225-6f39-403c-b4db-a754797237ad": "f32fafde-a04b-46da-b4c4-fba0bb96c933",
+  "8ef7dcb4-1fa7-407a-9801-23fc6ff0cbaa": "00a13f28-0cf8-43b5-b2c7-22010e80f090",
+  "907ea7cd-db6c-4a7a-8c91-faa3565dcf0b": "9213d2e4-3217-42f9-aba4-6ce4a6f5dd70",
+  "912634fc-82b5-4824-9c26-8137d04b5096": "e04f8154-d18b-4be1-b933-cee4f565f9e5",
+  "91c0ff60-86eb-4cae-8c30-4a11054b69f6": "b8098603-3c68-4b6a-8ae4-d57ac5d01ce1",
+  "962b076f-04f9-4aa3-b57b-2c46197109e3": "2ab6a375-10e8-41c0-8b0f-215bb1b49b02",
+  "96b4054d-ed46-44a2-b773-26c9e1420469": "142973e6-873a-4e43-87fe-5088b42fd217",
+  "96bc08d4-67b0-4f37-9152-4b464987b9c0": "cd062865-a87d-4db6-ace9-a6d8739e5980",
+  "96d1974d-1040-477e-9007-2be99259c8b9": "1f4addf4-3f01-40e0-9237-7365af22ba54",
+  "97e364d1-0b97-4b7a-8440-c10354f03c9a": "322f05a4-530e-4486-9b7d-d3a87eaaf28e",
+  "9950a952-fd52-43ad-aca3-b3e18a19110c": "074267a8-9269-48a4-b240-ee39823de80b",
+  "9ba31aaa-33fb-46d8-8d91-596222a4d40b": "f776f440-7c12-4a3f-be4f-7791e9194216",
+  "9be5d35e-94a5-4160-ad72-0fa42a90018f": "68af5751-7766-4391-a53d-cbbe5ef03812",
+  "9c0ea11e-694b-4c9b-9403-39897ac5feb0": "0028c270-8c7e-44d8-86de-ab69f4173b1c",
+  "9c8c54cb-2cec-48cd-a7a4-e1e359ad4743": "c00e082c-2526-47a4-9ead-dd6f54e7c6db",
+  "9d5ba6ff-f4eb-4fb2-9697-21f096f5b52d": "545444fe-c4d4-441c-8507-bfb21de107bd",
+  "9de3dff3-c623-486e-b07a-a711d34c5dca": "dd97dd83-533f-469a-8e79-3d1ca47d1f3b",
+  "a1145994-0e40-47c3-9f0f-cee12cdd9c4a": "6a9a5234-8378-4a24-b1ba-b84477c96e1d",
+  "a17460cc-b95b-4040-be48-6decec48c814": "18f38d41-2d5b-4730-9efc-7144bbe40d16",
+  "a233560b-183c-479e-b228-ccf9543c0360": "efe1fd1f-d80d-42f7-87da-b9612837cfb4",
+  "a575b4c6-24ad-441f-81ce-6f2293bca28a": "11cd5fb4-1669-436b-89a9-e8b1765107cd",
+  "a64a9911-bc6f-4a90-994d-45b966577297": "23be1ee0-46a6-4d25-83e3-3ce5a6551b06",
+  "a655bfb6-b473-4954-8ac1-6a0f9347d70a": "db91e40d-5e2a-4b44-a99e-3ab66fee2357",
+  "a67911b3-9a32-485c-aacd-f7db00693686": "92598ded-79ab-4cdd-bf07-4c7a0f20a15e",
+  "a889f9b3-26b7-43c5-89b8-f35668c13028": "4846b839-c65d-4552-bdc5-89c71409f62b",
+  "a8da6f0e-8c44-465d-96aa-21769c2dcd16": "dd97dd83-533f-469a-8e79-3d1ca47d1f3b",
+  "a9356f89-73fc-44f0-b010-08ba1ac14b60": "64f1b52c-e264-42ad-81bf-b17a2cd28adb",
+  "aa50de13-d502-4cbd-810e-c950a23b9423": "e8b246c7-3199-434c-9b52-2c0b815ef3b7",
+  "aac6c7c8-7878-4d7b-9700-ea6ddcbe06c9": "11fdbf11-4e76-43dd-9376-739f277ef51f",
+  "ab3bd2e5-d7d9-4291-b560-f620e46dd182": "93d55617-1300-4229-ac4d-cbc1ee2061e8",
+  "ad4394e2-1401-42af-8b22-767ac2c72620": "3d9c14a1-bbf6-46b7-873e-d6b8ddb0a43c",
+  "ad4eba0c-2658-4959-84c0-d667058e90f1": "251781c6-9233-4818-961a-ecff1c1c0357",
+  "adb73541-9952-4b6b-abcc-a1fdb0cc64fa": "f20299e3-3c8a-4e89-b139-fba8b59ac33b",
+  "aef53f2b-1434-49f2-a90e-a9e418e95446": "c261dd61-c353-442b-a8d9-f20f5b8cd2be",
+  "af60803e-cabf-41ee-a9fc-cbd9a242c507": "91b53900-b6a7-4e7e-91bf-730f3f42af54",
+  "afb06ee3-488f-43dd-9034-64906163a018": "baddaa63-01ca-458f-97fd-bb45a05c4e9c",
+  "b15d5e2a-c9fa-4ea3-ad7c-e27a91b30b15": "97c1c36a-41c6-4004-a73d-ea3fcb05032e",
+  "b273f064-e39f-43c9-b8a6-24a483f0c46c": "5b84a8c4-b65d-4609-be03-77d1141d0cb1",
+  "b3796c9e-841a-4844-98a8-f9523d17d499": "fdd129cc-5abb-4823-b299-e72ff8fc7879",
+  "b5c76087-0d76-4d67-9ccf-4e6badc39bd5": "70905dcc-d3d7-4a2f-904c-2071b39eaeca",
+  "b605565d-54cb-4dfa-8280-c12e477e9d6d": "eba140e3-5a94-4120-88fe-cc83dad80a6c",
+  "b66be75d-ac45-4d11-8193-14e6d0335dfb": "b0759f15-3042-4828-87dc-89e2d595e4ac",
+  "b6a62981-b44e-4236-a674-d3391abe282b": "613b122d-0f80-4702-96e6-4aedb7e92bf2",
+  "b6e8c9db-d3e8-46dd-b491-9053009a2c9d": "992d28bd-ed95-47ef-82f2-ca6c875f55f5",
+  "b74f68e2-057b-48e5-b0b3-eb9aa8e0dc07": "95792bd3-a589-40af-936d-fed57bd5a74f",
+  "b9a82268-37ed-44ea-a254-eedcd5fb031b": "66d2c0a8-0af3-4cbc-8bc4-ade13f786ff6",
+  "ba9d55b0-8ee3-4b42-9b3e-a70d43c23bf9": "3e6fa61e-745d-4238-a13e-350353d7d539",
+  "bd160e60-65e3-4890-b500-38b73e574fd5": "18f38d41-2d5b-4730-9efc-7144bbe40d16",
+  "be4cf8df-d617-4099-b043-0f0da52be6df": "5aeabe88-4f80-4d04-9d64-3985d2be70a4",
+  "bfe84eea-c9f7-4411-afa1-4f4a576fac6c": "1e7d8bba-b7e2-4a71-b5e1-0c3c4cbd9c26",
+  "c0f08519-b4f5-4a4b-8012-3d0279ec1130": "b5af0303-378d-4452-9d7d-a784de931261",
+  "c143b725-e1ca-4d46-b588-d153dc396375": "f5748e70-ae41-4e3c-8c75-c33f76330a19",
+  "c16c7dfa-8d43-4a9a-bbe2-faea6ca21282": "9c2457bb-67ab-43a4-939a-ca02192f3925",
+  "c2a0547b-54c2-4858-982c-6118683710c4": "033fcb7d-4b66-44d4-a7a6-0f340ec3994e",
+  "c4747e53-bd67-44a2-9665-8ba8e35025ae": "3b93e2a3-75c4-4dc5-b4a0-d4ad7683f3fc",
+  "c5c6d9b3-71b5-4551-80d2-c0f78818fffa": "fc51d34b-5bda-453a-ab91-14de0a8881ea",
+  "c684b40b-7a25-4edf-8e48-872cc50752ce": "f32fafde-a04b-46da-b4c4-fba0bb96c933",
+  "c745d6f5-21fb-4b19-9be3-af16d4d5223e": "05a8b434-defb-4bda-86f2-9f0ed44dd395",
+  "c8ffcebb-e269-4195-9d86-e61a29163933": "14d1023e-fd19-4ced-89de-cab97d4da752",
+  "cc67aaff-672d-4ddb-886a-3ff87504c60d": "28a591d0-56a3-473e-8602-43488606c207",
+  "cd2f1650-509b-4530-a7ca-92f0dd565eeb": "a5797436-ca7c-4882-a092-64a33638cd70",
+  "cddd5f88-aaf4-4c54-bb47-cdbccf319e44": "93612b57-78f3-4e2b-9c76-0bd73491cb6d",
+  "ce7c3b24-ba5a-44a9-b3a2-7989410d0bde": "2c334048-eb89-4a52-82b5-8b4bcafe98c7",
+  "cf9243a5-1c28-481f-801e-a7bb9674a51f": "4ce0368f-3d56-4165-9880-50bcf3cbb850",
+  "d2560078-0a06-478c-bbed-1e756b9f9a7d": "bcebb7f7-6197-4a85-a6eb-d81b9a965110",
+  "d324d5a8-d31e-485a-a65b-5e8c4e933557": "1c46fe8d-d194-494e-8e35-68eb149e133f",
+  "d503cc9f-136b-42fb-b443-8810a848b6a1": "01c9e88f-c371-44ca-b89c-e24ef4ef2b1a",
+  "d7459897-31d8-4822-8030-1c41d20a2935": "451e98bd-9ff8-4e7b-aeb6-af9d59d523bc",
+  "db57e5b5-3df2-4fa0-8221-8d15daf07340": "69067b47-73c9-434c-98e4-7d45d000dcf5",
+  "dc407647-f757-4226-ac2c-951dbe321cf0": "8ce62113-46f3-4840-a98f-87b6f8af7d11",
+  "dcc83d30-3534-4ebc-8118-9c7b3cb5c916": "cc35c14e-155d-4fe1-ba6f-93ba7c8cb7b2",
+  "dd10ec3d-6e8e-4bdb-b099-dc6d4a76ae39": "92f8dd2b-3a46-4f8d-9e60-9d7f26ca5546",
+  "dd932bd6-f2f2-492a-8a20-dd1162387ee8": "9b4f2603-c05d-4bf5-960f-e974044bde1a",
+  "de0389f2-c19e-46d2-bbbb-c933f5939411": "e76aea9d-1900-4179-b6cd-ce36f6470d28",
+  "dea1844b-17f7-4fe4-9a55-0d46d9762402": "c7ae9356-fb5f-4334-9030-1d07406b300b",
+  "df663fb7-26d4-468d-8d0d-f76d6a37e92d": "b76c3c9e-027d-4c3e-963d-1a2f4496d7f3",
+  "dfe1f51c-b477-41ff-93e2-1dc59bac6513": "769aac80-a4f8-4f2d-b1e7-a03f8d401f68",
+  "e0a08019-15a5-4c4b-8484-37d8a46636f4": "5a3c4bff-e45c-4df3-a7f4-ca495de5e432",
+  "e0a23b39-8966-4fdd-89cb-3aa0a4002abb": "6a9a5234-8378-4a24-b1ba-b84477c96e1d",
+  "e382e335-8ab6-4442-9ea2-7e3e6f1ba8f0": "cf9bf509-c0ec-4b75-8de7-7b98b57869fd",
+  "e3bc252c-351d-4389-9a27-817abab225f0": "31703c71-58e3-4e92-8d8b-475441852a22",
+  "e58ac3ad-ec38-49a1-8f97-639159539f10": "9a7de8b8-f1cc-460a-a675-a7ab32f13680",
+  "e67606b4-6ddc-4d29-af03-7b8c6ba44c38": "a60ed882-8a02-4a2d-bd07-d321611bb2be",
+  "e94f4c3d-1434-41b3-9a31-2e2700de7ace": "5356ef6c-141d-48cb-93d9-be3038467f37",
+  "eba5c567-acad-4cbd-9be9-56015c63a5e6": "ab81540b-e2e3-4acc-b1d2-cb5973210051",
+  "ec5a10e1-b40e-4072-a009-8a0a65dc8303": "c5498216-47b6-4d89-a369-63037fbba848",
+  "ed021dd5-30b1-4dab-ab53-9760d1c2a2dc": "c26a9bdf-b9c6-4e4a-b58e-089ffc518c52",
+  "ed475a3b-4790-4a51-b4c7-fe2a90906f2b": "9c2457bb-67ab-43a4-939a-ca02192f3925",
+  "ee0fa662-3299-4e5c-bdb7-275fba9c48f0": "d2ef88ed-1ff3-400e-b402-80bab8b2c21e",
+  "ee5b0acc-fc51-4eab-8583-f092e34e0781": "917289e3-e9dd-429c-851d-66b55fd932ce",
+  "eff20e74-b6cf-47ff-8e0d-f0d690b161cc": "a33eb730-c967-4955-ba45-c847eadb2e23",
+  "f13894b4-548f-4a92-94d8-1ae314aead33": "02aeffe9-b91d-4202-a831-87b9a41490c5",
+  "f1ec6b85-bc61-48c0-a0b3-3bfef6f47284": "a2e6590d-ae0f-4215-a814-2cf5e7ed115a",
+  "f2dcfd04-4c86-4389-96a9-ba5193cab49d": "2939ee07-0f98-48b2-a6d5-a08b9497b3aa",
+  "f3984064-3944-4343-b507-7373992ad5a7": "43d4aea5-5759-472c-8b11-1c0450d27e17",
+  "f3bd0dc6-0726-4a42-9625-46e4fbf4cc5b": "139231a4-67eb-4f11-9e44-344e1bf93f7d",
+  "f3fb59f7-20f5-4937-9601-274e6930904f": "6f69a359-3d2f-48e3-9c40-a2828714e45a",
+  "f4d6db03-0c69-440b-a649-888ee02e2069": "bcebb7f7-6197-4a85-a6eb-d81b9a965110",
+  "f5dc3938-b811-41f4-a9cd-93a34755df8e": "3156a956-f896-4e56-8a2a-b757e8c247bb",
+  "f6a7996d-3f01-4437-8627-f8c5a309d5f1": "32be507d-fe07-497d-8b09-eacb5d822773",
+  "f7d76eba-61da-476d-a85c-1a4d51bf71ca": "812c07f4-2119-46a5-a135-c540456160b4",
+  "f840eb24-681b-413c-a416-513d24dff4a4": "b65a1236-ded1-4914-b14b-4fa462e939ab",
+  "f88d160c-6457-4a82-a09e-6ecc24be0e64": "13fc041a-6a92-4974-bbba-2422b2914304",
+  "f99a4997-0988-491f-9325-c2350fec4851": "7d0697b2-21fd-4c16-9e92-ebe24486b7f7",
+  "f9c33ddc-9152-4a64-997d-7e6c0891f88f": "e487eb60-b196-4fb7-b897-a51659a8eb81",
+  "fb3dc243-4b96-4d1d-bba0-78bebd65083b": "bb3e11e9-cfd5-4258-a877-8cc785ebbdb8",
+  "fc978e7d-bd67-4434-88b1-e95f9263a85f": "84e7d52f-569a-4017-853b-1f3d388fb3e2",
+  "fd056ace-38cb-4086-ac6f-fdcb9000bc73": "20ad5e46-ce3c-4a98-bf2b-3f8418128ea3",
+  "ff0350cf-83ad-4fad-ac35-ee745472c1de": "932c8ce8-e55b-4adb-bbaa-d8304e61e964",
+  "ff942fcd-0bff-4705-997f-939f3322a0a9": "3c998f5e-609c-40f6-8889-4d4126b95f5c",
+  "ff9c2e1c-e064-4cc3-9929-4ee04b57dad5": "074267a8-9269-48a4-b240-ee39823de80b",
+  "fff6803b-1728-4a3a-b870-b3a53c4de8f0": "c57f4264-0f68-41d8-b1ff-fe07851acb74"
+ },
+ "aliases": {
+  "0028c270-8c7e-44d8-86de-ab69f4173b1c": [
+   "Danncy Vainilla"
+  ],
+  "007c0408-464a-40c0-abb1-ef2c4738f10a": [
+   "Caledonia Facility of Revolution Farms LLC"
+  ],
+  "00a13f28-0cf8-43b5-b2c7-22010e80f090": [
+   "Quaker Foods and Snacks North America"
+  ],
+  "01c9e88f-c371-44ca-b89c-e24ef4ef2b1a": [
+   "Oregon Freeze Dry Inc",
+   "Oregon Freeze Dry, Inc."
+  ],
+  "02aeffe9-b91d-4202-a831-87b9a41490c5": [
+   "The HMC Group Marketing Inc"
+  ],
+  "033fcb7d-4b66-44d4-a7a6-0f340ec3994e": [
+   "Sam MillsUSA LLC"
+  ],
+  "05a3b169-8f77-4a65-9e9f-d5252bfedf8d": [
+   "JABSONS FOODS PRIVATE LIMITED (Formerly Known as Jabsons Cottonseed Ind.Pvt.Ltd.)"
+  ],
+  "05a8b434-defb-4bda-86f2-9f0ed44dd395": [
+   "Lund Food Holdings Inc"
+  ],
+  "0703a6bc-56e9-4b81-8212-e960ddefab7f": [
+   "Roland Foods, LLC",
+   "Roland Foods, LLC."
+  ],
+  "074267a8-9269-48a4-b240-ee39823de80b": [
+   "Give & Go Prepared Foods",
+   "Give and Go Prepared Foods Corp - Finch"
+  ],
+  "08f372ba-5e1d-452a-bb04-0c98d710fae6": [
+   "House of Spices India, Inc."
+  ],
+  "09d5d007-4dc8-4ce1-9446-d2b85603e8a0": [
+   "Kroger Corporate Food Technology Laboratory"
+  ],
+  "0de1459b-31d8-4ee7-bba4-c823395e9d74": [
+   "Pita Pal Foods LP"
+  ],
+  "0de8bfc3-fe77-4412-92c3-6a81d21cf836": [
+   "E & M Corporation, Dba Noh Foods International Of Hawaii"
+  ],
+  "1137706d-0cbd-4ad7-906d-22918268b345": [
+   "Pinnacle Food Group, Llc"
+  ],
+  "11cd5fb4-1669-436b-89a9-e8b1765107cd": [
+   "Twenty-First Century Healthcare, Inc"
+  ],
+  "11fdbf11-4e76-43dd-9376-739f277ef51f": [
+   "Cedarlane Natural Foods Inc/Frankly Fresh Foods Inc."
+  ],
+  "13217960-9ec6-4c08-9199-8ae51e3844ca": [
+   "Mercola Group"
+  ],
+  "139231a4-67eb-4f11-9e44-344e1bf93f7d": [
+   "Bee Well Honey Farm & Supply Inc."
+  ],
+  "13fc041a-6a92-4974-bbba-2422b2914304": [
+   "Woeber Mustard Manufacturing Co Inc"
+  ],
+  "142973e6-873a-4e43-87fe-5088b42fd217": [
+   "Julie's Real Foods LLC"
+  ],
+  "14d1023e-fd19-4ced-89de-cab97d4da752": [
+   "Brunkow Cheese of Wisconsin, Inc."
+  ],
+  "18f38d41-2d5b-4730-9efc-7144bbe40d16": [
+   "EL Chilar Huff",
+   "EL Chilar-HF, LLC"
+  ],
+  "1c46fe8d-d194-494e-8e35-68eb149e133f": [
+   "Weis Markets, Inc., Ice Cream Division"
+  ],
+  "1e7d8bba-b7e2-4a71-b5e1-0c3c4cbd9c26": [
+   "Hammond's Candies Since 1920 II, LLC"
+  ],
+  "1f1fa841-8800-4676-9bb6-c27849a67cae": [
+   "Ambriola Co., Inc., The"
+  ],
+  "1f4addf4-3f01-40e0-9237-7365af22ba54": [
+   "keen-wah LLC"
+  ],
+  "20ad5e46-ce3c-4a98-bf2b-3f8418128ea3": [
+   "Utz Quality Food Inc"
+  ],
+  "212b4d13-9e50-479c-a8b5-3afa910b15b5": [
+   "New Frontier Foods/Ocean's Halo"
+  ],
+  "23078b37-ccca-4087-851a-abcf9519009b": [
+   "Evershing International Trading Inc."
+  ],
+  "23a235d4-38df-4467-85dc-be62f2f2b8a3": [
+   "Church & Dwight Co., Inc. OGI Distribution Center"
+  ],
+  "23be1ee0-46a6-4d25-83e3-3ce5a6551b06": [
+   "Wakefern Foods Corp."
+  ],
+  "251781c6-9233-4818-961a-ecff1c1c0357": [
+   "KRISPY KREME DOUGHNUT CORPORATIO"
+  ],
+  "25562041-ccc0-4fce-89fd-b12b23ab2e4f": [
+   "Guayaki S.R.P., Inc."
+  ],
+  "279366ce-a9fe-4d2c-9b8d-e02135f4fb59": [
+   "Texas Star Nut and Food Co., Inc."
+  ],
+  "28a591d0-56a3-473e-8602-43488606c207": [
+   "Revive Organics, Inc."
+  ],
+  "28f4d43e-5175-475c-b22b-a20b348e54d0": [
+   "L.A. Lucky Import & Export"
+  ],
+  "2939ee07-0f98-48b2-a6d5-a08b9497b3aa": [
+   "TILLAMOOK COUNTY CREAMERY ASSOC"
+  ],
+  "2958cb50-7b78-4f28-a5dd-665b7f44e576": [
+   "Gerber Products Company dba Nestle Infant Nutrition"
+  ],
+  "2ab6a375-10e8-41c0-8b0f-215bb1b49b02": [
+   "Rhodes Legacy, Inc."
+  ],
+  "2c225d6e-dbcc-4837-8bda-760157c15193": [
+   "Family Dollar Stores - NC Distribution Center"
+  ],
+  "2c334048-eb89-4a52-82b5-8b4bcafe98c7": [
+   "Pennsylvania State University  Berkey Creamery"
+  ],
+  "307b7fef-b838-48cf-bc89-72093ad6e1e4": [
+   "Simkins Brothers Sweets, LLC dba Natural Way Food Group"
+  ],
+  "3156a956-f896-4e56-8a2a-b757e8c247bb": [
+   "Paris Brothers Inc"
+  ],
+  "31703c71-58e3-4e92-8d8b-475441852a22": [
+   "Maytag Dairy Farms Inc"
+  ],
+  "3222e2dd-3f4f-4742-acfc-9ad2060ee95d": [
+   "The Pastene Companies Ltd."
+  ],
+  "322f05a4-530e-4486-9b7d-d3a87eaaf28e": [
+   "Ross Acquisitions Company"
+  ],
+  "328211cf-1c20-462d-a6e7-450d27b5cd1e": [
+   "NewStar Fresh Foods, LLC"
+  ],
+  "32be507d-fe07-497d-8b09-eacb5d822773": [
+   "Middlefield Original Cheese Cooperative"
+  ],
+  "369748c3-433a-4219-bf4f-2ae6cf8622c1": [
+   "Fresh Express Incorpated"
+  ],
+  "3b93e2a3-75c4-4dc5-b4a0-d4ad7683f3fc": [
+   "GT's Living Foods"
+  ],
+  "3bdacdd9-eb58-446d-9a4c-0d87c567d9b0": [
+   "El Tampiqueno Food Products, LLC"
+  ],
+  "3c998f5e-609c-40f6-8889-4d4126b95f5c": [
+   "PERDUE FOODS, LLC.",
+   "Perdue Foods LLC",
+   "Perdue Foods, LLC"
+  ],
+  "3d2cdb3c-ad40-4983-8c70-06ef43dd10d4": [
+   "Ferrara Candy Comp"
+  ],
+  "3d9c14a1-bbf6-46b7-873e-d6b8ddb0a43c": [
+   "MegaMex Foods, LLC - R&D Center"
+  ],
+  "3e6fa61e-745d-4238-a13e-350353d7d539": [
+   "NW Nutritional Foods LLC"
+  ],
+  "42fa7741-cb4f-412c-8a6c-4d9a4ab00a04": [
+   "Chobani Idaho"
+  ],
+  "43d4aea5-5759-472c-8b11-1c0450d27e17": [
+   "Perfect Foods Bar"
+  ],
+  "451e98bd-9ff8-4e7b-aeb6-af9d59d523bc": [
+   "Bj Wholesale Club"
+  ],
+  "4786454b-71e0-4b9e-96f8-46ddc03ed643": [
+   "UNFI General Corporate"
+  ],
+  "4846b839-c65d-4552-bdc5-89c71409f62b": [
+   "WESTERN MIXERS PRODUCE & NUTS, I",
+   "Western Mixers Produce & Nuts, Inc."
+  ],
+  "4a8632e5-c8ee-4756-9cb2-5b473495327d": [
+   "Family Food Distributor, Inc."
+  ],
+  "4ce0368f-3d56-4165-9880-50bcf3cbb850": [
+   "Jem Raw Chocolate, LLC"
+  ],
+  "4dcc13d1-78be-40fe-a9c0-ddb85cd04ecb": [
+   "Oskri Corp."
+  ],
+  "4e184d98-97e2-4dce-bcbb-c06cf57276a4": [
+   "Blank Slate Creamery Production"
+  ],
+  "4e19d3e4-6204-4476-b400-a662d08728bc": [
+   "Growers Express                                    S"
+  ],
+  "4fcf0313-8392-4165-80d8-7b38aef66515": [
+   "Healthwest Minerals, Inc. dba Mt. Capra Products"
+  ],
+  "5335dd2b-4eff-4321-a669-bd0cefba053a": [
+   "TAHARKA BROTHER'S ICE CREAM"
+  ],
+  "5356ef6c-141d-48cb-93d9-be3038467f37": [
+   "Catalina Snacks"
+  ],
+  "545444fe-c4d4-441c-8507-bfb21de107bd": [
+   "Pacific Seafood - Portland, LLC"
+  ],
+  "54a8d2c4-2c26-43df-bfdb-dbbb2111b93c": [
+   "Ohio Hickory Harvest Brand Products Inc.",
+   "Ohio Hickory Harvest Brand Products, Inc."
+  ],
+  "55296248-1d85-420e-8949-69cf3847152c": [
+   "Bulletproof 360 Inc"
+  ],
+  "55f9bc7b-3ad2-4b9e-a441-bedcd72325dd": [
+   "Chiquita Brands International, Inc."
+  ],
+  "569f7719-bdc7-4702-b6be-22d4a89b98b8": [
+   "Chicken Soup For The Soul Food"
+  ],
+  "5a3c4bff-e45c-4df3-a7f4-ca495de5e432": [
+   "CUISINE, KETTLE",
+   "Kettle Cuisine Midco, LLC"
+  ],
+  "5aeabe88-4f80-4d04-9d64-3985d2be70a4": [
+   "Unified Western Grocers Inc"
+  ],
+  "5b84a8c4-b65d-4609-be03-77d1141d0cb1": [
+   "Bumble Bee International"
+  ],
+  "613b122d-0f80-4702-96e6-4aedb7e92bf2": [
+   "Portland French Bakery L T D"
+  ],
+  "633c44db-36e1-498d-bdea-6f56bace9c2e": [
+   "Boichik Bagels, Inc."
+  ],
+  "6390d097-75ee-4a55-aa43-f26bdf8f475c": [
+   "Samyang Foods Co Ltd"
+  ],
+  "6427aad5-a1ad-41ac-b34d-6783af255d44": [
+   "Cuisine Innovations Unlimited, LLC"
+  ],
+  "649dd073-86f5-4a38-b78a-90507f9c8ec7": [
+   "Andersen & Sons Shelling, Inc."
+  ],
+  "64f1b52c-e264-42ad-81bf-b17a2cd28adb": [
+   "Evergreen Orchard Farm, LLC"
+  ],
+  "66d2c0a8-0af3-4cbc-8bc4-ade13f786ff6": [
+   "Despana Brand Foods"
+  ],
+  "68af5751-7766-4391-a53d-cbbe5ef03812": [
+   "Vietti Acquisitions, LLC"
+  ],
+  "69067b47-73c9-434c-98e4-7d45d000dcf5": [
+   "White Castle Intl"
+  ],
+  "6a9a5234-8378-4a24-b1ba-b84477c96e1d": [
+   "McCormick & Company - MSS - HQ",
+   "McCormick & Company,  Inc.- Consumer Product Division"
+  ],
+  "6b2f9923-5d50-43f4-bd6d-701eb68e6cb3": [
+   "Reser's Fine Foods, Inc. - Century"
+  ],
+  "6c3ed708-7a22-49a4-8ccf-32e22dee5c60": [
+   "That's it. Nutrition, LCC"
+  ],
+  "6cb7f4dd-d2ee-4c07-9973-772f41c83b93": [
+   "Wonton Specialists"
+  ],
+  "6ddca393-f191-4c6e-93df-e306c072c73c": [
+   "Prestige Brands Holdings"
+  ],
+  "6f69a359-3d2f-48e3-9c40-a2828714e45a": [
+   "King Juice Company, Inc."
+  ],
+  "70905dcc-d3d7-4a2f-904c-2071b39eaeca": [
+   "St. Jean's Coast Mountain Resources Ltd. (dba) St. Jean's Ca"
+  ],
+  "73bf379e-f86a-412f-bea0-7086cf234c46": [
+   "Stumptown Coffee Corp"
+  ],
+  "74fc914b-d7cd-425b-b666-73f7fb7af8e3": [
+   "Global Juices & Fruits LLC"
+  ],
+  "7536d2a5-961b-4f02-87a9-4c467078a25b": [
+   "Talenti I, LLC"
+  ],
+  "769aac80-a4f8-4f2d-b1e7-a03f8d401f68": [
+   "Westby Coop Creamery"
+  ],
+  "778d5a06-cbee-4c56-949b-e1801bb72003": [
+   "Bunge Oil North America Inc."
+  ],
+  "79093475-92fb-427e-8a17-35fbb0ebb5ba": [
+   "Tucson Tamale Wholesale Company LLC",
+   "Tucson Tamale Wholesale Company, LLC"
+  ],
+  "7b3c9799-7e37-4b25-a1c8-2d2d6ab5c813": [
+   "Cafe Spice GCT DBA Zaika Flavors of India Inc."
+  ],
+  "7bbf7df9-4cdb-495e-894c-fa5da072b535": [
+   "Creminelli Operating LLC"
+  ],
+  "7d0697b2-21fd-4c16-9e92-ebe24486b7f7": [
+   "Savannah-Imperial LP- Savannah Sugar Refinery"
+  ],
+  "812c07f4-2119-46a5-a135-c540456160b4": [
+   "Nutricia North America"
+  ],
+  "82f2d8fa-e2bc-4997-8cfc-6f8de296d214": [
+   "Iberia Foods Company of New York, Inc"
+  ],
+  "840cce4d-24f5-41b0-81f1-ccf4548f2d46": [
+   "Mizkan America, Inc. - Corporate"
+  ],
+  "84e7d52f-569a-4017-853b-1f3d388fb3e2": [
+   "PERU FOOD IMPORT INC"
+  ],
+  "8a33f5cc-d771-4139-aafa-bb64323903af": [
+   "Crave Brothers Farmstead Cheese, LLC"
+  ],
+  "8ce62113-46f3-4840-a98f-87b6f8af7d11": [
+   "Wehah Farms"
+  ],
+  "917289e3-e9dd-429c-851d-66b55fd932ce": [
+   "JOHN B SANFILIPPO & SONS INC"
+  ],
+  "91b53900-b6a7-4e7e-91bf-730f3f42af54": [
+   "English Bay Batter Inc (Toronto) US Division"
+  ],
+  "91de8d22-67b2-4924-8e79-c8f69e169d9b": [
+   "Firehook of Virginia"
+  ],
+  "9213d2e4-3217-42f9-aba4-6ce4a6f5dd70": [
+   "J R Simplot Co Corporate HQ",
+   "J. R. Simplot Co. Corporate HQ"
+  ],
+  "92598ded-79ab-4cdd-bf07-4c7a0f20a15e": [
+   "Dedinas Franzak Enterprises dba Cheeze Kurls Inc.c."
+  ],
+  "92f8dd2b-3a46-4f8d-9e60-9d7f26ca5546": [
+   "House of Raeford Farms, Inc."
+  ],
+  "932c8ce8-e55b-4adb-bbaa-d8304e61e964": [
+   "Herbalife International Of America Inc",
+   "Herbalife International of America"
+  ],
+  "93612b57-78f3-4e2b-9c76-0bd73491cb6d": [
+   "Big Y Supermarkets"
+  ],
+  "93906568-0b4d-421c-9ef9-2901c2b4e603": [
+   "Chin Jung Corporation"
+  ],
+  "93d55617-1300-4229-ac4d-cbc1ee2061e8": [
+   "Bay Valley Foods LLC/ TreeHouse Foods, Inc"
+  ],
+  "95792bd3-a589-40af-936d-fed57bd5a74f": [
+   "French Broad Chocolate Factory",
+   "French Broad Luscious Chocolates"
+  ],
+  "97c1c36a-41c6-4004-a73d-ea3fcb05032e": [
+   "El Milagro of Texas Inc."
+  ],
+  "9834b42a-3192-4aa4-b0bd-0b5657a40620": [
+   "Bob Evans Farms Foods, Inc.",
+   "Bob Evans Farms Foods, Inc.,"
+  ],
+  "992d28bd-ed95-47ef-82f2-ca6c875f55f5": [
+   "Harris Teeter Distribution Ctr"
+  ],
+  "9a7de8b8-f1cc-460a-a675-a7ab32f13680": [
+   "ERG Foods, LLC"
+  ],
+  "9b4f2603-c05d-4bf5-960f-e974044bde1a": [
+   "Wild Blue Yonder Foods/Waugh"
+  ],
+  "9c233e1e-f6f6-4472-a96b-122936247a19": [
+   "Harb Dairy, Inc. DBA Green Cedar Dairy"
+  ],
+  "9c2457bb-67ab-43a4-939a-ca02192f3925": [
+   "C. H. Guenther & Son, Inc.dba Morrison Milling",
+   "C. H. Guenther & Sons, Inc.",
+   "CH Guenther & Sons, Inc"
+  ],
+  "9cf52672-852a-4f9d-a71c-c36a666695d5": [
+   "Del Monte Research Center - Walnut Creek"
+  ],
+  "a0879aa3-168a-489b-b7c8-6f88a52c4e69": [
+   "Phil-Am Trading, Inc."
+  ],
+  "a21ffe79-bfd4-4399-b84b-2b3633c87afc": [
+   "Hampton Creek Foods"
+  ],
+  "a2e6590d-ae0f-4215-a814-2cf5e7ed115a": [
+   "Massey Fish Company"
+  ],
+  "a33eb730-c967-4955-ba45-c847eadb2e23": [
+   "CAMBRIDGE FARMS OF HANOVER LLC D"
+  ],
+  "a3c00e02-73d2-4b60-a5b5-c2e48bb48b91": [
+   "CAHILLS FARM CHEESE LIMITED"
+  ],
+  "a5797436-ca7c-4882-a092-64a33638cd70": [
+   "Gedney Foods Product, LLC"
+  ],
+  "a60ed882-8a02-4a2d-bd07-d321611bb2be": [
+   "SUBCO FOODS INC"
+  ],
+  "a84558ca-edcb-4665-99a2-adc2406ecb15": [
+   "Windy Acres Candy & Nut, Outlet Inc."
+  ],
+  "a8baf61d-31b7-4390-b3d0-48824c65395e": [
+   "Kermit, Inc."
+  ],
+  "ab57e0d5-b7d8-40ab-969d-9d2b4ce7db54": [
+   "Boar's Head Provisions Co., Inc."
+  ],
+  "ab81540b-e2e3-4acc-b1d2-cb5973210051": [
+   "World Health Products LLC"
+  ],
+  "ad88547d-c768-4143-b80c-f456826b0c00": [
+   "Whole Foods Market Group Inc.",
+   "Whole Foods Market North Atlantic Kitchen",
+   "Whole Foods Market Northeast Regional Office"
+  ],
+  "ae68af31-1585-423f-a5e6-a3daf0f3529e": [
+   "Emily Kate's Foods"
+  ],
+  "b06af378-e68e-4145-9985-0aba88d9cd5c": [
+   "NATURES TOUCH FROZEN FOODS LLC",
+   "Nature's Touch Frozen Foods (West)",
+   "Nature's Touch Frozen Foods, LLC"
+  ],
+  "b0759f15-3042-4828-87dc-89e2d595e4ac": [
+   "Caraluzzi's Markets"
+  ],
+  "b17ffe2b-c512-428f-808f-9ec22d85436c": [
+   "Frito-Lay, Inc. Headquarters"
+  ],
+  "b28fe165-a3b6-405b-aac6-920e9b09eda9": [
+   "Shearer'S Snacks",
+   "Shearer's Snacks"
+  ],
+  "b39f710d-8f39-476b-8eb4-25c7ab0b6433": [
+   "King Soopers Bakery"
+  ],
+  "b3fb4f88-9715-4d7e-9644-04dfed13e425": [
+   "SOUTHEASTERN GROCERS - MARKETI"
+  ],
+  "b5af0303-378d-4452-9d7d-a784de931261": [
+   "MIBO Fresh Foods LLC"
+  ],
+  "b65a1236-ded1-4914-b14b-4fa462e939ab": [
+   "Harry and David Operations Inc",
+   "Harry and David Operations, Inc."
+  ],
+  "b76c3c9e-027d-4c3e-963d-1a2f4496d7f3": [
+   "Adams Extract & Spice LLC"
+  ],
+  "b8098603-3c68-4b6a-8ae4-d57ac5d01ce1": [
+   "LYFE Kitchen Retail, Inc."
+  ],
+  "baddaa63-01ca-458f-97fd-bb45a05c4e9c": [
+   "LITTLE RED ROOSTER COMPANY"
+  ],
+  "bb3e11e9-cfd5-4258-a877-8cc785ebbdb8": [
+   "Fannie May Confection Brands Inc"
+  ],
+  "bbaf7357-6d73-48a6-b11c-b7564ce79626": [
+   "Bakery by Frothy Monkey"
+  ],
+  "bcebb7f7-6197-4a85-a6eb-d81b9a965110": [
+   "H E B Grocery Company, LP",
+   "H-E-B Grocery Company, LP DBA HEB Milk & Culture Plant #80645",
+   "H.E.B. Grocery",
+   "HEB Retail Support Center",
+   "He Butt"
+  ],
+  "bd0a1e8e-c3f3-4e30-bb23-d41d81d8303d": [
+   "Kettle Foods, Inc."
+  ],
+  "bd23ae4c-4f04-4469-b2cc-f34b8ab4a8c5": [
+   "George DeLallo Co. Inc. New Stanton Warehouse and Production"
+  ],
+  "bf8954b2-f0c3-4e79-bb81-3f68ff173f53": [
+   "Tipu'S Chai"
+  ],
+  "c00e082c-2526-47a4-9ead-dd6f54e7c6db": [
+   "High Performance Formulas, L.L.C. (HPF, L.L.C.)"
+  ],
+  "c18548e9-b284-4fb3-b9b2-9128c3717918": [
+   "NATURE'S SUNSHINE PRODUCTS"
+  ],
+  "c261dd61-c353-442b-a8d9-f20f5b8cd2be": [
+   "BrightFarms, Inc.: WDC Greenhouse LLC"
+  ],
+  "c26a9bdf-b9c6-4e4a-b58e-089ffc518c52": [
+   "Ikko International Trading LLC"
+  ],
+  "c3bbfc44-c525-4fba-9f04-4d624b3d8732": [
+   "Living Nutz Living Organic Foods"
+  ],
+  "c5498216-47b6-4d89-a369-63037fbba848": [
+   "Falafel King Enterprises, Inc."
+  ],
+  "c57f4264-0f68-41d8-b1ff-fe07851acb74": [
+   "Arise Gluten Free Bakery"
+  ],
+  "c5824243-9d32-4cbb-9be3-70fb52a9110c": [
+   "Big Bold Health Holdings Inc"
+  ],
+  "c7719ea2-983c-428c-bbfb-20d824b340aa": [
+   "Bedessee Imports, Inc"
+  ],
+  "c7ae9356-fb5f-4334-9030-1d07406b300b": [
+   "Tate's Wholesale, Llc."
+  ],
+  "ca4a4bef-bd62-48da-8623-5b177d43dd82": [
+   "The Hain Celestial Group, Inc. - Worldwide HQ",
+   "The Hain Celestial Group- Worldwide Headquarters"
+  ],
+  "cab60782-0f55-4044-87e8-a97059af20e0": [
+   "Hy-Vee Stores Inc"
+  ],
+  "cc35c14e-155d-4fe1-ba6f-93ba7c8cb7b2": [
+   "Pulmuone Wildwood Inc"
+  ],
+  "cd062865-a87d-4db6-ace9-a6d8739e5980": [
+   "Justin'S Nut Butter",
+   "Justin's Nut Butter"
+  ],
+  "ceeb6098-7adc-4045-9981-e80539e83a37": [
+   "Phu Huong Food Company, Inc."
+  ],
+  "cf70b4e4-9250-44de-976c-eca3db2d5188": [
+   "Ashers Chocolates/Lewistown, Inc."
+  ],
+  "cf9bf509-c0ec-4b75-8de7-7b98b57869fd": [
+   "New Classic Cooking LLC"
+  ],
+  "d21097cd-806b-4084-90f4-df1c2045305e": [
+   "TFI Holding dba Grey Ghost Bakery"
+  ],
+  "d2ef88ed-1ff3-400e-b402-80bab8b2c21e": [
+   "Meninno Brothers Gourmet Foods",
+   "R. Walters Limited dba Meninno Brothers Foods"
+  ],
+  "d348ebbe-6857-42de-b289-2f041f5d0c7d": [
+   "Chicken of the Sea; Thai Union"
+  ],
+  "db91e40d-5e2a-4b44-a99e-3ab66fee2357": [
+   "The French's Food Company, LLC SUBS Reckitt Benckiser"
+  ],
+  "dc240412-4695-4484-ae2f-b21c150fab25": [
+   "Golub Corporation"
+  ],
+  "dd97dd83-533f-469a-8e79-3d1ca47d1f3b": [
+   "Del Monte Fresh Produce N.A., Inc. HQ",
+   "Del Monte Fresh Produce North America, Inc"
+  ],
+  "e04f8154-d18b-4be1-b933-cee4f565f9e5": [
+   "Sun Noodle New Jersey, LLC"
+  ],
+  "e09aa5ea-51ac-4567-a241-5bd4fa8deaa2": [
+   "Dierbergs Markets, Inc Corporate Office"
+  ],
+  "e487eb60-b196-4fb7-b897-a51659a8eb81": [
+   "Natural Organics",
+   "Natural Organics, Inc."
+  ],
+  "e76aea9d-1900-4179-b6cd-ce36f6470d28": [
+   "King's Hawaiian Bakery"
+  ],
+  "e8b246c7-3199-434c-9b52-2c0b815ef3b7": [
+   "Table 87 Frozen, LLC"
+  ],
+  "eb7bd680-f17f-413c-84ec-ee6847356aa2": [
+   "Early Bird Foods & Co., LLC"
+  ],
+  "eba140e3-5a94-4120-88fe-cc83dad80a6c": [
+   "Tyson Foods Discovery Center"
+  ],
+  "eba165d1-1d10-4734-93e0-045466ff11fb": [
+   "Fairway  Group Holding Corp dba  Fairway Bakery LLC"
+  ],
+  "ebf7f26b-7d81-4c7b-9553-07c8f945fce5": [
+   "Rise'n Roll Bakery, LLC"
+  ],
+  "eda42b2a-e5eb-44a2-b18d-52303ddbe223": [
+   "MR BING FOODS INC."
+  ],
+  "efe1fd1f-d80d-42f7-87da-b9612837cfb4": [
+   "Udi's Healthy Foods,Granola & Gluten Free"
+  ],
+  "f20299e3-3c8a-4e89-b139-fba8b59ac33b": [
+   "DeMoulas Supermarket, Inc."
+  ],
+  "f32fafde-a04b-46da-b4c4-fba0bb96c933": [
+   "Schnucks Markets Corporate Office",
+   "Schnucks Markets Inc"
+  ],
+  "f5748e70-ae41-4e3c-8c75-c33f76330a19": [
+   "Kick Ash Products LLC"
+  ],
+  "f7137fb6-2bef-4214-8d0e-9f63f2b5db5e": [
+   "4 Earth Farms formerly Mcl Fresh Inc"
+  ],
+  "f776f440-7c12-4a3f-be4f-7791e9194216": [
+   "Meijer Inc./Traffic Dept.",
+   "Meijer, Inc #816 - Grand River Packaging"
+  ],
+  "f81156e8-f355-45c1-8ab9-d036fb7ee0c1": [
+   "Gospodarstwo Pasieczne Sadecki Bartnik"
+  ],
+  "f86ca773-68b6-4057-9b1e-76c7633c35a4": [
+   "Gilster-Mary Lee Corporation Cake Plant"
+  ],
+  "fa1c0be4-c573-4fcb-9cb6-33541600d727": [
+   "Potters Fine Foods, LLC"
+  ],
+  "fc51d34b-5bda-453a-ab91-14de0a8881ea": [
+   "Sequel Naturals Ltd",
+   "Vega / Sequel Naturals"
+  ],
+  "fd717e72-130d-406c-a762-b996d6d86d6b": [
+   "Prime Food Processing Corp.",
+   "Prime Food Processing LLC."
+  ],
+  "fdd129cc-5abb-4823-b299-e72ff8fc7879": [
+   "NuGo Nutrition HQ"
+  ]
+ },
+ "roles": {
+  "00c1540b-37b9-4854-a35a-c920d4313b8c": "supply_chain",
+  "01455b10-29c1-402e-a42c-26e9e25be266": "supply_chain",
+  "01d10108-902e-41b8-b23f-13e9e19b3597": "supply_chain",
+  "0503ec59-1ac3-4d0d-aca2-7965542ae792": "brand",
+  "057f03e9-eaed-4281-8075-69890c8ce3f6": "supply_chain",
+  "05a039b6-1ea7-41ca-8e3f-c0add8cb2328": "brand",
+  "06552fe9-b58a-46e8-80b8-6c809afe710a": "supply_chain",
+  "070a0f24-6d78-4c12-bc9e-c833f8d28ed1": "brand",
+  "0725b69b-92b6-4507-bf0b-99e3285f5070": "brand",
+  "0a268776-f76c-4c78-87cf-f67c4ca82409": null,
+  "0a8c8b28-0a5a-48c1-bd39-0ab081267d19": "supply_chain",
+  "0aff45c5-c6e0-4f11-8c43-c3ba55fda2d5": "supply_chain",
+  "0b55e443-2450-4331-aec7-35fdc5d4480f": "supply_chain",
+  "0b971216-057f-4e65-b17c-9ce470fb96c9": "supply_chain",
+  "0c368c69-97d3-4b3d-a85e-217d717d503b": "supply_chain",
+  "0c6d80a6-6135-425e-afd8-c8f24c6aa167": "supply_chain",
+  "0e5bccdf-fa30-4079-a1b3-4490bbff2457": "supply_chain",
+  "0ef31d59-6ac7-4ed7-a6f0-af193c92aaa6": null,
+  "0f1ed8b9-86d7-4b2a-924b-54d95b64fe68": "supply_chain",
+  "0f362144-100e-4405-b9c7-88653984ae76": "supply_chain",
+  "0f8a22c0-5bd4-467e-8cde-95d06e6b6f37": null,
+  "10af6ba4-3e29-464b-9d4d-7b826107c321": "supply_chain",
+  "10f7e998-8785-492d-a66b-f29d00a053ed": "retailer",
+  "11ebd46a-7099-4847-a6a9-5c27d1c29f74": "supply_chain",
+  "11efc914-fb55-4cd4-878b-eda6b1f22853": "supply_chain",
+  "120d4810-687e-427b-a587-4d4d23a09430": "supply_chain",
+  "122dd12a-cc35-4b10-a74f-0e9d2004ac6e": "brand",
+  "131c79f7-bd48-44df-98a1-b697cbd79e5f": "supply_chain",
+  "1351897f-c25e-4198-8272-04a7e4dc5fef": null,
+  "13aaf860-2ce1-47dc-aa9e-f30db3e4537c": "supply_chain",
+  "13d13f32-9202-4fe9-83fd-fe2560b21eee": "supply_chain",
+  "13d15b0a-e537-4e12-82e3-a39db34eeef3": "supply_chain",
+  "148cb506-8af3-47e1-817c-ec82b332231c": "supply_chain",
+  "15d7d515-f9df-4a2c-b391-77010ed5487b": "supply_chain",
+  "16164eca-14d1-4a8d-9188-9961232860f3": "supply_chain",
+  "17c4075d-13de-4e92-8762-893b0bd335a7": "brand",
+  "182792e3-07ca-4f0e-b938-679929ced956": null,
+  "19201eea-02da-4583-a6df-5cb3552282e3": "supply_chain",
+  "19810293-6b23-4387-bfb9-9d28297073da": "supply_chain",
+  "1986a057-27a7-4fc1-bd1f-9b25cf86ea6a": null,
+  "1a454048-df46-4089-8aa0-f239f52ca9e4": "supply_chain",
+  "1a6733f9-067a-443c-b1c4-6c28b33fb150": "supply_chain",
+  "1b6ce4b2-c252-451e-bf76-e0e43fed067f": "supply_chain",
+  "1b70f42e-03c1-4639-a9f0-47531dfd7a9a": "brand",
+  "1c52789f-a1dc-414c-8649-ec5246fbadb3": null,
+  "1c690ed9-1cd8-4d23-a24e-2404def04d6c": "brand",
+  "1c797005-cbde-4bca-b340-996b6fcb4241": "brand",
+  "1c9db049-7e47-4472-b6a5-c4922125df92": null,
+  "1cdaaeca-e1c6-4002-ad9a-374a3d7053a9": "supply_chain",
+  "1ce73070-f2b0-4835-ab65-c1a80ba2c8e6": "brand",
+  "1d885d85-15ed-466b-bd6e-cd49851777b4": "brand",
+  "1d9ec2e4-b40e-4383-aff6-03ae5566d232": "supply_chain",
+  "1e191720-0881-4ac2-945e-76de9428ffe3": "brand",
+  "1f7cd941-3646-4418-b5c4-1d8dd693fd40": "brand",
+  "1ffa6e40-157e-46fb-b38c-8d733028efa6": "brand",
+  "2149ba4d-d19d-4ce1-9676-b948e6cdf30d": "supply_chain",
+  "22d3202f-007d-46d6-9bf1-bd734adff39b": "supply_chain",
+  "231afa8f-335c-4fd8-884b-0f51e50e819f": "brand",
+  "233c3618-eda0-451e-bd9a-3ffbb67e8d57": "brand",
+  "24225e99-5d43-4948-af88-56ffe0f66db2": "supply_chain",
+  "242b4a2f-a631-48bd-b779-541a88e64597": "supply_chain",
+  "2563a3ad-d99c-48ca-be27-8f0537d16d6f": "supply_chain",
+  "25798fa7-731c-4ede-ad89-374d16308b4b": "brand",
+  "26628ec2-664a-4a32-be18-c95f974cdcf3": "supply_chain",
+  "26ba2d7c-f2eb-439b-9ee1-c80fe5dc4426": "supply_chain",
+  "26d9e0b6-cc25-4b7a-86d0-c9f67300d00a": null,
+  "2758d8f0-eb8c-4186-b73a-792022486baf": null,
+  "27b2872a-cf0b-4d04-8c8f-15ee0507d15d": "supply_chain",
+  "28eae9f1-55e0-4c99-a5dc-8a5e437ec56e": "supply_chain",
+  "291f6f61-4220-4ecd-a45e-3d1b7ba4e946": "brand",
+  "2985a1a5-b32a-458a-ab71-ba5752bd9f1f": "supply_chain",
+  "29b1ee89-3f50-4d96-8eeb-5690798b287d": "supply_chain",
+  "29ce802b-426a-492e-aeb2-c1983b7b46f2": "supply_chain",
+  "2a041aa1-c02b-4b4b-b1ac-bff10152f032": "supply_chain",
+  "2ab9e8b8-3ab6-4b4b-b446-0bb730a275f4": "brand",
+  "2b1f6822-f753-43b5-ace2-019b1838fe55": "supply_chain",
+  "2b7079b8-dbed-4a49-9fc8-f846ad70d623": "supply_chain",
+  "2c995fcf-ee9a-4c5c-a620-603f718b0e6a": "supply_chain",
+  "2c9d8f08-3484-4eb2-b852-2d960c2aa7bb": "brand",
+  "2d01e2e2-4488-4de6-a405-bbd4468a33e4": "supply_chain",
+  "2d278357-1217-4e2a-8e0b-c741e1f3742e": "brand",
+  "2d2c5385-9243-4f63-bf43-1496310a7f40": "supply_chain",
+  "2d308806-c026-4b6f-b9b1-3dbb89939740": "supply_chain",
+  "2deaebce-ddc0-4ee1-b114-6f93b2aac20d": "supply_chain",
+  "2e3dfb34-d754-453c-b138-8637bc1e0103": "supply_chain",
+  "2e6c7af7-2b46-4029-87c5-be936e34526b": "supply_chain",
+  "2e93a934-a815-4c50-9e27-3ea278ae3cd1": "supply_chain",
+  "2ef10531-36ea-49c9-be5f-764abe6d390d": "retailer",
+  "2f36c2fa-8847-4b14-8a75-25c3edefde27": "supply_chain",
+  "2fdfbdad-6bb4-4e3c-aa1d-21eec5f68d1f": "brand",
+  "3077ef5b-71bc-4767-ba4f-6adcdfce85eb": "supply_chain",
+  "30a530b5-c4f0-45f7-bb21-76a4fdad45af": "supply_chain",
+  "3192a15c-5c1f-4e6c-a245-240a997256f2": "supply_chain",
+  "32039674-fe19-4cdf-b337-122ca778bda1": null,
+  "32314b9a-e6eb-4870-9b60-e1fab4911fa1": "brand",
+  "32374c2e-a5af-46b2-b7c1-71cb142a0a1c": "supply_chain",
+  "32919b20-46a7-4e3b-b30c-00a9bd80101a": "supply_chain",
+  "33001a99-60c4-4cc3-a0da-7c6e50499e36": "supply_chain",
+  "337d4a58-4d6c-4a9b-ab71-dbc39e4cfa68": "supply_chain",
+  "34333690-a217-4e70-8b9b-99bc0f17de9e": "supply_chain",
+  "3483b4d3-1244-4ad1-8df5-8032de2ba78c": "supply_chain",
+  "35a687cb-1004-413d-a893-30bd6a19590d": "supply_chain",
+  "35e8a820-ab17-4b53-9756-aae2396515c3": "supply_chain",
+  "370a5e49-975a-4866-a55b-03f1d418ba85": "brand",
+  "37b4ce5a-0624-4e1c-aa70-a37d6ec72eec": "brand",
+  "38e20881-8c33-4eb4-a5d4-8bc47b4df56e": "supply_chain",
+  "38efed60-e727-4644-ac47-0cf21b086abd": "supply_chain",
+  "3960fe01-a194-4004-a55f-b625edcf941f": "brand",
+  "3979ec3c-d09f-4043-8f99-f3cd36ed87c7": "supply_chain",
+  "398511db-5551-4a89-917f-79f1e933f505": "brand",
+  "3aadf3c7-fdc4-448b-915b-00591ee73af8": "supply_chain",
+  "3ade7a9e-4324-47b4-bb69-4c0c5dba6666": "supply_chain",
+  "3b2906e1-40fd-4a26-9149-56b68be6b28a": "supply_chain",
+  "3b4fe4c1-9a53-4091-9a97-7d1a5a771999": "brand",
+  "3bc85115-29fa-4375-9dd3-c77be4b4de5e": "supply_chain",
+  "3bd12067-fb1f-4a8d-a5f7-ba1a19893136": "supply_chain",
+  "3c05c975-f792-4a12-a23a-b1d3655905c9": null,
+  "3ca8b957-76e3-47f2-9d00-6af922d53c6d": null,
+  "3e088350-abca-4938-a7c0-0620b623fa7a": "retailer",
+  "3e821bc7-3ca5-4440-9a85-a950d5fa160c": "supply_chain",
+  "3ebe9147-1a69-41e5-a2ae-160304e59af1": "brand",
+  "3ee9db65-20f3-4601-956f-cb8d032cb83c": "brand",
+  "3ef63992-dcf5-4f5a-9121-679ca05b02df": "retailer",
+  "3efac622-208a-4327-9f76-59ea7b57ee37": "supply_chain",
+  "3f9552ca-f4f7-4c7f-bfa3-5e7eb27350d2": "brand",
+  "4025fff1-b58e-4040-b116-604ff35ffcdf": null,
+  "408e4a62-ed3d-41f6-84e2-619a0bf2ec77": "supply_chain",
+  "40ea56b6-a7c0-44f0-83cb-51ff47ad5fe0": "brand",
+  "41326549-a13b-4f3c-b85b-b0a05987768c": "brand",
+  "41a19ae8-0785-4e8b-951f-19525e858941": "supply_chain",
+  "4220df3d-f01c-4090-9710-72e51808d21d": "supply_chain",
+  "436b0935-98aa-45be-9ec4-d3964a1279f0": "supply_chain",
+  "43f58eff-f07f-453d-bfa0-72e4be101168": "supply_chain",
+  "443b78de-c9ef-4f80-aa74-74c7fc4af746": "brand",
+  "448c2e23-8f34-43bd-b5bb-5092facd0c46": "brand",
+  "44d2fd70-fd4e-4ac7-be09-7eb6dc2eb6ca": "brand",
+  "44f4c620-22de-4faf-9cfa-cd1539f59a07": "brand",
+  "4576cde0-be6b-462b-a6b0-5061a791eff2": "supply_chain",
+  "459f8b96-08a1-4ad0-ae81-a63d2c98cfb3": "brand",
+  "45abc8a2-6c26-41d8-a186-9e585b0adae8": "supply_chain",
+  "45cc52fd-df87-4af0-a192-9cd217f18242": "supply_chain",
+  "468651b9-925f-4de7-b8a1-eb1a71b70c7c": "supply_chain",
+  "472de067-a8b5-4f82-9bdb-758497685049": "supply_chain",
+  "48639a49-a519-4bb3-98ad-d1821d7d9ace": null,
+  "48868d07-a74f-4283-bba2-722f4ee20796": "supply_chain",
+  "49046e56-747b-451b-a8ac-ee1d7b54a808": "supply_chain",
+  "492bc27b-ddcb-4cf4-ac46-7a08471c0a2e": null,
+  "497b8b5d-eb53-44e6-b835-062f46f2c9d0": "supply_chain",
+  "499ff2eb-343f-4969-89f2-9d9620c7096f": "supply_chain",
+  "49c450bf-f567-48c6-bdaa-6ca61a5aacc1": null,
+  "4b24b80b-a1ab-4049-be2f-9d7934b0292f": "brand",
+  "4b994311-052e-424a-b539-33d742e9bffa": "supply_chain",
+  "4c04812d-7610-4786-8418-8fec182d453a": "brand",
+  "4c946bd4-ce05-4b7a-9806-04193f002c9a": "supply_chain",
+  "4cad92ed-7937-4a15-9588-351f34d9fccd": "supply_chain",
+  "4d26648a-9feb-4172-8724-0f4bb4f60a89": null,
+  "4d4507b8-e2f5-4d88-bcfb-b96fdfb8255e": null,
+  "4e63d900-6be1-4a45-b53b-6be448d896bf": "supply_chain",
+  "4e69ff47-8c99-41ce-8d49-07fa8c0d5684": "supply_chain",
+  "4f9dbf04-a7f9-4bba-99ff-c61d234e8c20": "supply_chain",
+  "503cc4ad-ad7d-4dc7-9e9f-8d79570db36d": "supply_chain",
+  "508c7fbe-fcb5-42e2-be24-a88d3623368c": "brand",
+  "50cb4e22-c08f-4c28-85a8-89f66703fe31": "brand",
+  "50da41ac-c889-4878-97b6-65029f63a3c5": "supply_chain",
+  "50e85265-e375-440c-9254-e26c1d19f4e0": "supply_chain",
+  "51024a91-3903-4391-9b40-31cfa6c1d744": "brand",
+  "51328a86-af8f-47f5-9b82-240e12770ba0": "supply_chain",
+  "52ef1d7f-cc07-470b-917a-c842f6547e80": "brand",
+  "5318eb5f-8b8d-48e7-83a4-d071850f0418": "brand",
+  "54178336-3017-4953-8506-18327a6e8a53": "supply_chain",
+  "545eaa01-15ee-46d2-a530-384992421370": "brand",
+  "547ba1d5-c8dd-4b7a-ba44-8d513f1b626f": "brand",
+  "5565ecb0-a855-4279-b7b8-159b99fae0ad": "supply_chain",
+  "55741ba7-09b2-4c02-aa58-bfd2932bd48d": "brand",
+  "558de256-b275-4757-8d9b-ddc7ae4a4f97": "supply_chain",
+  "5610fffc-a3cf-4e44-88f0-847e6184f0c9": "supply_chain",
+  "56141511-fb2e-49e4-ab55-73edd9e00836": "supply_chain",
+  "561fd88d-e387-4365-adc7-acdc0ad05be8": "supply_chain",
+  "566f03c9-e94e-43de-a08b-7ee7ac768a36": "supply_chain",
+  "5673639e-172e-4bff-88a0-27aec5d26973": "brand",
+  "5684a59b-4a40-4d7a-9a66-61dbb305650d": "supply_chain",
+  "568eb6cd-5c91-4381-852c-e9cf6578e5d5": "supply_chain",
+  "57446c04-d60d-4e4b-a9eb-5c817ec7851f": "supply_chain",
+  "574e68ff-a040-4d09-8553-2737a75cca5c": "supply_chain",
+  "57a28916-eaa5-41c2-b542-4d35fbdef6c1": "supply_chain",
+  "58001709-964b-4c69-b9a4-5c8c3cca996f": "brand",
+  "58047e57-7319-48af-b9cb-830e8ea8a265": "supply_chain",
+  "5895307a-90f8-44ab-93df-6ccf892cc082": "supply_chain",
+  "58e242b9-c2e0-49d0-8569-b3cd33b56751": "brand",
+  "5930966b-be5b-4db2-b0ae-ae9cec9825ea": "supply_chain",
+  "5985cfc1-e666-4d9f-b2a2-b47050d14be3": "supply_chain",
+  "5a2ca7af-aff7-4e40-8b0b-22ba84c04d4a": "supply_chain",
+  "5a2df64d-39b6-49e5-9ac7-8c009ab28613": "brand",
+  "5a752dc8-5484-4cfa-9367-8994d46110a4": "brand",
+  "5a9d7bbb-3122-4bff-bea4-561769c14beb": "supply_chain",
+  "5ab48101-09d3-4961-ac37-dbf5b5307b0e": "brand",
+  "5afe141f-a779-44ed-9d0b-c22c1675d8c8": "supply_chain",
+  "5b27e914-920d-427b-a9c1-d8c12bc879e1": "brand",
+  "5b397a56-844c-4f84-9f21-31ae560bca25": "brand",
+  "5bbebfbd-f6aa-4c81-ba23-430fbf253321": "supply_chain",
+  "5bd19e67-1fed-4cbc-ab27-65f87ec3eafd": "brand",
+  "5c4bda57-f40c-470e-b5bc-932634f4d378": "supply_chain",
+  "5c80c73f-4644-43b1-8fde-cf172340bbeb": "supply_chain",
+  "5cb2cc67-5329-477d-bfc7-ff4ce61ca656": "supply_chain",
+  "5f7a06c4-bc52-4dec-8a8e-4a8333c44a6c": "brand",
+  "6066aaea-96c6-4c7a-9b8f-17637f5e36b8": "supply_chain",
+  "61d35ee0-8662-44b2-b510-790cfe52721b": "brand",
+  "6278a9c4-acb7-47e8-a0d5-50d45d538142": "supply_chain",
+  "63dc5c28-7ccb-4e6f-9f71-1acdaeaa2f49": "supply_chain",
+  "6415d2d0-9376-4eeb-be67-f15d633be650": "brand",
+  "65c81a27-2c87-48dc-b8c6-83e89282ccb9": "brand",
+  "65cce5e4-a54a-46b8-bc0e-1ccf686a0deb": "supply_chain",
+  "662125e1-fd7e-426a-ab64-0435cc0baed5": "brand",
+  "66d74622-96d0-440d-ae2d-0d70c27227f6": "supply_chain",
+  "66f56448-ad6b-4ac4-a496-57e9c9926b8b": "retailer",
+  "66f94b86-233c-41ce-9295-62df2f3cee38": null,
+  "678bd5ad-10ef-41c3-b912-3b4cac4e706f": null,
+  "67b2130b-14fb-4820-8ef5-31eec2b5504a": "supply_chain",
+  "67e0019a-0361-47fc-a507-cc90b9e975fa": "supply_chain",
+  "68eeae6f-bb86-471e-ba3c-18ec881c92d2": "supply_chain",
+  "693db9ba-7b38-4b01-a064-c3c381339486": "brand",
+  "69c205cb-38b8-4f6e-84be-44d8f8730d40": null,
+  "69c83e5e-ebbd-40d6-9a1f-b06cab6ee348": "brand",
+  "6a722516-0cd3-4cd5-8f2f-6389ae04b9bd": "supply_chain",
+  "6a90048f-d0e5-47bb-9f42-038ad7f871ea": "supply_chain",
+  "6a96f8b4-b8a6-458e-b04d-0d5aef3f5e12": "brand",
+  "6a9888f1-6e22-4495-ba20-9d38cd049b77": "retailer",
+  "6b08c2fa-3c08-484d-8f98-e67747a43bbf": "supply_chain",
+  "6b9fbd3c-091a-4a07-8df9-f983ef5f001e": "supply_chain",
+  "6bf99e67-1052-4c31-b7bc-be49f19a54ed": "brand",
+  "6c22087e-7291-4a34-a98c-05ccb5562676": "supply_chain",
+  "6c7bbb06-f0ea-4c84-8549-1a3fe567f5da": "supply_chain",
+  "6c95b182-493d-4014-90f6-b100c3ea1271": null,
+  "6d6bfc88-f664-4722-a9b4-28e1d1bdf330": "brand",
+  "6e50a7d1-b77b-4f7b-ae19-7567045a1594": "retailer",
+  "6f55921e-3b4f-4c4b-a188-b9c5e3711d59": "supply_chain",
+  "70db5a1d-4462-450f-8795-3c13124738d2": "brand",
+  "7121b28e-5274-495c-a417-2637ea7f1afb": "brand",
+  "71c8a3bb-b358-400f-a805-8f4d1742e959": "supply_chain",
+  "73087dd9-994c-4144-8949-bd6a1ea3a0d5": "supply_chain",
+  "7343ef5c-cb44-4954-9833-0333d7db8095": "supply_chain",
+  "736fa477-ab98-45d3-9a9c-bf691a021b93": "supply_chain",
+  "73ea6fd2-186b-4bee-8626-d2e40d053c95": "brand",
+  "74381efd-6d20-4ef6-9f6e-c667b57b0a0d": "supply_chain",
+  "74a98e7c-8b16-4454-99cc-d0fc1e7b36dd": "supply_chain",
+  "75322dbc-7d91-474e-9f21-24d291ef6d8d": "brand",
+  "756cfd67-d9e3-4dff-afd4-51682f9ce5d1": "brand",
+  "76d9bc7b-1a14-4175-977e-20df8b542a75": "brand",
+  "773ed6f8-a923-4cf2-abae-b5562d352a65": "supply_chain",
+  "780bb7da-ef6d-4610-95a2-c3fa2628a71b": "supply_chain",
+  "781bedb7-c74a-43a4-8025-20ed35d7caca": "supply_chain",
+  "78e30c4b-f4cc-4599-b64c-5a20e29dced1": "retailer",
+  "79597469-388f-42bc-aa21-1cb55067e4f8": "supply_chain",
+  "79dfb531-63d8-44cd-9cf7-1bb8549f0f73": "brand",
+  "79ec693a-57d7-4610-bd36-bc211e413af4": "supply_chain",
+  "7abc1c85-84b2-4f1d-8554-4d87f1036fac": "supply_chain",
+  "7af1f7a6-dc61-4824-98ec-49309d596b68": "brand",
+  "7af29a72-b8f9-4915-9c86-e83bfa39db5e": "supply_chain",
+  "7b198529-58e2-4742-8e9c-a1cac3750185": "brand",
+  "7b72a578-c9a5-4ca2-98ca-e3de327d288a": "supply_chain",
+  "7ba374be-892d-46f3-81d7-d6fb8df12018": "brand",
+  "7c96d2df-44f3-4825-b24d-62d69e5158f1": "supply_chain",
+  "7ca9d2dd-41a7-4b3f-bd58-cea7f9d18261": "brand",
+  "7cc79a44-53c6-440b-9a88-8ecf68d5e7a1": "brand",
+  "7da4f9aa-73a7-48a1-87b0-f192784929a2": null,
+  "7dbe3baf-fcf7-4a00-8163-855abede0104": "brand",
+  "7df570dc-0e05-4804-9c3a-1ee25efc5e9d": "supply_chain",
+  "7e1fc8c0-1cec-416c-befe-ecf55f4219de": "supply_chain",
+  "7f6d0473-c041-4aae-ac38-e0e73fc325de": "supply_chain",
+  "7f74ca96-fa8a-4375-bdd0-f51221a1026a": "brand",
+  "7f867bbd-6485-4960-aca4-efe179354297": "supply_chain",
+  "80f92770-d800-43f6-9889-a5f13e4135eb": "brand",
+  "81972d12-93de-4a09-945a-d59cdbfe6737": "brand",
+  "82667f74-1b2f-4038-9b76-0cc0d0601d25": "supply_chain",
+  "8340d6fa-12cd-4ffb-acec-f710cde01aea": "brand",
+  "8392af15-8253-45be-bf61-f2c9ad7a4a66": "supply_chain",
+  "83e5e24f-1c65-4ed9-9e5b-b5c4bc08bfef": "supply_chain",
+  "83e8602f-12e8-4f3b-a8d9-89113d99ef8b": "brand",
+  "851ed966-7c4b-4622-81ff-869163068cae": "brand",
+  "852f5f50-0787-432e-aeaf-4189c081d110": "brand",
+  "85b6497f-86ae-4996-ab74-dec2abd34a8b": "supply_chain",
+  "85b93ec0-e01b-4ace-a741-848b199e1b44": "supply_chain",
+  "8677a7d9-07fe-4210-a35d-c59804d720b4": "supply_chain",
+  "8680c775-655f-4294-9582-835a0bc756de": "supply_chain",
+  "86b5018d-c6bb-40ea-81f7-7d9fd628aa96": "supply_chain",
+  "86d3dd50-ff8c-4ddb-b898-5fe36cbbaa44": null,
+  "873dea77-1267-42ce-9fd4-f34b05bc5d72": "supply_chain",
+  "87ac3f2d-47d5-40c6-a64a-9e11862871d8": "brand",
+  "87ce57d2-7edb-483b-a9ab-24ef4040d3a8": "brand",
+  "87e1103a-1497-4765-926c-9a9060227847": "supply_chain",
+  "882bb929-56f4-4380-8724-f3c92a64f08e": "supply_chain",
+  "8919a5a5-9cbc-46d7-9657-9bc42facc732": "supply_chain",
+  "89ad5408-9858-476b-828e-06fc6ff09ba8": "brand",
+  "89c241f3-a5e6-4f8d-bdd3-1a424bcf8a81": null,
+  "8a241ef9-1da8-4e18-9b1f-647276217a40": "brand",
+  "8a4a7422-0e40-4e16-b564-dbd86dcf9a94": "supply_chain",
+  "8aa63e1f-e554-4a39-a3e6-385e4653eff4": "brand",
+  "8abeecaf-31b1-47fb-a89c-0eba189f5da3": "brand",
+  "8b7ff44c-fc0f-4dce-b383-9b1f8458ade9": null,
+  "8b9fc8d8-e8ab-4b65-b246-2443af3b31f7": "brand",
+  "8c68d7f8-cfc8-45dc-9e42-f60bc9439819": "retailer",
+  "8c809a97-fbd8-4b34-8510-16e3a01fe55b": "retailer",
+  "8cae298c-bd14-478d-ae91-d1bae2548f54": "supply_chain",
+  "8cf37d15-9968-4be7-9f74-694cb8ce3f2e": "retailer",
+  "8d4cbdba-7ab0-424b-a54e-2e6234d06ce2": "brand",
+  "8dd9dba9-cb9f-40a5-bb88-ab3f5312941e": "supply_chain",
+  "8e5763a4-d8eb-4b98-802d-aafdcbf12e32": "supply_chain",
+  "8ecbaf59-22e0-4052-9c60-1205af33b343": "supply_chain",
+  "8f3f1732-f49e-4787-a3ee-56432cbc3a9c": "supply_chain",
+  "8f83a20f-cb27-4fcf-a301-b637ce35965d": "brand",
+  "8fb2c831-a0fe-4a4a-b113-523cbce8205c": "supply_chain",
+  "8fd600f8-99a2-4eec-b425-0ebfe44b19e2": "brand",
+  "9004afe3-fdb9-486a-8322-24abdea0dc93": "supply_chain",
+  "903cc955-bd84-4c40-baf3-5c6ec7d0df09": "brand",
+  "905ec5ee-2027-4eb6-bc12-d91bb3574a00": "supply_chain",
+  "91cff325-6315-469a-ab9c-91ef64f490c4": "supply_chain",
+  "91eedb3a-e003-437e-b7a8-45d8450661e7": "supply_chain",
+  "920e5a91-697c-4aa7-9a79-365c9c294e94": "brand",
+  "9335865f-3d26-4061-ad06-fba76d1c521f": "supply_chain",
+  "93e65599-68b5-4ed1-827f-338107b2fcf6": "supply_chain",
+  "94198006-2d1d-4f24-be7d-532128a39d84": "supply_chain",
+  "9426bcd2-1b64-4b71-a672-2d8ef3f2957b": "brand",
+  "94832ffd-4bd2-4f04-b181-52aabf2d8f4f": "brand",
+  "9490b1e8-1815-4ac2-b432-044f17bfa814": "retailer",
+  "949e363c-8881-4c20-ba4f-57304ee1e7cf": "brand",
+  "96f08e25-2963-402f-ae9c-b4b02bb5d7a3": null,
+  "96f24246-c6f7-4978-9232-a5c8508a8097": "brand",
+  "96fbce73-c067-4dcf-b04d-8b6c76c57174": "brand",
+  "972dcff3-19dd-4dae-9577-edbe7ffe837a": "supply_chain",
+  "976b6a0b-bb95-4ff0-bdc2-d60dee08be76": "supply_chain",
+  "97e100c5-1edf-48b7-a523-d764f2e72959": "supply_chain",
+  "97f150a2-a1ef-4450-96b3-be57cb4aae17": "supply_chain",
+  "983f4704-c2a3-4362-a9e5-593f96a0cd7b": "brand",
+  "99a41608-4406-45d0-8e6c-80646d735b6f": "supply_chain",
+  "99cf2f32-bb12-457a-bb54-c380bc9d57d6": "brand",
+  "99e55bac-4417-4e3f-9f82-63af0036ff3c": null,
+  "9a2df188-921a-4186-8ef8-fd4dea65dac6": "brand",
+  "9ac4f34d-dfc7-4e06-b59f-c3f77c879b62": "brand",
+  "9b786dd7-54b8-4795-9aa8-09b2e615a0db": "supply_chain",
+  "9b977596-7422-4074-b997-9ad45526b817": "brand",
+  "9be7faaf-26eb-4971-bdf0-0a88517fc3f4": "supply_chain",
+  "9c8ba60e-9780-4dec-8e27-f18b6c690e7b": "supply_chain",
+  "9cb17d10-0c0e-44ad-8bab-e4adb7393e67": "supply_chain",
+  "9e3df8f7-1b6b-4cdf-b233-ee5b2ed7088c": "retailer",
+  "9f13f44b-3524-43aa-8c10-4b2b2c47c8fe": "supply_chain",
+  "9f208cd2-c1f0-4cd9-bb3f-faf4743810f1": "supply_chain",
+  "a017499c-3742-468f-8c92-46ad0a8459a5": "supply_chain",
+  "a1b9eb6a-d4f8-46c4-af18-b93116c1e8c7": "brand",
+  "a1eecb7e-c3fe-44fb-93e0-5e6923703304": "supply_chain",
+  "a23d6be0-ac9c-424c-9fb3-bac017749f2a": "supply_chain",
+  "a295f466-c370-47e9-9228-873c054fb0f5": null,
+  "a38049a4-f9d6-4ccf-90b4-dc25376c2c99": "supply_chain",
+  "a405931a-a47d-4464-989f-a09d56f915e6": "supply_chain",
+  "a41ec3cb-c3b7-4b36-aab2-1be51965483f": "supply_chain",
+  "a44f4e4d-dd88-404a-9672-f1ca5080a729": "supply_chain",
+  "a56081bf-38cc-49c5-9585-5b9929572265": "supply_chain",
+  "a5d302ed-358e-4d02-a3bc-79b6f246575a": "supply_chain",
+  "a7142d64-838e-461b-aece-7c7068be299c": "brand",
+  "a730fe93-cddd-4e26-b87e-a65ee587f871": "brand",
+  "a788c8fc-922c-45c7-bd38-6bb610a9a070": "supply_chain",
+  "a89db50a-440b-4647-9ab0-31539abb5f25": "brand",
+  "a953c0cf-939a-4cb4-bd31-cf4970dff67d": "supply_chain",
+  "a9593fd4-4393-4caa-925d-c85a357f75e7": "brand",
+  "a9a2b67a-b826-4cae-b0b7-e7d3427b5d50": "supply_chain",
+  "aa607810-4708-4499-a88e-ebe1cc2c4f98": "supply_chain",
+  "aae04697-9923-4106-b430-610fcd10590a": "supply_chain",
+  "ab4a9a9b-6902-46fa-a62d-16df1a834006": null,
+  "abe61556-5d61-4e06-b4dd-f0e4f8a58662": "supply_chain",
+  "ac60ec70-90e0-495e-88d4-19f6f7841ed9": "brand",
+  "acbb2421-d139-4262-87fd-587db105fcae": "supply_chain",
+  "acd6beda-7cfa-4d4c-89bf-0f2ca787d337": "brand",
+  "ad0eb867-3e3b-499e-ac23-b42a2fa42b6b": "supply_chain",
+  "adfb40e1-b92a-431d-84fe-8cbe31eb4895": "brand",
+  "ae397c5b-34ed-43f9-90ed-192e733643b7": "brand",
+  "aebeb631-5ad1-4e1f-8168-2bc865ac309b": "supply_chain",
+  "af1a25b3-987d-4689-bd16-ae8c970e6178": "supply_chain",
+  "b1e4e7c4-8dd4-4852-9f9a-5d5ca3d47608": "supply_chain",
+  "b23e6406-0e73-4ab1-b91a-dfb321f6a7b6": "brand",
+  "b275ba7b-581e-4c0b-8f5c-8aedcb7abeba": "supply_chain",
+  "b2a97706-9e62-4daa-ab90-d007e79a12fd": "supply_chain",
+  "b3314f39-42a0-4469-8172-e97c24668ebf": "brand",
+  "b346240d-d2c8-48c2-a848-be45b395a9fa": "brand",
+  "b3d40c5a-dac8-4e37-86ea-c585b5404a09": "supply_chain",
+  "b4566f6b-219d-4f99-8b43-d7dfdc840526": null,
+  "b489891c-b4d6-4704-b6cf-d9c2e869c9d3": null,
+  "b4aaf7ff-5597-49fd-8980-9582e09c5cbd": "supply_chain",
+  "b4ecc5f4-53c4-4445-bef5-37940cb483db": "brand",
+  "b5ae6c15-258a-465b-b71f-b32b68dd53eb": "brand",
+  "b5da88aa-6b3b-442f-b0b0-13f1c8557d74": "brand",
+  "b5ea4a52-4cc7-49ed-93d7-7357dcbf0286": "supply_chain",
+  "b5fb9d07-bff6-4e8a-8f1a-4c88f7f9f1c1": "brand",
+  "b62df49f-2068-4223-a656-e2961f7d2ff8": "brand",
+  "b6427d5c-d344-4528-8138-73dbf6414c4a": "supply_chain",
+  "b746f1c3-bff4-45de-bf09-dfc7daaa7809": "brand",
+  "b79a013b-d6c9-489f-81b2-a65bed5f4c98": null,
+  "b7fa4049-84e2-449d-a108-7678ecd009a4": "supply_chain",
+  "b8043868-43dc-488f-b093-72afb14548f0": "brand",
+  "b84d5f14-b4e5-4211-854a-aee857919a4b": null,
+  "b86e5a19-cc27-4ade-a855-143c4dd566ce": "supply_chain",
+  "b8ad37d4-b838-460c-82e5-a466d00760d9": "supply_chain",
+  "b9519c11-3f88-40e8-a972-0c6df29c7e80": null,
+  "ba04c2ea-4bfc-4fb6-8954-1172cf2ae37b": null,
+  "ba33107d-539d-4075-983e-0898003fbc23": "supply_chain",
+  "ba52f811-a42e-44ef-b2c2-93e87fab75aa": "supply_chain",
+  "ba8fac1c-d2bb-4b02-8cfc-dd23498b2c08": "brand",
+  "bb4a8807-8312-4a7d-bc3a-35fb080ab0bf": "brand",
+  "bb67cdb4-0a09-4a97-b643-3134df3fa380": "supply_chain",
+  "bc3aac7d-15ab-4609-8270-75cbf775f226": "brand",
+  "be859f56-7f36-43d5-a509-4ec03b15b5be": "supply_chain",
+  "bf1844f9-eec8-46fa-92e1-e01f7b078734": "supply_chain",
+  "bf233334-f548-4935-bb25-29db8b47423a": "supply_chain",
+  "bf5db405-539d-4da7-8ca1-a01a3ac3d0e5": "supply_chain",
+  "bf73c923-6f16-4e16-93a1-9178fd465045": "supply_chain",
+  "bfdc9eb0-f58c-47b5-ab05-27f861eae223": null,
+  "bfffc415-ca64-4bfa-8aee-1958fca90930": "supply_chain",
+  "c02db429-4761-471c-8611-0fee23b7a5b9": null,
+  "c04912ba-7801-4cd4-a6d7-635f91604afd": "supply_chain",
+  "c0694fed-5b4c-4864-9042-974270a67b35": "brand",
+  "c0f8fdee-f0a2-42f6-9526-af740d383b02": "brand",
+  "c1104a8b-9bea-48af-8436-d4eac4edbcb1": "brand",
+  "c117342f-2e45-4571-ae42-c63ac14f7f7b": "supply_chain",
+  "c1ae3d86-d3eb-4def-a440-c3983329288d": "supply_chain",
+  "c1b3c580-0206-443d-b6d6-2860f58ad25d": "supply_chain",
+  "c2f28777-cdbb-42b2-915d-0db4252f7b73": "brand",
+  "c47f08c7-88b2-4bfd-bcd9-e0659080fc71": "supply_chain",
+  "c4d0a1a2-8bf6-400b-8f58-9fb69da47c63": "supply_chain",
+  "c4d70768-c589-4d7c-8359-b2c5cf5e19b6": "brand",
+  "c683293a-de78-40ab-a878-ce4128f4e431": "brand",
+  "c6ebc81c-3e57-4770-b477-0b657a5ee0dc": "brand",
+  "c7001be0-6cee-4f60-9621-105ba1ca77a0": "supply_chain",
+  "c746e879-e29f-4080-973d-6e480deb3541": "supply_chain",
+  "c8bffac5-eb0e-4029-bf6e-4776aae56859": "brand",
+  "c8c98b30-602e-4223-997a-4c8644259dd6": "supply_chain",
+  "c958bf40-6cdc-4643-a08a-e8117069bf06": "supply_chain",
+  "c987ffb8-3470-472c-aa72-3abe66f4cd88": "supply_chain",
+  "c9bfeb2e-ca6f-407a-b720-b5387095fb93": "supply_chain",
+  "ca37dd23-26a9-4722-8690-285b8073c727": null,
+  "cab0f2e3-eeff-4c16-b85b-06f1ffbe7ec9": "supply_chain",
+  "cadd481b-f844-4ecc-9477-70cec1627521": "supply_chain",
+  "cb2a690b-e2ec-4c77-b566-5b3154cc6420": "supply_chain",
+  "cb5c203f-ec0d-4b9e-afb7-545c6c44b73e": "brand",
+  "cb6626be-9b67-4b32-a5ed-9de25554eda7": "supply_chain",
+  "cbbee4d5-757f-426b-9f19-65ee23f535c4": "supply_chain",
+  "cbf54a96-7b54-4b58-844f-c2e80623390c": null,
+  "cc0e992a-0dc2-4783-9f82-2acc7417d586": "supply_chain",
+  "cc161c74-408f-4f2f-91b6-fec987f06843": "supply_chain",
+  "cc76650b-6ed2-47d4-b9e4-ebacfd9a72a0": "supply_chain",
+  "cd21aea8-7628-487a-8dff-3c894e0b3e04": "supply_chain",
+  "cdf980ad-33e7-4599-902c-589b8afeee7c": "supply_chain",
+  "ce38ebce-cd96-4815-b9b3-c4fa3ec9f21f": "supply_chain",
+  "ce4f9fad-709b-4ca6-af39-82d0b87ed5c1": "supply_chain",
+  "cf2421c7-4ac3-4d77-8a94-4fe3d92d5cbe": "retailer",
+  "cf447a00-e7e4-44aa-a370-507690125bef": "brand",
+  "d05df9d9-bd7a-426e-869a-c2297ac20c36": "supply_chain",
+  "d0a5b075-dc8a-4ea7-b446-d0e05720cf45": "supply_chain",
+  "d0eff838-8e86-44c8-9e15-d74d2d24af87": "supply_chain",
+  "d11509be-daa9-43f0-9c76-b47b7da12585": null,
+  "d18391fb-6e6d-41b5-a06d-3abc45b9ba54": "supply_chain",
+  "d1b07b8d-119b-4412-a2d4-2ba58ec855bc": "supply_chain",
+  "d1b17853-0cae-4ee1-af74-d09286e3d686": "retailer",
+  "d1cf0ffe-c7a6-497c-8cfe-327c93c3f398": "supply_chain",
+  "d1fa2386-2e2f-4a33-a5b9-13ef3f169fe3": null,
+  "d246790a-4d31-4e2c-99ec-15598ed27e49": "supply_chain",
+  "d255de1f-9bc3-4330-ab8c-16f8c30170ee": "supply_chain",
+  "d27ac898-d4f0-4a33-8310-56c5299c18e5": "supply_chain",
+  "d321fc00-f841-4677-aa9a-c2919c29e92f": "brand",
+  "d3c28230-df75-4ead-a890-1593d95c860e": "supply_chain",
+  "d43a4539-ae30-423f-93ea-ee7de8919f8c": "supply_chain",
+  "d4988926-83df-41ea-85f2-d10305fba6eb": "supply_chain",
+  "d4afcd3e-47b2-4614-9698-d96bd1232f35": "supply_chain",
+  "d51f831e-e74a-4683-acea-402a2bc359e8": "supply_chain",
+  "d542b419-d2bf-4b1e-b459-233887b20934": "supply_chain",
+  "d6adaedc-b07c-4b24-8c08-89638c076471": "supply_chain",
+  "d6c0451b-87e8-4c35-8c8e-059a32c89eef": "supply_chain",
+  "d70ea69a-7b56-42dd-9d2b-88cd442e5fc4": "supply_chain",
+  "dac7938e-43f1-48df-a35f-fa9fdeb38730": "brand",
+  "db288172-c710-4e5f-bb3e-41da51e03075": null,
+  "db7e8b70-2d1b-4ee4-b699-1eed16512a1f": "supply_chain",
+  "dba4580d-57fa-441c-a2ed-ba77593ef85a": "retailer",
+  "dbd43fbe-e4f8-40b0-9ba6-a63cf8189952": "brand",
+  "dc1d68c3-565c-4569-aafd-fe59b2d40748": "supply_chain",
+  "dc48c1f0-0748-4f16-8770-0475d1d5aa46": "brand",
+  "dcccba49-23fb-40ba-8d6c-0b7d5529ec56": "supply_chain",
+  "ddb116e6-94fd-4175-8d0f-886e14ffe729": "brand",
+  "dde06df4-bff8-4900-90bc-709dc8de3df5": "supply_chain",
+  "de828cf4-b349-4c5b-9ec1-d2bbd12f3c1c": "brand",
+  "decbf683-dab6-4fae-bbf8-8e85bfab1ec8": null,
+  "ded1f63c-53b0-4cd9-9054-cf8497ad127a": "supply_chain",
+  "df0c68d3-e128-4fd8-a0de-276471c84687": "supply_chain",
+  "e05b07d0-a935-4737-8278-a2480b598433": "supply_chain",
+  "e092ba59-48e7-400f-abb9-2c700cdc5224": null,
+  "e093fb3e-8591-416b-b996-45dfd89d0faf": "brand",
+  "e1b43fd7-487b-44d3-911e-bc84fd288e0c": "supply_chain",
+  "e2119d2f-dc89-432c-9bf8-bb595e826f74": "supply_chain",
+  "e231ad86-566a-46bd-8e4a-050d20a76f51": "supply_chain",
+  "e45841da-f811-4bd1-a5d8-5f862dbf0eff": "supply_chain",
+  "e4cc6611-427f-4174-9d0a-e1d3702de7be": "supply_chain",
+  "e4f089ce-c165-49a6-9c59-997e64dbe265": "retailer",
+  "e4f78764-d654-48e9-8f66-c22f7dc18bcd": "brand",
+  "e5fdb194-a559-4e52-a2d1-cfc89a6ca6d3": null,
+  "e6c79338-ebc6-40d2-87fd-eda755866794": "brand",
+  "e700d9ef-ac0f-4302-a651-2d30a11edc12": "supply_chain",
+  "e7a2e740-b840-4093-9a9e-e6bed823b973": "supply_chain",
+  "e7dcdc7a-7e14-4d12-b1a1-445958b54d9c": "brand",
+  "e8cec533-e530-4883-bfaf-c746d1a65d93": "brand",
+  "e9665816-f41d-40d4-a676-dee4e262d0e5": null,
+  "e9cf50b2-8890-4ad3-8baa-0f064f4c51a3": "supply_chain",
+  "ea17cd67-9d67-413b-958e-885207c6f801": "supply_chain",
+  "ea88821c-45ca-42d6-bf58-393e9d23440f": "brand",
+  "eb3910c4-c05f-4f96-ac21-1ef5246063dd": "supply_chain",
+  "eb4660b6-0957-4b07-bb31-508fb63b9076": "supply_chain",
+  "ebd79544-23cf-4f94-af52-69a6362bac99": "supply_chain",
+  "ec5dba54-534e-4638-bd12-964e0eb24c19": "supply_chain",
+  "ecbb475f-a094-46d9-96b6-b42b2daa7157": "supply_chain",
+  "ed196652-db00-44a9-979b-3e1059fd18c6": "supply_chain",
+  "ed728b6c-3a1c-4c10-bb7f-ed2da9c9b237": "supply_chain",
+  "edae8a30-be5a-4dee-858f-0fcb8ea93784": "supply_chain",
+  "ee057349-e67b-4a0b-9427-9f2aaa89615d": "brand",
+  "ee68269b-2232-4e52-8e61-781c71bf9fae": null,
+  "ee8ec025-9130-4e47-8ed0-9f4b5dead98e": null,
+  "eef72142-411b-4fdd-971c-df82ec127a73": null,
+  "ef120dfd-6aa0-4a91-801e-adac0058ca67": "supply_chain",
+  "efdd2aaa-196c-4f92-9b44-eb1b4bcf252b": "supply_chain",
+  "eff9c8c0-a63e-4217-b867-e71615df83ef": "supply_chain",
+  "effba302-7999-475c-8fdb-106f5112a883": "brand",
+  "f015cefc-1825-4596-8483-3d1dadef78ed": "supply_chain",
+  "f07f319c-e0b8-41d4-a491-f94de5667cbb": "brand",
+  "f0c72092-a206-405f-86f3-7047f95310d9": "brand",
+  "f1107f43-1e45-45d3-8da0-fb8dedef8d17": "supply_chain",
+  "f1d0046a-4728-41d2-b023-ffb93b5e67e1": "supply_chain",
+  "f285f119-2fb2-4312-a728-ca23a0b32927": "supply_chain",
+  "f366cbc2-7d37-4028-920c-c45b7d00fa15": "supply_chain",
+  "f38c246b-0a28-423b-bd8d-3fec30a19f95": "supply_chain",
+  "f4ba623e-8e6d-46a8-968c-466ada43515f": "supply_chain",
+  "f5850d94-0a19-469e-8033-3fceb09b5a52": "supply_chain",
+  "f6503317-2e04-43d9-9ab7-dc294172eab9": "supply_chain",
+  "f7287b11-54d7-4792-ba42-b570477e39e6": "supply_chain",
+  "f76fc558-f10d-48fb-95c7-7165bdb293f7": "brand",
+  "f7a8a06c-ba00-435a-9f55-ac9d181e7e97": "brand",
+  "f8ada728-6b9b-46b0-81bb-f74c43be48db": "supply_chain",
+  "fa350312-1b1c-4329-b2bb-2d58dff345e3": "brand",
+  "faa49714-e908-41aa-af7e-2bec9519806c": "brand",
+  "faa5cc2e-e3ca-46f4-abe6-1d3d9be9a254": "supply_chain",
+  "faa74c7b-b597-4c97-8780-b8b86d59036f": "brand",
+  "faff66f0-5741-4fe8-b390-4ce1db799a3c": "brand",
+  "fbe881e7-981c-40b0-9939-81c038698dba": "supply_chain",
+  "fc54e1ac-cadb-4264-8a24-1806a41825bd": "supply_chain",
+  "fcf9697c-5a51-403a-a06d-7dfab892eb74": "supply_chain",
+  "fdd6f647-00ba-492d-b876-3b14b52c6cfb": "supply_chain",
+  "fdfa5c20-1a4e-4feb-9da6-80401750b3b7": "supply_chain",
+  "ff4956c8-3fb8-47f4-a8a4-6aeb908d4d2d": "brand",
+  "ff7f93d4-1814-4fc0-adfc-ff4492f0a44b": null,
+  "05a8b434-defb-4bda-86f2-9f0ed44dd395": "retailer",
+  "09d5d007-4dc8-4ce1-9446-d2b85603e8a0": "retailer",
+  "1c46fe8d-d194-494e-8e35-68eb149e133f": "retailer",
+  "23be1ee0-46a6-4d25-83e3-3ce5a6551b06": "retailer",
+  "2c225d6e-dbcc-4837-8bda-760157c15193": "retailer",
+  "451e98bd-9ff8-4e7b-aeb6-af9d59d523bc": "retailer",
+  "93612b57-78f3-4e2b-9c76-0bd73491cb6d": "retailer",
+  "992d28bd-ed95-47ef-82f2-ca6c875f55f5": "retailer",
+  "ad88547d-c768-4143-b80c-f456826b0c00": "retailer",
+  "b0759f15-3042-4828-87dc-89e2d595e4ac": "retailer",
+  "b39f710d-8f39-476b-8eb4-25c7ab0b6433": "retailer",
+  "b3fb4f88-9715-4d7e-9644-04dfed13e425": "retailer",
+  "bbaf7357-6d73-48a6-b11c-b7564ce79626": "retailer",
+  "bcebb7f7-6197-4a85-a6eb-d81b9a965110": "retailer",
+  "cab60782-0f55-4044-87e8-a97059af20e0": "retailer",
+  "dc240412-4695-4484-ae2f-b21c150fab25": "retailer",
+  "e09aa5ea-51ac-4567-a241-5bd4fa8deaa2": "retailer",
+  "eba165d1-1d10-4734-93e0-045466ff11fb": "retailer",
+  "f20299e3-3c8a-4e89-b139-fba8b59ac33b": "retailer",
+  "f32fafde-a04b-46da-b4c4-fba0bb96c933": "retailer",
+  "f776f440-7c12-4a3f-be4f-7791e9194216": "retailer"
+ },
+ "parents": {
+  "0503ec59-1ac3-4d0d-aca2-7965542ae792": "ade2d895-3636-4c62-b0cd-971b298ec62e",
+  "0c6d80a6-6135-425e-afd8-c8f24c6aa167": "cbd0a0f9-e6f1-42c8-adcb-3a09702f83fd",
+  "10f7e998-8785-492d-a66b-f29d00a053ed": "263c45cb-911e-4d56-b3bb-2d7845be852a",
+  "19201eea-02da-4583-a6df-5cb3552282e3": "2f70d462-d6f9-46d2-ad29-c68983d11a5e",
+  "1b70f42e-03c1-4639-a9f0-47531dfd7a9a": "904ed52d-9e28-41e3-a169-0b38a3d78681",
+  "1c690ed9-1cd8-4d23-a24e-2404def04d6c": "6b44f35c-7b86-4cab-88eb-dcc71415bd6c",
+  "1ce73070-f2b0-4835-ab65-c1a80ba2c8e6": "382c8ed9-4f9b-45ba-8244-d53f58fe8de8",
+  "1d885d85-15ed-466b-bd6e-cd49851777b4": "d0713f3e-0d9d-42ed-b387-e1dc9ee46d31",
+  "2ef10531-36ea-49c9-be5f-764abe6d390d": "778fa196-b9cc-4199-852b-6cc053920fad",
+  "2fdfbdad-6bb4-4e3c-aa1d-21eec5f68d1f": "5b2feb52-9d6d-4b2a-93bd-3731ec14c4e1",
+  "3192a15c-5c1f-4e6c-a245-240a997256f2": "6a9a5234-8378-4a24-b1ba-b84477c96e1d",
+  "3960fe01-a194-4004-a55f-b625edcf941f": "ade2d895-3636-4c62-b0cd-971b298ec62e",
+  "398511db-5551-4a89-917f-79f1e933f505": "a882e173-4f27-4d11-ba4b-7fbf66270943",
+  "3b4fe4c1-9a53-4091-9a97-7d1a5a771999": "427a4101-666b-467e-83a0-2ac7de487aff",
+  "3e088350-abca-4938-a7c0-0620b623fa7a": "8222410b-c5c3-4ff1-8925-19d15afbf986",
+  "4025fff1-b58e-4040-b116-604ff35ffcdf": "a882e173-4f27-4d11-ba4b-7fbf66270943",
+  "41326549-a13b-4f3c-b85b-b0a05987768c": "1bf9e28b-ffb9-4958-8ee6-b329bfb69ac4",
+  "443b78de-c9ef-4f80-aa74-74c7fc4af746": "668bb703-4ad2-44db-9af9-76de813c9c36",
+  "448c2e23-8f34-43bd-b5bb-5092facd0c46": "6b44f35c-7b86-4cab-88eb-dcc71415bd6c",
+  "44d2fd70-fd4e-4ac7-be09-7eb6dc2eb6ca": "708890ed-d4e4-4ad4-9353-5fb50593a62d",
+  "508c7fbe-fcb5-42e2-be24-a88d3623368c": "bc566864-fc5f-4c09-b4cc-c6a93e11ceae",
+  "50cb4e22-c08f-4c28-85a8-89f66703fe31": "7b13dc37-5cfc-4164-80fa-a658de5a6872",
+  "51024a91-3903-4391-9b40-31cfa6c1d744": "5d881f12-779d-4f64-a0bf-78c5dfbfa172",
+  "55741ba7-09b2-4c02-aa58-bfd2932bd48d": "a190ced2-aef7-4200-995b-acaa17f27247",
+  "57a28916-eaa5-41c2-b542-4d35fbdef6c1": "9653e772-9c19-4f1c-bf5b-ef42fa8af353",
+  "58001709-964b-4c69-b9a4-5c8c3cca996f": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "5c80c73f-4644-43b1-8fde-cf172340bbeb": "cab60782-0f55-4044-87e8-a97059af20e0",
+  "662125e1-fd7e-426a-ab64-0435cc0baed5": "9d27136b-e4b9-4751-9b47-f60636ead6f0",
+  "66f56448-ad6b-4ac4-a496-57e9c9926b8b": "c9697dca-6d90-4690-be94-665171355556",
+  "69c83e5e-ebbd-40d6-9a1f-b06cab6ee348": "a190ced2-aef7-4200-995b-acaa17f27247",
+  "6a96f8b4-b8a6-458e-b04d-0d5aef3f5e12": "e9fc265b-d0a9-40a7-a07e-2ad75b4ad1cf",
+  "6a9888f1-6e22-4495-ba20-9d38cd049b77": "05a8b434-defb-4bda-86f2-9f0ed44dd395",
+  "6c22087e-7291-4a34-a98c-05ccb5562676": "55fa5159-0aed-4f26-8326-454415f1b44b",
+  "6d6bfc88-f664-4722-a9b4-28e1d1bdf330": "5a2d807a-7389-4785-86fc-d5456c1dc4c0",
+  "6f55921e-3b4f-4c4b-a188-b9c5e3711d59": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "73ea6fd2-186b-4bee-8626-d2e40d053c95": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "76d9bc7b-1a14-4175-977e-20df8b542a75": "db7e4112-4972-4867-ae26-eb49cf4a0729",
+  "780bb7da-ef6d-4610-95a2-c3fa2628a71b": "bd774ba3-d119-4c54-995a-535c5881cda1",
+  "78e30c4b-f4cc-4599-b64c-5a20e29dced1": "0bbfe108-c2e6-44e6-aaa8-e7c38e084acc",
+  "79dfb531-63d8-44cd-9cf7-1bb8549f0f73": "4ae5c27a-d9a1-4cba-ab92-8026724c06d5",
+  "7b198529-58e2-4742-8e9c-a1cac3750185": "de68f8c8-2849-4c55-8a60-88787d9994be",
+  "7dbe3baf-fcf7-4a00-8163-855abede0104": "6b44f35c-7b86-4cab-88eb-dcc71415bd6c",
+  "8340d6fa-12cd-4ffb-acec-f710cde01aea": "1344111a-307e-465b-bf4a-dcf2e606c5ff",
+  "85b6497f-86ae-4996-ab74-dec2abd34a8b": "fa58e2a1-7253-4c8e-ad5d-acb650f8d1ad",
+  "8b9fc8d8-e8ab-4b65-b246-2443af3b31f7": "5a2d807a-7389-4785-86fc-d5456c1dc4c0",
+  "8c68d7f8-cfc8-45dc-9e42-f60bc9439819": "d957bfc3-5c5c-4fac-8e90-7fd2adf234ba",
+  "8cf37d15-9968-4be7-9f74-694cb8ce3f2e": "ad88547d-c768-4143-b80c-f456826b0c00",
+  "8d4cbdba-7ab0-424b-a54e-2e6234d06ce2": "d0713f3e-0d9d-42ed-b387-e1dc9ee46d31",
+  "8f3f1732-f49e-4787-a3ee-56432cbc3a9c": "fc80cebe-1f3e-4688-b4a2-7b675d282a10",
+  "94832ffd-4bd2-4f04-b181-52aabf2d8f4f": "7b13dc37-5cfc-4164-80fa-a658de5a6872",
+  "97e100c5-1edf-48b7-a523-d764f2e72959": "fc80cebe-1f3e-4688-b4a2-7b675d282a10",
+  "983f4704-c2a3-4362-a9e5-593f96a0cd7b": "c913a329-d51f-4b87-8e4a-eff9454780e1",
+  "9ac4f34d-dfc7-4e06-b59f-c3f77c879b62": "ca4a4bef-bd62-48da-8623-5b177d43dd82",
+  "9c8ba60e-9780-4dec-8e27-f18b6c690e7b": "09d2de6a-6603-45ca-a454-68e9d9087440",
+  "9cb17d10-0c0e-44ad-8bab-e4adb7393e67": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "9e3df8f7-1b6b-4cdf-b233-ee5b2ed7088c": "adeb80b9-3b74-4bbb-a6a0-683e9f1244d9",
+  "a1eecb7e-c3fe-44fb-93e0-5e6923703304": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "a38049a4-f9d6-4ccf-90b4-dc25376c2c99": "0b124319-1461-4e5b-b091-cd9945643aeb",
+  "a56081bf-38cc-49c5-9585-5b9929572265": "4c0e153d-97c9-47a1-953a-32cfaf5415e3",
+  "adfb40e1-b92a-431d-84fe-8cbe31eb4895": "00a13f28-0cf8-43b5-b2c7-22010e80f090",
+  "af1a25b3-987d-4689-bd16-ae8c970e6178": "6c319124-c19a-4623-b357-fd5f52ec28c4",
+  "b23e6406-0e73-4ab1-b91a-dfb321f6a7b6": "9834b42a-3192-4aa4-b0bd-0b5657a40620",
+  "b62df49f-2068-4223-a656-e2961f7d2ff8": "db7e4112-4972-4867-ae26-eb49cf4a0729",
+  "ba8fac1c-d2bb-4b02-8cfc-dd23498b2c08": "0c097985-1934-4cb7-8b63-834d2e7563d3",
+  "bfdc9eb0-f58c-47b5-ab05-27f861eae223": "1344111a-307e-465b-bf4a-dcf2e606c5ff",
+  "bfffc415-ca64-4bfa-8aee-1958fca90930": "4786454b-71e0-4b9e-96f8-46ddc03ed643",
+  "c0694fed-5b4c-4864-9042-974270a67b35": "a84a3f54-8418-402a-9f28-af3c0da4ddc4",
+  "c0f8fdee-f0a2-42f6-9526-af740d383b02": "47a9ed9a-5a37-4008-9bd0-5b42103647a9",
+  "c4d70768-c589-4d7c-8359-b2c5cf5e19b6": "bb83f9bc-a2a8-4eec-9c6f-3ce142ce1748",
+  "c6ebc81c-3e57-4770-b477-0b657a5ee0dc": "455fc84d-beae-4079-b4d1-9ec943f23b61",
+  "c7001be0-6cee-4f60-9621-105ba1ca77a0": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "cb5c203f-ec0d-4b9e-afb7-545c6c44b73e": "a190ced2-aef7-4200-995b-acaa17f27247",
+  "ce38ebce-cd96-4815-b9b3-c4fa3ec9f21f": "e773b321-ce4e-418e-a2fc-62319e513fd6",
+  "d1b17853-0cae-4ee1-af74-d09286e3d686": "6b7ea0a5-006d-4ec2-9825-afe911ad4cff",
+  "dba4580d-57fa-441c-a2ed-ba77593ef85a": "e09aa5ea-51ac-4567-a241-5bd4fa8deaa2",
+  "de828cf4-b349-4c5b-9ec1-d2bbd12f3c1c": "7c391ee0-345a-4aec-8e5d-64f74103dcc7",
+  "e4f089ce-c165-49a6-9c59-997e64dbe265": "ad88547d-c768-4143-b80c-f456826b0c00",
+  "e7dcdc7a-7e14-4d12-b1a1-445958b54d9c": "7b13dc37-5cfc-4164-80fa-a658de5a6872",
+  "ea88821c-45ca-42d6-bf58-393e9d23440f": "7b13dc37-5cfc-4164-80fa-a658de5a6872",
+  "ee057349-e67b-4a0b-9427-9f2aaa89615d": "68fedc36-2632-4931-bd54-1bb14d52962e",
+  "f07f319c-e0b8-41d4-a491-f94de5667cbb": "6f473dcc-1eef-4097-b2f9-92501137b56a",
+  "f0c72092-a206-405f-86f3-7047f95310d9": "0f35aea4-05f4-4b15-af9f-29729c8a87bf",
+  "faff66f0-5741-4fe8-b390-4ce1db799a3c": "1bf9e28b-ffb9-4958-8ee6-b329bfb69ac4",
+  "fbe881e7-981c-40b0-9939-81c038698dba": "7f93428f-e0fc-4945-a65e-a4f8ec34ec7b",
+  "fdd6f647-00ba-492d-b876-3b14b52c6cfb": "349e8ea2-f68e-49ed-8abd-7526f4e10668"
+ },
+ "owns": {
+  "00a13f28-0cf8-43b5-b2c7-22010e80f090": [
+   "08a7e292-b2c5-40c2-8cd9-77cc53841a6c",
+   "364ee995-7e3b-4874-ab4b-61e69b6e1f0c",
+   "f58566c2-afe7-46cd-bf97-e248776de42c"
+  ],
+  "01c9e88f-c371-44ca-b89c-e24ef4ef2b1a": [
+   "c9a9c5ac-e2f7-4fe3-978f-369c11c17308"
+  ],
+  "0503ec59-1ac3-4d0d-aca2-7965542ae792": [
+   "712085d1-17e4-46af-b769-f8a24685a485"
+  ],
+  "0703a6bc-56e9-4b81-8212-e960ddefab7f": [
+   "5860cbd6-0948-411c-99fe-ca72c69c3fa0"
+  ],
+  "070a0f24-6d78-4c12-bc9e-c833f8d28ed1": [
+   "64c0663b-5bf9-4926-a211-daff8c81d667"
+  ],
+  "074267a8-9269-48a4-b240-ee39823de80b": [
+   "1507f0b0-0251-4abe-a6a6-6d183b5c7f44"
+  ],
+  "08f372ba-5e1d-452a-bb04-0c98d710fae6": [
+   "0926bc80-5903-4e48-8b83-ef02e2d35d89"
+  ],
+  "09d5d007-4dc8-4ce1-9446-d2b85603e8a0": [
+   "945dc527-65e3-450a-8d74-de0d1a7c794b"
+  ],
+  "0de8bfc3-fe77-4412-92c3-6a81d21cf836": [
+   "4f4b5e2a-d78f-4a87-9a38-0bc86b19ceec"
+  ],
+  "10f7e998-8785-492d-a66b-f29d00a053ed": [
+   "263c45cb-911e-4d56-b3bb-2d7845be852a"
+  ],
+  "1137706d-0cbd-4ad7-906d-22918268b345": [
+   "427bb7c2-aa09-4dc0-b657-a31ca9e8e1ec",
+   "485edf84-ba42-4149-844c-04a6bb3002fe"
+  ],
+  "122dd12a-cc35-4b10-a74f-0e9d2004ac6e": [
+   "c3997208-f457-43c2-8b5c-aca1168ae0d2"
+  ],
+  "14d1023e-fd19-4ced-89de-cab97d4da752": [
+   "d088dd6b-7a34-4faf-9409-c6e5a8d9b370"
+  ],
+  "17c4075d-13de-4e92-8762-893b0bd335a7": [
+   "fff984d3-17a6-40ca-a311-5a6aa4a4496f"
+  ],
+  "1b70f42e-03c1-4639-a9f0-47531dfd7a9a": [
+   "e03ec735-f478-402c-b43c-530333194e7a"
+  ],
+  "1c690ed9-1cd8-4d23-a24e-2404def04d6c": [
+   "5dc55aaf-c717-46d5-933d-d86dae47daa1"
+  ],
+  "1c797005-cbde-4bca-b340-996b6fcb4241": [
+   "4b2bad3f-4f35-462e-a139-45e5275c6cc6"
+  ],
+  "1ce73070-f2b0-4835-ab65-c1a80ba2c8e6": [
+   "32e029bc-407c-4b8b-aa6c-ff3f673c6853"
+  ],
+  "1d885d85-15ed-466b-bd6e-cd49851777b4": [
+   "cd1e29dd-58fd-454d-b73d-2f1ef0feb8e5"
+  ],
+  "1e191720-0881-4ac2-945e-76de9428ffe3": [
+   "739d7a2e-dcd6-44bf-b545-7b5696f9677b"
+  ],
+  "1f4addf4-3f01-40e0-9237-7365af22ba54": [
+   "5709bf0e-a991-4c4f-bce0-20fe7c1a5ce3",
+   "a34ad352-c9a2-4e1b-9309-e5e2e5fbb479"
+  ],
+  "1f7cd941-3646-4418-b5c4-1d8dd693fd40": [
+   "836f3c07-1437-4458-b41f-93f2e5774c6c"
+  ],
+  "20ad5e46-ce3c-4a98-bf2b-3f8418128ea3": [
+   "27778c59-2e32-4f69-8b1f-502ed130cf62",
+   "526ee6f0-3027-41b8-90c1-c343bb2f139e",
+   "6118642c-768e-4629-bbec-f37f63b0a463",
+   "917e1be9-677a-4e40-b0af-a95b5ef1797d",
+   "98ae1577-2ef6-45ee-aa28-103c8b32170e"
+  ],
+  "212b4d13-9e50-479c-a8b5-3afa910b15b5": [
+   "13c89bf2-5515-4633-b1ff-f0e4cf49e919"
+  ],
+  "23078b37-ccca-4087-851a-abcf9519009b": [
+   "52a76176-d67f-4339-aba3-5b96a3d95217"
+  ],
+  "231afa8f-335c-4fd8-884b-0f51e50e819f": [
+   "3395ae73-7c63-4af5-82e4-a083d9be2539",
+   "b0ad5a2f-9bed-4d87-b555-ac073fd8715f",
+   "d3a29654-97ae-4df4-8652-0f1495c2f494"
+  ],
+  "23a235d4-38df-4467-85dc-be62f2f2b8a3": [
+   "1d3ff25a-2944-4a12-af5f-a0feab4fe40b"
+  ],
+  "23be1ee0-46a6-4d25-83e3-3ce5a6551b06": [
+   "d5c7f685-c163-480b-b2fd-e70f1ca11d43"
+  ],
+  "25562041-ccc0-4fce-89fd-b12b23ab2e4f": [
+   "457793a1-eaf3-4d72-8bc7-c0135471810b"
+  ],
+  "25798fa7-731c-4ede-ad89-374d16308b4b": [
+   "a9181a24-3883-4b16-94ec-31d19941930e"
+  ],
+  "279366ce-a9fe-4d2c-9b8d-e02135f4fb59": [
+   "93fbde5d-1173-477b-ab8a-6e312eb658c4"
+  ],
+  "28a591d0-56a3-473e-8602-43488606c207": [
+   "6e3f58f0-b91f-426b-b92f-4050632537c1"
+  ],
+  "291f6f61-4220-4ecd-a45e-3d1b7ba4e946": [
+   "cfbfd8b7-3fe8-49d8-990c-e5c2533461cf"
+  ],
+  "2958cb50-7b78-4f28-a5dd-665b7f44e576": [
+   "ade2d895-3636-4c62-b0cd-971b298ec62e"
+  ],
+  "2c225d6e-dbcc-4837-8bda-760157c15193": [
+   "d971ad21-fd16-4a53-9907-03401b748d9b"
+  ],
+  "2c9d8f08-3484-4eb2-b852-2d960c2aa7bb": [
+   "3e6c0df1-2ae4-4dfe-9637-a2fad6c65503"
+  ],
+  "2ef10531-36ea-49c9-be5f-764abe6d390d": [
+   "f1a1db61-2fdc-4913-9054-717224991351"
+  ],
+  "2fdfbdad-6bb4-4e3c-aa1d-21eec5f68d1f": [
+   "f1b6c7f0-919b-4d98-9c52-34181bb15ebf"
+  ],
+  "3192a15c-5c1f-4e6c-a245-240a997256f2": [
+   "83b401f5-ff64-450a-a754-192cc0883927"
+  ],
+  "322f05a4-530e-4486-9b7d-d3a87eaaf28e": [
+   "2033fb82-6a2f-4b89-9269-7cb734834c40"
+  ],
+  "32314b9a-e6eb-4870-9b60-e1fab4911fa1": [
+   "185ee65f-5153-475d-b688-eded3ef28ba4"
+  ],
+  "370a5e49-975a-4866-a55b-03f1d418ba85": [
+   "071b86d6-0f31-43cb-a939-f770ce888188"
+  ],
+  "3960fe01-a194-4004-a55f-b625edcf941f": [
+   "2958cb50-7b78-4f28-a5dd-665b7f44e576",
+   "9a38acd6-4691-4566-baa4-b57de00ca8fc",
+   "ade2d895-3636-4c62-b0cd-971b298ec62e"
+  ],
+  "398511db-5551-4a89-917f-79f1e933f505": [
+   "8a1704d7-e475-4e36-bef4-9605c3954bfe"
+  ],
+  "3b4fe4c1-9a53-4091-9a97-7d1a5a771999": [
+   "63df31e8-4838-453a-af57-f25c5cda606c"
+  ],
+  "3ca8b957-76e3-47f2-9d00-6af922d53c6d": [
+   "0d300c5b-6763-4846-9fba-d2fe54d4e27b"
+  ],
+  "3d2cdb3c-ad40-4983-8c70-06ef43dd10d4": [
+   "189d0826-2ad7-4500-b79c-b851c0e22b78"
+  ],
+  "3e088350-abca-4938-a7c0-0620b623fa7a": [
+   "adb38a67-a134-49de-8f50-994be1aed9aa"
+  ],
+  "3e6fa61e-745d-4238-a13e-350353d7d539": [
+   "7fe90d3d-e11b-4423-b0e2-2ba9abfa2e2e"
+  ],
+  "3ebe9147-1a69-41e5-a2ae-160304e59af1": [
+   "5e8a0823-6487-49a9-90a8-7d825473913c"
+  ],
+  "3ee9db65-20f3-4601-956f-cb8d032cb83c": [
+   "2b78d9d3-39c1-446d-a24f-56734dae3ee0"
+  ],
+  "3f9552ca-f4f7-4c7f-bfa3-5e7eb27350d2": [
+   "9fd3834a-7a67-4dd8-9889-e6b7b422615b"
+  ],
+  "4025fff1-b58e-4040-b116-604ff35ffcdf": [
+   "6007f52d-6f2f-45c8-ae83-c10972681c5b"
+  ],
+  "443b78de-c9ef-4f80-aa74-74c7fc4af746": [
+   "668bb703-4ad2-44db-9af9-76de813c9c36"
+  ],
+  "448c2e23-8f34-43bd-b5bb-5092facd0c46": [
+   "42818956-b0c5-4330-bbc2-0077179f0df8"
+  ],
+  "44d2fd70-fd4e-4ac7-be09-7eb6dc2eb6ca": [
+   "708890ed-d4e4-4ad4-9353-5fb50593a62d"
+  ],
+  "451e98bd-9ff8-4e7b-aeb6-af9d59d523bc": [
+   "44b659a9-aeab-472a-9594-c4d407bca8c7"
+  ],
+  "459f8b96-08a1-4ad0-ae81-a63d2c98cfb3": [
+   "fd02aa4b-f30b-4b5e-b308-0a85742f9e9d"
+  ],
+  "4786454b-71e0-4b9e-96f8-46ddc03ed643": [
+   "078f4180-072d-4450-8281-338539992da6",
+   "39912521-7b64-45b4-b1b9-d9dae69546c1",
+   "fb30b85e-6574-4f1b-9dd6-3385222a2e5f"
+  ],
+  "4846b839-c65d-4552-bdc5-89c71409f62b": [
+   "d4c5c886-635b-458b-aa59-41d378b3a4f4"
+  ],
+  "4a8632e5-c8ee-4756-9cb2-5b473495327d": [
+   "a1089c53-1c32-4cca-9a49-f30e1f92c09b"
+  ],
+  "4b24b80b-a1ab-4049-be2f-9d7934b0292f": [
+   "ea4c233b-b752-4a1b-a2b5-0bc2c09ea0a9"
+  ],
+  "4c04812d-7610-4786-8418-8fec182d453a": [
+   "8a1d476b-ac40-4f15-abf7-6b6a56170c76"
+  ],
+  "508c7fbe-fcb5-42e2-be24-a88d3623368c": [
+   "ce150168-0054-463b-a302-06725abece3e"
+  ],
+  "50cb4e22-c08f-4c28-85a8-89f66703fe31": [
+   "ccb39ff9-9644-44e6-bd21-bd960ead7204"
+  ],
+  "51024a91-3903-4391-9b40-31cfa6c1d744": [
+   "ef565125-0aaf-4292-bba1-ee8500decfe8"
+  ],
+  "52ef1d7f-cc07-470b-917a-c842f6547e80": [
+   "5f2bae3e-3b6d-4415-b6c0-1b3b0da9f088"
+  ],
+  "5318eb5f-8b8d-48e7-83a4-d071850f0418": [
+   "e594cbb0-0ed4-4118-a9b9-c7ab871e5569"
+  ],
+  "545eaa01-15ee-46d2-a530-384992421370": [
+   "169c9813-f03a-4b67-a39a-49c74b0ee903"
+  ],
+  "547ba1d5-c8dd-4b7a-ba44-8d513f1b626f": [
+   "e0c3231f-ccf4-428d-b712-cb0e7e930150"
+  ],
+  "54a8d2c4-2c26-43df-bfdb-dbbb2111b93c": [
+   "7323ef65-dad0-408f-bdb0-66090c306093"
+  ],
+  "55741ba7-09b2-4c02-aa58-bfd2932bd48d": [
+   "5b8be050-be5d-4714-b462-8fa0645a90ad"
+  ],
+  "55f9bc7b-3ad2-4b9e-a441-bedcd72325dd": [
+   "369748c3-433a-4219-bf4f-2ae6cf8622c1"
+  ],
+  "5673639e-172e-4bff-88a0-27aec5d26973": [
+   "ead6c36d-3432-410d-b165-80cc61c2fa55"
+  ],
+  "569f7719-bdc7-4702-b6be-22d4a89b98b8": [
+   "42fedacd-4c21-4183-9d90-cb4dc6c56a2d"
+  ],
+  "58001709-964b-4c69-b9a4-5c8c3cca996f": [
+   "fa58e2a1-7253-4c8e-ad5d-acb650f8d1ad"
+  ],
+  "58e242b9-c2e0-49d0-8569-b3cd33b56751": [
+   "9735a412-2a07-483c-bd4c-792d59b73316"
+  ],
+  "5a2df64d-39b6-49e5-9ac7-8c009ab28613": [
+   "da0a94fb-66e6-49bc-86dc-c8d8f56fa535"
+  ],
+  "5a752dc8-5484-4cfa-9367-8994d46110a4": [
+   "e8a48ebf-3325-446e-932d-304800cb36de"
+  ],
+  "5ab48101-09d3-4961-ac37-dbf5b5307b0e": [
+   "4d85cfa7-ff17-4832-a02a-b812b3d5ab99"
+  ],
+  "5b27e914-920d-427b-a9c1-d8c12bc879e1": [
+   "1ba2fd80-dd32-4c09-92cc-93732294fcdd"
+  ],
+  "5b397a56-844c-4f84-9f21-31ae560bca25": [
+   "3a98af9b-525f-48a1-90ca-74344be6d360",
+   "439c7894-3758-4c47-b866-ad53169ead7d"
+  ],
+  "5bd19e67-1fed-4cbc-ab27-65f87ec3eafd": [
+   "04c9876b-6853-4a32-b27f-11430a14bbb0"
+  ],
+  "5c80c73f-4644-43b1-8fde-cf172340bbeb": [
+   "cab60782-0f55-4044-87e8-a97059af20e0"
+  ],
+  "5f7a06c4-bc52-4dec-8a8e-4a8333c44a6c": [
+   "12f51765-0b1b-4bfd-a435-bfabbbe51e31"
+  ],
+  "61d35ee0-8662-44b2-b510-790cfe52721b": [
+   "a5919eb4-6b97-48b9-a916-0e0e32222004"
+  ],
+  "6415d2d0-9376-4eeb-be67-f15d633be650": [
+   "013d9480-3d08-45be-b488-1016fbe21dec"
+  ],
+  "65c81a27-2c87-48dc-b8c6-83e89282ccb9": [
+   "08c95e6c-e40f-422a-a50b-ef06251093d1"
+  ],
+  "662125e1-fd7e-426a-ab64-0435cc0baed5": [
+   "41393049-e018-4319-9dea-a8eb42e12bcf",
+   "d4574de5-548c-4954-89a6-903bed61a91e"
+  ],
+  "66f56448-ad6b-4ac4-a496-57e9c9926b8b": [
+   "c9697dca-6d90-4690-be94-665171355556",
+   "d2b1416d-a7d0-4d7c-9a8f-af8b7ce6f0b1"
+  ],
+  "693db9ba-7b38-4b01-a064-c3c381339486": [
+   "f81ddd6b-5563-44a8-82cb-8f0cf49da875"
+  ],
+  "69c83e5e-ebbd-40d6-9a1f-b06cab6ee348": [
+   "a190ced2-aef7-4200-995b-acaa17f27247"
+  ],
+  "6a96f8b4-b8a6-458e-b04d-0d5aef3f5e12": [
+   "e9fc265b-d0a9-40a7-a07e-2ad75b4ad1cf"
+  ],
+  "6a9888f1-6e22-4495-ba20-9d38cd049b77": [
+   "05a8b434-defb-4bda-86f2-9f0ed44dd395"
+  ],
+  "6a9a5234-8378-4a24-b1ba-b84477c96e1d": [
+   "db91e40d-5e2a-4b44-a99e-3ab66fee2357"
+  ],
+  "6bf99e67-1052-4c31-b7bc-be49f19a54ed": [
+   "55135bab-f59a-4350-af27-f69ddbf3e493"
+  ],
+  "6c22087e-7291-4a34-a98c-05ccb5562676": [
+   "55fa5159-0aed-4f26-8326-454415f1b44b",
+   "fdebc9b7-03cf-4593-8631-85c2c51ab8b7"
+  ],
+  "6c3ed708-7a22-49a4-8ccf-32e22dee5c60": [
+   "8e414f9c-abc6-414a-be28-d0bbb82c7525"
+  ],
+  "6d6bfc88-f664-4722-a9b4-28e1d1bdf330": [
+   "5a2d807a-7389-4785-86fc-d5456c1dc4c0"
+  ],
+  "6ddca393-f191-4c6e-93df-e306c072c73c": [
+   "c61e6f18-52dd-4f12-94c6-c61de4d0eb42"
+  ],
+  "6f55921e-3b4f-4c4b-a188-b9c5e3711d59": [
+   "fa58e2a1-7253-4c8e-ad5d-acb650f8d1ad"
+  ],
+  "6f69a359-3d2f-48e3-9c40-a2828714e45a": [
+   "c888b4f5-68e4-46c3-a9ea-3df59a3ece66"
+  ],
+  "70db5a1d-4462-450f-8795-3c13124738d2": [
+   "25acfef4-8e1f-4c57-b6ad-cdc6b35cd4ef"
+  ],
+  "7121b28e-5274-495c-a417-2637ea7f1afb": [
+   "6c41b078-4c4a-4fe3-905f-22fdeadc069b"
+  ],
+  "73bf379e-f86a-412f-bea0-7086cf234c46": [
+   "ae6417c4-d272-4905-a36b-cee85a37a601"
+  ],
+  "73ea6fd2-186b-4bee-8626-d2e40d053c95": [
+   "fa58e2a1-7253-4c8e-ad5d-acb650f8d1ad"
+  ],
+  "74fc914b-d7cd-425b-b666-73f7fb7af8e3": [
+   "6ef18475-7ae5-488e-85c0-01d44a429542"
+  ],
+  "756cfd67-d9e3-4dff-afd4-51682f9ce5d1": [
+   "2fa5e9f6-f3c5-4104-9f15-b99201ad0f69"
+  ],
+  "76d9bc7b-1a14-4175-977e-20df8b542a75": [
+   "18c492cb-5521-4dee-9717-51dbfec7bec6",
+   "db7e4112-4972-4867-ae26-eb49cf4a0729"
+  ],
+  "78e30c4b-f4cc-4599-b64c-5a20e29dced1": [
+   "0bbfe108-c2e6-44e6-aaa8-e7c38e084acc",
+   "f0d1cfda-abdd-4116-9ffe-b458a9789049",
+   "fd18a8dd-9132-492d-a5d6-490a8d53185d"
+  ],
+  "79dfb531-63d8-44cd-9cf7-1bb8549f0f73": [
+   "e13280b2-eb9d-437a-9ae0-12a02fb9f2fc"
+  ],
+  "7abc1c85-84b2-4f1d-8554-4d87f1036fac": [
+   "6469af06-a56a-4758-bb68-f0342cd60c4f",
+   "c22d89a1-088f-49f7-aa4b-e3d3583969d5"
+  ],
+  "7b198529-58e2-4742-8e9c-a1cac3750185": [
+   "de68f8c8-2849-4c55-8a60-88787d9994be"
+  ],
+  "7ba374be-892d-46f3-81d7-d6fb8df12018": [
+   "bce119ab-ee06-4a43-bc94-8f5e93a48313"
+  ],
+  "7ca9d2dd-41a7-4b3f-bd58-cea7f9d18261": [
+   "e37621a0-f48a-44c4-9446-f56dd909f7cb"
+  ],
+  "7cc79a44-53c6-440b-9a88-8ecf68d5e7a1": [
+   "96b63f09-d0f0-4766-9627-85297d140093"
+  ],
+  "7dbe3baf-fcf7-4a00-8163-855abede0104": [
+   "9d4accb8-0548-45cd-94f8-da2dd9cca05e"
+  ],
+  "80f92770-d800-43f6-9889-a5f13e4135eb": [
+   "c490bc5a-3ae6-4553-a467-a87e9893b84a"
+  ],
+  "812c07f4-2119-46a5-a135-c540456160b4": [
+   "90d1cf45-0b57-421a-9538-38f6aaa91c42"
+  ],
+  "81972d12-93de-4a09-945a-d59cdbfe6737": [
+   "3abcce71-4432-4fcf-94ba-b071a6cd4e3c"
+  ],
+  "82f2d8fa-e2bc-4997-8cfc-6f8de296d214": [
+   "ca1bce6c-9f01-4b04-936e-7a223f96fae4"
+  ],
+  "8340d6fa-12cd-4ffb-acec-f710cde01aea": [
+   "9d4accb8-0548-45cd-94f8-da2dd9cca05e"
+  ],
+  "840cce4d-24f5-41b0-81f1-ccf4548f2d46": [
+   "d115912b-3715-4eb9-bfdf-3c645e5678c9"
+  ],
+  "84e7d52f-569a-4017-853b-1f3d388fb3e2": [
+   "9081d243-fb4b-4c66-9b03-5794359abc35"
+  ],
+  "851ed966-7c4b-4622-81ff-869163068cae": [
+   "7cc6dbad-2ee2-4854-8cd8-22a6a3a73cb6",
+   "97b50980-0130-43c6-91f9-e4dd95a0f5bd"
+  ],
+  "852f5f50-0787-432e-aeaf-4189c081d110": [
+   "4313f931-7256-429c-9253-603568244b21"
+  ],
+  "87ac3f2d-47d5-40c6-a64a-9e11862871d8": [
+   "974425b7-9c5a-4b34-bd45-ff87b1fabe8f"
+  ],
+  "87ce57d2-7edb-483b-a9ab-24ef4040d3a8": [
+   "2bd91cbb-0eb6-4c01-99d4-60f02ca25f1e"
+  ],
+  "89ad5408-9858-476b-828e-06fc6ff09ba8": [
+   "848746c3-cbfc-4f09-89d8-4a47153c7402"
+  ],
+  "8a241ef9-1da8-4e18-9b1f-647276217a40": [
+   "2359473f-cf27-4eef-aed4-f2bce9df9ff2"
+  ],
+  "8aa63e1f-e554-4a39-a3e6-385e4653eff4": [
+   "04e67141-e052-4449-97ba-e990da9ef18e"
+  ],
+  "8abeecaf-31b1-47fb-a89c-0eba189f5da3": [
+   "964172b6-ebbd-4e1c-a791-6afd150407a3"
+  ],
+  "8c809a97-fbd8-4b34-8510-16e3a01fe55b": [
+   "1937bd80-39df-4db5-a4df-52ff29340d3a",
+   "3842b44f-d516-432d-8707-ea8de2cec3bc",
+   "660f5d32-4b41-4b81-96e2-36054a56d8f4",
+   "a21480cd-cd2b-4655-9db1-d00c5bfdb15d",
+   "b4f50cc2-6481-472b-a4d3-cc041085429f",
+   "c494a411-8074-4170-bfaa-c3dbc0b841a4",
+   "e0539c17-a3fa-40ab-a0a7-59ce31773c75",
+   "f1a8cef9-114b-4785-b067-6ae7336be180"
+  ],
+  "8ce62113-46f3-4840-a98f-87b6f8af7d11": [
+   "bdefcac2-a973-440a-abf7-bdcf2ac82678"
+  ],
+  "8cf37d15-9968-4be7-9f74-694cb8ce3f2e": [
+   "39f19e2c-01b9-49af-9aee-168e2944bf34",
+   "961cd344-235d-4c40-a461-8fdd2e7f4d2b",
+   "ad88547d-c768-4143-b80c-f456826b0c00"
+  ],
+  "8d4cbdba-7ab0-424b-a54e-2e6234d06ce2": [
+   "d0713f3e-0d9d-42ed-b387-e1dc9ee46d31"
+  ],
+  "8f3f1732-f49e-4787-a3ee-56432cbc3a9c": [
+   "4c8bf397-595b-4b4f-9822-5d5cbb287166"
+  ],
+  "8f83a20f-cb27-4fcf-a301-b637ce35965d": [
+   "1ee8766d-7ae2-4998-a148-4da1041b2ac9"
+  ],
+  "8fd600f8-99a2-4eec-b425-0ebfe44b19e2": [
+   "4c28245b-8bab-4bee-8480-f4f487f6f5fa"
+  ],
+  "917289e3-e9dd-429c-851d-66b55fd932ce": [
+   "4193395f-b216-451e-8ef5-7ab29da7ace6",
+   "80968e10-b115-4ffe-9939-e117d374c40a",
+   "9a8c8cb7-7f6a-4b65-9c6a-6188d3d96dde"
+  ],
+  "91de8d22-67b2-4924-8e79-c8f69e169d9b": [
+   "51297de4-23aa-4e02-af08-006d9a985ba5"
+  ],
+  "920e5a91-697c-4aa7-9a79-365c9c294e94": [
+   "845ed536-bce1-447b-99bc-664d7d1ebe8a"
+  ],
+  "932c8ce8-e55b-4adb-bbaa-d8304e61e964": [
+   "df4cdb28-0c2a-4404-b0c6-d165310350d1"
+  ],
+  "94832ffd-4bd2-4f04-b181-52aabf2d8f4f": [
+   "18c03407-4d94-4b39-8229-09d3a1b4f009"
+  ],
+  "949e363c-8881-4c20-ba4f-57304ee1e7cf": [
+   "d957b951-5478-4732-b2d6-8a2e1fa4f182"
+  ],
+  "95792bd3-a589-40af-936d-fed57bd5a74f": [
+   "7230398f-740a-4ef3-98e8-68725640fb91"
+  ],
+  "96f24246-c6f7-4978-9232-a5c8508a8097": [
+   "74fc119c-3a1d-4c84-988d-6078533ce0fa"
+  ],
+  "96fbce73-c067-4dcf-b04d-8b6c76c57174": [
+   "6e245d23-73f4-49f6-abf1-6a30d93d27d2"
+  ],
+  "983f4704-c2a3-4362-a9e5-593f96a0cd7b": [
+   "c913a329-d51f-4b87-8e4a-eff9454780e1"
+  ],
+  "99cf2f32-bb12-457a-bb54-c380bc9d57d6": [
+   "0fafaa31-005f-4dc0-8db0-af037d5fcc88"
+  ],
+  "9a2df188-921a-4186-8ef8-fd4dea65dac6": [
+   "0c7d2a98-56c8-4407-89bc-af97a4578898"
+  ],
+  "9ac4f34d-dfc7-4e06-b59f-c3f77c879b62": [
+   "4688d394-30d9-406e-aead-4da342e5c4cc",
+   "e98a66c5-c07a-4dd6-9b86-988a9a6c7a45"
+  ],
+  "9b4f2603-c05d-4bf5-960f-e974044bde1a": [
+   "f5032c3a-931f-4a8d-9e17-ec639324b420"
+  ],
+  "9b977596-7422-4074-b997-9ad45526b817": [
+   "455451c2-397c-40cf-a613-62e55bd6c935"
+  ],
+  "9c2457bb-67ab-43a4-939a-ca02192f3925": [
+   "2a721226-af67-4e4e-9c42-ca46cf02b8cb",
+   "3825009d-e706-41ea-83c8-53e1c9e15ddc"
+  ],
+  "9cf52672-852a-4f9d-a71c-c36a666695d5": [
+   "a990cf44-a065-4a1e-99a5-bb65eda4c6f4"
+  ],
+  "a23d6be0-ac9c-424c-9fb3-bac017749f2a": [
+   "9ab87edf-e8d7-4e5d-9e8c-2b0ef9374ebd"
+  ],
+  "a56081bf-38cc-49c5-9585-5b9929572265": [
+   "4c0e153d-97c9-47a1-953a-32cfaf5415e3"
+  ],
+  "a5797436-ca7c-4882-a092-64a33638cd70": [
+   "f4f21c0e-3e34-47f5-87b8-ebe4470b235f"
+  ],
+  "a730fe93-cddd-4e26-b87e-a65ee587f871": [
+   "b231b631-ec30-4651-99d4-3d2d62a64dc8"
+  ],
+  "a89db50a-440b-4647-9ab0-31539abb5f25": [
+   "883f3d6a-59bf-42d8-8d3b-85254595c59d"
+  ],
+  "a9593fd4-4393-4caa-925d-c85a357f75e7": [
+   "4faa5c48-d7c1-457a-9106-c7a9b199527a"
+  ],
+  "ac60ec70-90e0-495e-88d4-19f6f7841ed9": [
+   "f8fbf2e2-a027-4dfa-b06b-dc220440a5d0"
+  ],
+  "acd6beda-7cfa-4d4c-89bf-0f2ca787d337": [
+   "11d7d56c-6f24-4d35-be19-58716ef9d9ed"
+  ],
+  "adfb40e1-b92a-431d-84fe-8cbe31eb4895": [
+   "00a13f28-0cf8-43b5-b2c7-22010e80f090",
+   "c44a9799-2c53-4713-b426-c91b16be3631"
+  ],
+  "ae397c5b-34ed-43f9-90ed-192e733643b7": [
+   "d1c634ad-240f-4b00-a2da-cf3c1bd4d2ab"
+  ],
+  "ae68af31-1585-423f-a5e6-a3daf0f3529e": [
+   "82316b0c-7990-4041-a048-cfadc10ff4a6"
+  ],
+  "af1a25b3-987d-4689-bd16-ae8c970e6178": [
+   "51689417-07b9-4fa0-8fd8-ceea177f7dc2",
+   "e13ba661-9215-4eb5-8b2a-252b938df0ea"
+  ],
+  "b17ffe2b-c512-428f-808f-9ec22d85436c": [
+   "1a12f1ba-10e6-4bb0-ae46-e196e31a92b6",
+   "5dc55aaf-c717-46d5-933d-d86dae47daa1",
+   "b2055265-7e5f-4a76-a036-f056377fb801",
+   "fb499c62-666b-4f49-9661-4dbb2b53b49e",
+   "fe074fc9-f3de-402d-af04-7e8e3a0ed592"
+  ],
+  "b23e6406-0e73-4ab1-b91a-dfb321f6a7b6": [
+   "9834b42a-3192-4aa4-b0bd-0b5657a40620"
+  ],
+  "b3314f39-42a0-4469-8172-e97c24668ebf": [
+   "7867c07c-e127-4c80-a68d-85ef442014fc"
+  ],
+  "b39f710d-8f39-476b-8eb4-25c7ab0b6433": [
+   "bbe7cc96-0795-44f4-bf6e-5a60b5c5cb36"
+  ],
+  "b3fb4f88-9715-4d7e-9644-04dfed13e425": [
+   "7e60b85b-812c-4e1d-b446-de14f4ddbc86",
+   "b6aea49f-cb58-49f8-8b87-76cb0f918566"
+  ],
+  "b4ecc5f4-53c4-4445-bef5-37940cb483db": [
+   "eea55ba2-9a19-4492-acf3-26c6c50a3a26"
+  ],
+  "b5da88aa-6b3b-442f-b0b0-13f1c8557d74": [
+   "6ac2489c-293b-460d-8bfa-328d9bb00d50",
+   "6eb0e800-1a43-4e98-a73b-6e078ebb7d99"
+  ],
+  "b5fb9d07-bff6-4e8a-8f1a-4c88f7f9f1c1": [
+   "ea4c233b-b752-4a1b-a2b5-0bc2c09ea0a9"
+  ],
+  "b62df49f-2068-4223-a656-e2961f7d2ff8": [
+   "3962212f-ac95-46e8-adac-0b7faae1bd03"
+  ],
+  "b65a1236-ded1-4914-b14b-4fa462e939ab": [
+   "791dad4b-88fd-4d4d-b3fe-4c1280d9e10d"
+  ],
+  "b746f1c3-bff4-45de-bf09-dfc7daaa7809": [
+   "f3146a81-601c-41c0-af7a-8a73d979dfd2"
+  ],
+  "b76c3c9e-027d-4c3e-963d-1a2f4496d7f3": [
+   "f335ff7c-dd30-4bf3-a1a4-8f90f252034f"
+  ],
+  "b8043868-43dc-488f-b093-72afb14548f0": [
+   "19dbf55c-94b4-46b8-80cc-34f8450e455f",
+   "339e0797-f146-4389-997e-f7ae1dd7f550",
+   "b82b2d7b-ec5b-4967-af12-4b24a6827ab4"
+  ],
+  "ba04c2ea-4bfc-4fb6-8954-1172cf2ae37b": [
+   "108bfa8a-cdcd-4402-895b-a4e6b4d9294a"
+  ],
+  "ba8fac1c-d2bb-4b02-8cfc-dd23498b2c08": [
+   "e28f82ef-c194-4038-afae-939fa4f7c120"
+  ],
+  "bb4a8807-8312-4a7d-bc3a-35fb080ab0bf": [
+   "366b9aff-760e-498d-a1ef-a4b52fe0d034"
+  ],
+  "bc3aac7d-15ab-4609-8270-75cbf775f226": [
+   "e5419a0c-b354-45b6-b708-20546c711469"
+  ],
+  "bcebb7f7-6197-4a85-a6eb-d81b9a965110": [
+   "0febb11c-064f-4f18-b83e-281731930b91",
+   "469655e5-0f71-458a-ba02-1c293df82920",
+   "b7296bef-93cd-402e-97db-56f50eec8c98",
+   "c61e0201-111a-4199-9e4f-c359a21b66f8",
+   "d57d85a9-ee9e-4bc3-bc9a-cb12481a6982"
+  ],
+  "bd0a1e8e-c3f3-4e30-bb23-d41d81d8303d": [
+   "c9737e4c-474d-4ac5-89df-ec2683506eb4"
+  ],
+  "bd23ae4c-4f04-4469-b2cc-f34b8ab4a8c5": [
+   "9031601b-6db8-4624-a50d-70f5d68d144e"
+  ],
+  "bfffc415-ca64-4bfa-8aee-1958fca90930": [
+   "fb30b85e-6574-4f1b-9dd6-3385222a2e5f"
+  ],
+  "c0694fed-5b4c-4864-9042-974270a67b35": [
+   "a84a3f54-8418-402a-9f28-af3c0da4ddc4"
+  ],
+  "c0f8fdee-f0a2-42f6-9526-af740d383b02": [
+   "77ea5138-5872-4fbe-a73c-74d51dac7566",
+   "7aba08c4-f9d4-4058-abb9-0214076a74b4"
+  ],
+  "c1104a8b-9bea-48af-8436-d4eac4edbcb1": [
+   "0606e82f-04ac-469b-9792-e81b1d55b68b",
+   "503389a7-e4be-4b51-aceb-92de72edc66f"
+  ],
+  "c18548e9-b284-4fb3-b9b2-9128c3717918": [
+   "0028dfa7-04b9-4586-a8bd-00c85f599207"
+  ],
+  "c2f28777-cdbb-42b2-915d-0db4252f7b73": [
+   "e13280b2-eb9d-437a-9ae0-12a02fb9f2fc"
+  ],
+  "c47f08c7-88b2-4bfd-bcd9-e0659080fc71": [
+   "f3e47708-a57b-405e-bf29-85aa4aec501a",
+   "fef6879a-e938-40ba-b60d-249f04762d25"
+  ],
+  "c5498216-47b6-4d89-a369-63037fbba848": [
+   "467810d9-44db-4f69-80f3-6f3a6f4d2ec6"
+  ],
+  "c7719ea2-983c-428c-bbfb-20d824b340aa": [
+   "02daee1b-1770-4d07-87d4-e5701b11577d"
+  ],
+  "c8bffac5-eb0e-4029-bf6e-4776aae56859": [
+   "baa4603d-697b-48a6-a0b2-915fb4f665ea"
+  ],
+  "c958bf40-6cdc-4643-a08a-e8117069bf06": [
+   "5965a9b6-0f71-4304-9410-250ca1919aa5"
+  ],
+  "ca4a4bef-bd62-48da-8623-5b177d43dd82": [
+   "6081557f-8a01-4d58-a4b8-ebf626851dba",
+   "c75122fa-90d9-4d5e-95b0-2194b027b78a",
+   "e98a66c5-c07a-4dd6-9b86-988a9a6c7a45"
+  ],
+  "cb5c203f-ec0d-4b9e-afb7-545c6c44b73e": [
+   "f0701e78-a0c0-4747-97e5-bea1ffc19c9e"
+  ],
+  "cbf54a96-7b54-4b58-844f-c2e80623390c": [
+   "3bce16fd-b839-4e35-9450-5f4e6d1398c5",
+   "a2a24931-efb6-4ca4-b66d-070d01c3284b"
+  ],
+  "cc35c14e-155d-4fe1-ba6f-93ba7c8cb7b2": [
+   "e3531158-55e6-42e5-aa94-2af6b2ddc1e8"
+  ],
+  "cc76650b-6ed2-47d4-b9e4-ebacfd9a72a0": [
+   "e9722cd2-c417-4a5b-9c9c-2792acef3012"
+  ],
+  "cf447a00-e7e4-44aa-a370-507690125bef": [
+   "3665ad68-d6c5-4a90-956f-efe4ecd5ccb8"
+  ],
+  "cf9bf509-c0ec-4b75-8de7-7b98b57869fd": [
+   "cb239ebb-e472-41b7-b688-b7742fda6609"
+  ],
+  "d1b17853-0cae-4ee1-af74-d09286e3d686": [
+   "b094a630-2425-441a-8960-126a746e833c"
+  ],
+  "d246790a-4d31-4e2c-99ec-15598ed27e49": [
+   "4e10bd0a-70ba-4732-bc5c-1c144c1f4c0f"
+  ],
+  "d348ebbe-6857-42de-b289-2f041f5d0c7d": [
+   "16d0b4a1-cb41-4b6d-88c0-00586878a4df"
+  ],
+  "dac7938e-43f1-48df-a35f-fa9fdeb38730": [
+   "160d6188-1707-4334-8d0b-bf1f69715384"
+  ],
+  "dba4580d-57fa-441c-a2ed-ba77593ef85a": [
+   "e09aa5ea-51ac-4567-a241-5bd4fa8deaa2"
+  ],
+  "dbd43fbe-e4f8-40b0-9ba6-a63cf8189952": [
+   "16911e85-3115-4ce6-964a-27fa3b08bb9b"
+  ],
+  "dc240412-4695-4484-ae2f-b21c150fab25": [
+   "358270a2-0627-4fb5-ac34-572e1442207d"
+  ],
+  "dc48c1f0-0748-4f16-8770-0475d1d5aa46": [
+   "e31d8b9b-bb0e-4a4e-92eb-e8f18793cfe1"
+  ],
+  "ddb116e6-94fd-4175-8d0f-886e14ffe729": [
+   "61d7a985-117a-49f4-8002-aa162eea713e"
+  ],
+  "de828cf4-b349-4c5b-9ec1-d2bbd12f3c1c": [
+   "7c391ee0-345a-4aec-8e5d-64f74103dcc7"
+  ],
+  "e093fb3e-8591-416b-b996-45dfd89d0faf": [
+   "07d6edd5-6a27-408c-b284-3ce39a72be32"
+  ],
+  "e4f089ce-c165-49a6-9c59-997e64dbe265": [
+   "ad88547d-c768-4143-b80c-f456826b0c00"
+  ],
+  "e6c79338-ebc6-40d2-87fd-eda755866794": [
+   "54a8f9d1-2803-493f-a84b-06145a705ed6"
+  ],
+  "e7dcdc7a-7e14-4d12-b1a1-445958b54d9c": [
+   "55745a8e-a794-4a6f-9360-5500e0dc1206"
+  ],
+  "e8cec533-e530-4883-bfaf-c746d1a65d93": [
+   "d7f34f6d-573c-4ecf-9b09-9b366cbf7e5f"
+  ],
+  "ea88821c-45ca-42d6-bf58-393e9d23440f": [
+   "8edf4798-142d-4851-9732-a60c013326af"
+  ],
+  "eba140e3-5a94-4120-88fe-cc83dad80a6c": [
+   "39cc5511-840c-4604-8d5c-474c0660416a"
+  ],
+  "ee057349-e67b-4a0b-9427-9f2aaa89615d": [
+   "3ee46de4-c267-45ea-aed9-954ca07c03a5",
+   "68fedc36-2632-4931-bd54-1bb14d52962e"
+  ],
+  "efe1fd1f-d80d-42f7-87da-b9612837cfb4": [
+   "742c612c-2629-4fe0-b183-5eeb9e4c8736"
+  ],
+  "effba302-7999-475c-8fdb-106f5112a883": [
+   "65f30ec3-3d31-4b63-bba2-fd9bebaaf594"
+  ],
+  "f07f319c-e0b8-41d4-a491-f94de5667cbb": [
+   "6f473dcc-1eef-4097-b2f9-92501137b56a",
+   "c5e79c5b-70fe-49a9-b67d-2bf24a644de5"
+  ],
+  "f0c72092-a206-405f-86f3-7047f95310d9": [
+   "d1784b3a-9f49-4873-84bb-ed7fb969b53c"
+  ],
+  "f20299e3-3c8a-4e89-b139-fba8b59ac33b": [
+   "39d40065-d023-453d-893a-ef28f85fc31f"
+  ],
+  "f32fafde-a04b-46da-b4c4-fba0bb96c933": [
+   "6c28c2a3-8466-4913-a30b-4cdb6eefcc82"
+  ],
+  "f76fc558-f10d-48fb-95c7-7165bdb293f7": [
+   "c7c759d4-229f-4678-a440-f76beb49da7a"
+  ],
+  "f776f440-7c12-4a3f-be4f-7791e9194216": [
+   "7925bc6e-e339-4ccf-8d01-87c6fcd65699"
+  ],
+  "f7a8a06c-ba00-435a-9f55-ac9d181e7e97": [
+   "366b9aff-760e-498d-a1ef-a4b52fe0d034"
+  ],
+  "fa350312-1b1c-4329-b2bb-2d58dff345e3": [
+   "17fe4d1d-1326-4cd0-899d-e4fe0e694c41"
+  ],
+  "faa49714-e908-41aa-af7e-2bec9519806c": [
+   "31291668-fbf9-49e2-bf5f-67a41deba1e0"
+  ],
+  "faa74c7b-b597-4c97-8780-b8b86d59036f": [
+   "930d4905-d7b7-47e5-a4e9-25614cf777e2"
+  ],
+  "faff66f0-5741-4fe8-b390-4ce1db799a3c": [
+   "884d32ff-790b-4be6-98bb-8d90e5b6fbf0"
+  ],
+  "fbe881e7-981c-40b0-9939-81c038698dba": [
+   "fa58e2a1-7253-4c8e-ad5d-acb650f8d1ad"
+  ],
+  "fdd129cc-5abb-4823-b299-e72ff8fc7879": [
+   "935fcf63-3769-4709-84c7-2bcd5637c32f"
+  ],
+  "fdd6f647-00ba-492d-b876-3b14b52c6cfb": [
+   "349e8ea2-f68e-49ed-8abd-7526f4e10668"
+  ],
+  "ff4956c8-3fb8-47f4-a8a4-6aeb908d4d2d": [
+   "17969367-8941-448d-aa1e-7d3e0890ded7"
+  ]
+ },
+ "firmPicks": {
+  "Caesar's Pasta, LLC": "79388c98-6de2-4ec8-a33f-31e275d77e0a",
+  "Callie's Charleston Biscuits": "06cc9f53-7392-467b-99a1-8e299fc47200",
+  "Mount Olive Pickle Company, Inc.": "4adf15ae-e8b0-49b8-8c0b-5348b1fd66bd",
+  "OLLI SALUMERIA AMERICANA": "47845b7c-7c41-4951-b641-1e01c92a6445",
+  "Reser's Fine Foods, Inc. dba Fresh Creative Foods": "6b2f9923-5d50-43f4-bd6d-701eb68e6cb3",
+  "Sam's West Inc. dba Sam's Club, of Bentonville, Arkansas": "8d7a5be0-19d9-4cb7-8a76-4b581e5605e6",
+  "Starbucks Corporation, dba Teavana, of Seattle, Wash.": "32080d3f-0399-494d-8184-4e5604e07aeb",
+  "GBC Food Services, LLC dba Yummi Sushi": "df7d5c1d-0e6b-4a5c-85e5-9558f9c4b861",
+  "Glaxosmithkline Consumer Healthcare Holdings DBA Haleon": "62e140a0-04d6-4de0-ad70-22b98c51f359",
+  "United Packers, LLC": "b8ad37d4-b838-460c-82e5-a466d00760d9",
+  "Chattanooga Coca Cola Bottling Company dba United Packers, Inc.": "ded1f63c-53b0-4cd9-9054-cf8497ad127a",
+  "U.S. Tov, Inc. dba U.S. Trading Company": "372909e3-0346-4eb5-bc01-ac447625685a",
+  "Us Tov, Inc. Dba U.s. Trading Company": "372909e3-0346-4eb5-bc01-ac447625685a",
+  "Brett Anthony Foods": "9f208cd2-c1f0-4cd9-bb3f-faf4743810f1",
+  "D.A. Stein Culinary Group, LLC dba Brett Anthony Foods": "0e5bccdf-fa30-4079-a1b3-4490bbff2457",
+  "Ethnic Foods, Inc. d/b/a Bombay Kitchen Foods": "42e6d5b8-4bc9-4b84-9044-73553bcbfcbb",
+  "Pin Hsiao & Associates, LLC dba Zen Bakery": "363957e8-df14-4b95-8346-8367d2f2e12c"
+ },
+ "names": {
+  "00a03046-e4da-44b9-8f41-30d8fb159469": "Chin Jung Corporation",
+  "00c1540b-37b9-4854-a35a-c920d4313b8c": "TIPPCON LLC",
+  "01455b10-29c1-402e-a42c-26e9e25be266": "Rachael's Food Corporation",
+  "01a34160-4fcf-49fa-9a53-442172df98d0": "Windy Acres Candy & Nut, Outlet Inc.",
+  "01c5960b-a26c-4d53-9193-cc2d84a61d4a": "Growers Express                                    S",
+  "01d10108-902e-41b8-b23f-13e9e19b3597": "PUREFRUIT CHILE S.A",
+  "0503ec59-1ac3-4d0d-aca2-7965542ae792": "Nestlé Prepared Foods",
+  "057f03e9-eaed-4281-8075-69890c8ce3f6": "Losurdo Foods, Inc.",
+  "05a039b6-1ea7-41ca-8e3f-c0add8cb2328": "PURE PALM C/O DVD",
+  "06552fe9-b58a-46e8-80b8-6c809afe710a": "Two Chefs On A Roll, Inc",
+  "070a0f24-6d78-4c12-bc9e-c833f8d28ed1": "Pin Hsiao & Associates",
+  "0725b69b-92b6-4507-bf0b-99e3285f5070": "Joy Gourmet Foods LLC.",
+  "0790ec20-71e0-49b7-987e-78707bbd3ca9": "Oskri Corp.",
+  "08355a55-471a-4bf7-87ea-6ca1629d5d47": "Whole Foods Market North Atlantic Kitchen",
+  "08cb9197-21da-4a1d-acaa-576b0479bfd5": "Ashers Chocolates/Lewistown, Inc.",
+  "0a268776-f76c-4c78-87cf-f67c4ca82409": "Tipical Latin Food, Corp. dba La Pradera",
+  "0a3c1528-4f6f-4e95-90a9-4d0cb9e0ec68": "Pita Pal Foods LP",
+  "0a8c8b28-0a5a-48c1-bd39-0ab081267d19": "Morski Brands, Inc.",
+  "0aff45c5-c6e0-4f11-8c43-c3ba55fda2d5": "California Ranch Food Company, Inc.",
+  "0b55e443-2450-4331-aec7-35fdc5d4480f": "G.S. Gelato and Desserts Inc.",
+  "0b971216-057f-4e65-b17c-9ce470fb96c9": "First Source",
+  "0c368c69-97d3-4b3d-a85e-217d717d503b": "La Fontanella Food Products LLC",
+  "0c6d80a6-6135-425e-afd8-c8f24c6aa167": "Ehrmann Arizona Dairy Llc",
+  "0d089281-3a4c-40fd-aa0d-7b831cf6b64f": "Crave Brothers Farmstead Cheese, LLC",
+  "0d1ca189-8976-4028-95a6-af35418b65bf": "NewStar Fresh Foods, LLC",
+  "0e5bccdf-fa30-4079-a1b3-4490bbff2457": "D.A. Stein Culinary Group, LLC dba Brett Anthony Foods",
+  "0ec1c7be-f8b2-4085-af60-0cf855416d35": "NATURE'S SUNSHINE PRODUCTS",
+  "0eec01ca-3045-464a-ade8-619999d767b6": "Fresh Express Incorpated",
+  "0ef31d59-6ac7-4ed7-a6f0-af193c92aaa6": "Lords Organics Llc",
+  "0f1ed8b9-86d7-4b2a-924b-54d95b64fe68": "Interpac Technologies",
+  "0f362144-100e-4405-b9c7-88653984ae76": "Request Foods Incorporated",
+  "0f42cce4-c48b-442b-9a42-756b42f5c04a": "Shearer's Snacks",
+  "0f8a22c0-5bd4-467e-8cde-95d06e6b6f37": "JFE FRANCHISING INC",
+  "10af6ba4-3e29-464b-9d4d-7b826107c321": "LSG Sky Chefs #1393",
+  "10f7e998-8785-492d-a66b-f29d00a053ed": "Sheetz Distribution Services, L.L.C.",
+  "11671a5b-b524-4e26-b3d7-a6a3ec6ebb85": "Potters Fine Foods, LLC",
+  "11ebd46a-7099-4847-a6a9-5c27d1c29f74": "Berner Foods Inc.",
+  "11efc914-fb55-4cd4-878b-eda6b1f22853": "Prepared Meals Co",
+  "11f1d9a5-d134-4682-b6e9-f25c102358e3": "Gerber Products Company dba Nestle Infant Nutrition",
+  "120d4810-687e-427b-a587-4d4d23a09430": "Georgia Nut Co",
+  "122dd12a-cc35-4b10-a74f-0e9d2004ac6e": "Fishtrap Dairy LLC",
+  "1243d404-5213-4f0e-821a-7c926f97c22e": "Fairway  Group Holding Corp dba  Fairway Bakery LLC",
+  "12bc4e9a-6ea0-4560-8dcd-d690b154c5c5": "Family Food Distributor, Inc.",
+  "131c79f7-bd48-44df-98a1-b697cbd79e5f": "Great Lakes Coca-Cola Distribution LLC",
+  "1351897f-c25e-4198-8272-04a7e4dc5fef": "Chaur Fong Inc. dba 888 Food Company",
+  "13aaf860-2ce1-47dc-aa9e-f30db3e4537c": "Beverage Distribution Center Incorporated, LLC.  (BDCI)",
+  "13d13f32-9202-4fe9-83fd-fe2560b21eee": "N A Trading Inc",
+  "13d15b0a-e537-4e12-82e3-a39db34eeef3": "World Pure Foods Wholesalers, Inc.",
+  "148cb506-8af3-47e1-817c-ec82b332231c": "GOLD STAR DISTRIBUTION INC",
+  "15d7d515-f9df-4a2c-b391-77010ed5487b": "Taylor Farms New Jersey, Inc.",
+  "16164eca-14d1-4a8d-9188-9961232860f3": "COCA COLA Consolidated LLC",
+  "17c4075d-13de-4e92-8762-893b0bd335a7": "Dale & Thomas Popcorn, LLC",
+  "182792e3-07ca-4f0e-b938-679929ced956": "Golden Star International Inc.",
+  "189f492a-2e1f-4a09-a2d1-4035a5e79f3c": "Golub Corporation",
+  "19201eea-02da-4583-a6df-5cb3552282e3": "Goodman Food Products Texas Inc",
+  "1958c0f1-0218-48c8-9580-10d93a36fdfd": "The Pastene Companies Ltd.",
+  "19810293-6b23-4387-bfb9-9d28297073da": "Lyons Magnus, Inc",
+  "1986a057-27a7-4fc1-bd1f-9b25cf86ea6a": "RQA, Inc.",
+  "1a454048-df46-4089-8aa0-f239f52ca9e4": "Fourth Street Barbeque, Inc.",
+  "1a6733f9-067a-443c-b1c4-6c28b33fb150": "Arcade Industries, Inc.",
+  "1b6ce4b2-c252-451e-bf76-e0e43fed067f": "DYMA BRANDS",
+  "1b70f42e-03c1-4639-a9f0-47531dfd7a9a": "Iovate Health Sciences USA Inc.",
+  "1c52789f-a1dc-414c-8649-ec5246fbadb3": "Green Cuisine, Inc.",
+  "1c690ed9-1cd8-4d23-a24e-2404def04d6c": "PepsiCo Beverages & Foods",
+  "1c797005-cbde-4bca-b340-996b6fcb4241": "Aspire Food Group USA Inc.",
+  "1c9db049-7e47-4472-b6a5-c4922125df92": "Fazt & Loud LLC",
+  "1cdaaeca-e1c6-4002-ad9a-374a3d7053a9": "PGP International, Inc.",
+  "1ce73070-f2b0-4835-ab65-c1a80ba2c8e6": "Smucker Natural Foods, Inc.",
+  "1d01a48c-b67b-4377-a3f8-14928ab1bcbb": "Dierbergs Markets, Inc Corporate Office",
+  "1d77adee-b2cd-4bac-bf26-40774e8d2a0b": "Tipu'S Chai",
+  "1d885d85-15ed-466b-bd6e-cd49851777b4": "Baptista's Bakery, Inc",
+  "1d9ec2e4-b40e-4383-aff6-03ae5566d232": "Adm Milling",
+  "1e136b16-e046-4433-81c0-66cb525d3674": "Phil-Am Trading, Inc.",
+  "1e191720-0881-4ac2-945e-76de9428ffe3": "R and S Gourmet Warehouse",
+  "1f7cd941-3646-4418-b5c4-1d8dd693fd40": "Cass Clay Creamery AMPI Fargo Division",
+  "1f8ca922-e6ea-41ad-9248-4d88005d7986": "Bulletproof 360 Inc",
+  "1ffa6e40-157e-46fb-b38c-8d733028efa6": "Veg Pro International Inc",
+  "2149ba4d-d19d-4ce1-9676-b948e6cdf30d": "DIRECT SOURCE SEAFOOD LLC",
+  "21e02408-1157-472f-96e8-cb2ef045abfb": "Healthwest Minerals, Inc. dba Mt. Capra Products",
+  "227fef2b-3c40-4ddd-b4e5-5db47043abff": "King Soopers Bakery",
+  "22d3202f-007d-46d6-9bf1-bd734adff39b": "JJWV Marketing Corporation",
+  "231afa8f-335c-4fd8-884b-0f51e50e819f": "Youngstown Grape Distributors, Inc.",
+  "233c3618-eda0-451e-bd9a-3ffbb67e8d57": "Hudson Harvest Wholesale",
+  "233fbb1f-0d48-4728-bce2-ef3d7d16b052": "Guayaki S.R.P., Inc.",
+  "24225e99-5d43-4948-af88-56ffe0f66db2": "Braga Ranch INC.",
+  "242b4a2f-a631-48bd-b779-541a88e64597": "Peekay International, Inc.",
+  "24ef12ec-b2f0-4b1b-8f00-498df56d2053": "Cuisine Innovations Unlimited, LLC",
+  "255e2961-fa0d-4b11-9a0b-a909c9a41fbe": "H E B Grocery Company, LP",
+  "2563a3ad-d99c-48ca-be27-8f0537d16d6f": "Pecan Star & Nut Corp.",
+  "25798fa7-731c-4ede-ad89-374d16308b4b": "Hummingbird Wholesale",
+  "25cf8d2e-b588-435f-ba7b-c20e6076ba09": "L.A. Lucky Import & Export",
+  "25e202dc-71a6-48a6-a4c9-412416d6c4f6": "TFI Holding dba Grey Ghost Bakery",
+  "260127d5-4f65-440d-8faa-c72b0a44a68d": "Chiquita Brands International, Inc.",
+  "26628ec2-664a-4a32-be18-c95f974cdcf3": "Carolina CoPacking, LLC",
+  "26ba2d7c-f2eb-439b-9ee1-c80fe5dc4426": "Creative Contract Packaging Corporation, LLC",
+  "26c39c7e-d6d7-404d-bb51-6ea6aaf2a13c": "Caledonia Facility of Revolution Farms LLC",
+  "26d9e0b6-cc25-4b7a-86d0-c9f67300d00a": "Ethnic Foods Inc",
+  "2758d8f0-eb8c-4186-b73a-792022486baf": "Constantine's International Foods",
+  "27b2872a-cf0b-4d04-8c8f-15ee0507d15d": "Mother India foods LLC",
+  "289f9051-7723-492b-ac3c-5649d85a9fe5": "Reser's Fine Foods, Inc. - Century",
+  "28eae9f1-55e0-4c99-a5dc-8a5e437ec56e": "Nuts and Spice Co., Inc.",
+  "291f6f61-4220-4ecd-a45e-3d1b7ba4e946": "Herold Salads, Inc.",
+  "2985a1a5-b32a-458a-ab71-ba5752bd9f1f": "Royal Foods, Inc.",
+  "29b1ee89-3f50-4d96-8eeb-5690798b287d": "Epic Enterprises, Incorporated",
+  "29ce802b-426a-492e-aeb2-c1983b7b46f2": "Russet House",
+  "2a041aa1-c02b-4b4b-b1ac-bff10152f032": "Doehler North America, Inc.",
+  "2a21b11e-96ac-4a97-8678-102b2f1111d7": "Gilster-Mary Lee Corporation Cake Plant",
+  "2a828d0f-a84e-4635-a760-9236b440cdfc": "Emily Kate's Foods",
+  "2ab9e8b8-3ab6-4b4b-b446-0bb730a275f4": "Coconuthead, LLC",
+  "2b1f6822-f753-43b5-ace2-019b1838fe55": "COCA COLA SOUTHWEST BEVERAGES LLC",
+  "2b3dc92d-e54a-4f4f-b95e-9b271df5c238": "Prestige Brands Holdings",
+  "2b7079b8-dbed-4a49-9fc8-f846ad70d623": "ADM - CHICAGO",
+  "2bfc9ea2-94ec-4a10-b6f7-aca7a7c78fab": "WESTERN MIXERS PRODUCE & NUTS, I",
+  "2c21b3b0-77b1-4775-8e48-bf087c26b30e": "Living Nutz Living Organic Foods",
+  "2c995fcf-ee9a-4c5c-a620-603f718b0e6a": "Pacific Nutritionals",
+  "2c9d8f08-3484-4eb2-b852-2d960c2aa7bb": "Garden Spot Foods, LLC.",
+  "2cd0f88d-4d35-4fe4-adac-883d0fb02b72": "Hy-Vee Stores Inc",
+  "2d01e2e2-4488-4de6-a405-bbd4468a33e4": "Marketing Concepts Group",
+  "2d278357-1217-4e2a-8e0b-c741e1f3742e": "Gem City Fine Foods, LLC",
+  "2d2c5385-9243-4f63-bf43-1496310a7f40": "Shining Sea Fish Co. LLC",
+  "2d308806-c026-4b6f-b9b1-3dbb89939740": "Regal Trading, Inc.",
+  "2deaebce-ddc0-4ee1-b114-6f93b2aac20d": "Ferris Coffee and Nut Company, Inc.",
+  "2e3dfb34-d754-453c-b138-8637bc1e0103": "Vi-Jon, LLC",
+  "2e4ee978-e6b6-45de-a850-6e6086f3a4eb": "Talenti I, LLC",
+  "2e6c7af7-2b46-4029-87c5-be936e34526b": "Durrset Amigos, Ltd.",
+  "2e93a934-a815-4c50-9e27-3ea278ae3cd1": "Fresca Foods, Incorporated",
+  "2ef10531-36ea-49c9-be5f-764abe6d390d": "Amazon Retail LLC",
+  "2f36c2fa-8847-4b14-8a75-25c3edefde27": "Le Petit Belge",
+  "2fdfbdad-6bb4-4e3c-aa1d-21eec5f68d1f": "Le Fe Foods, Inc.",
+  "3077ef5b-71bc-4767-ba4f-6adcdfce85eb": "Caito Foods Service, Inc.",
+  "30a530b5-c4f0-45f7-bb21-76a4fdad45af": "T Up Trading",
+  "3192a15c-5c1f-4e6c-a245-240a997256f2": "McCormick & Company, Inc. - Flavor Manufacturing Center",
+  "32039674-fe19-4cdf-b337-122ca778bda1": "California New foods",
+  "32314b9a-e6eb-4870-9b60-e1fab4911fa1": "SUNCO & FRENCHIE LLC.",
+  "32374c2e-a5af-46b2-b7c1-71cb142a0a1c": "Simmering Soups Inc.",
+  "32919b20-46a7-4e3b-b30c-00a9bd80101a": "Innovation Bakers, LLC",
+  "32d46760-de91-4bf1-839b-a024faf4451b": "That's it. Nutrition, LCC",
+  "33001a99-60c4-4cc3-a0da-7c6e50499e36": "B.C. Frozen Foods",
+  "337d4a58-4d6c-4a9b-ab71-dbc39e4cfa68": "P&S Bakery, Inc",
+  "33fcdf65-8238-4cf7-bf8c-fb597225c2a2": "UNFI General Corporate",
+  "34333690-a217-4e70-8b9b-99bc0f17de9e": "Pepsi Cola Bottling Company",
+  "3483b4d3-1244-4ad1-8df5-8032de2ba78c": "Bestco, Inc.",
+  "35a687cb-1004-413d-a893-30bd6a19590d": "Hanmi Incorporated",
+  "35e8a820-ab17-4b53-9756-aae2396515c3": "Armada Nutrition",
+  "370a5e49-975a-4866-a55b-03f1d418ba85": "Wellness Natural USA Inc.",
+  "37b4ce5a-0624-4e1c-aa70-a37d6ec72eec": "Candy Dynamics Inc.",
+  "38ac529c-0200-4c95-b3f6-3c7a929e40a4": "4 Earth Farms formerly Mcl Fresh Inc",
+  "38b3d9eb-5b7b-4776-adf7-295e0ff8ab53": "Stumptown Coffee Corp",
+  "38e20881-8c33-4eb4-a5d4-8bc47b4df56e": "Alimentos Kamuk Internacional (Costa Rica) S. A.",
+  "38efed60-e727-4644-ac47-0cf21b086abd": "Taylor Farms Southwest, Inc",
+  "3960fe01-a194-4004-a55f-b625edcf941f": "Nestle-USA, Inc. (Corporate Office)",
+  "3979ec3c-d09f-4043-8f99-f3cd36ed87c7": "Heartland Coca-Cola Bottling Company",
+  "398511db-5551-4a89-917f-79f1e933f505": "Ajinomoto Health & Nutrition North America",
+  "3a523131-91b1-4ce9-a2a4-bb4f32d0d208": "Pinnacle Food Group, Llc",
+  "3aadf3c7-fdc4-448b-915b-00591ee73af8": "Avanti Frozen Foods Private Limited",
+  "3ade7a9e-4324-47b4-bb69-4c0c5dba6666": "Plant Based Innovations, LLC",
+  "3afaa2bb-c176-46a7-911e-6e098890f7bc": "JABSONS FOODS PRIVATE LIMITED (Formerly Known as Jabsons Cottonseed Ind.Pvt.Ltd.)",
+  "3b2906e1-40fd-4a26-9149-56b68be6b28a": "Swift Beef Company",
+  "3b4fe4c1-9a53-4091-9a97-7d1a5a771999": "Skippy Foods, LLC.",
+  "3bc85115-29fa-4375-9dd3-c77be4b4de5e": "Sole Grano Llc",
+  "3bd12067-fb1f-4a8d-a5f7-ba1a19893136": "Global Palate Foods",
+  "3c05c975-f792-4a12-a23a-b1d3655905c9": "GBC Food Services, LLC",
+  "3ca8b957-76e3-47f2-9d00-6af922d53c6d": "KEURIG DR PEPPER",
+  "3d01e754-ad91-4b07-a664-9c1caf217967": "Church & Dwight Co., Inc. OGI Distribution Center",
+  "3e088350-abca-4938-a7c0-0620b623fa7a": "Dollar Tree Distribution, Inc.",
+  "3e821bc7-3ca5-4440-9a85-a950d5fa160c": "Element Food Solutions",
+  "3ebe9147-1a69-41e5-a2ae-160304e59af1": "Troyer Cheese Inc",
+  "3ee9db65-20f3-4601-956f-cb8d032cb83c": "BLACKWING ORGANIC MEATS, INC.",
+  "3ef63992-dcf5-4f5a-9121-679ca05b02df": "SSP America PHX, LLC",
+  "3efac622-208a-4327-9f76-59ea7b57ee37": "Caito Foods LLC.",
+  "3f94c141-8903-4a8c-8021-f579658a3514": "Hampton Creek Foods",
+  "3f9552ca-f4f7-4c7f-bfa3-5e7eb27350d2": "Food Designs Inc",
+  "3ffe1561-e344-4f3a-ac34-8d21b16e7ff3": "French Broad Chocolate Factory",
+  "4025fff1-b58e-4040-b116-604ff35ffcdf": "Ajinomoto Windsor Inc., Golden Tiger Plant",
+  "408e4a62-ed3d-41f6-84e2-619a0bf2ec77": "POTANDON PRODUCE LLC",
+  "40ea56b6-a7c0-44f0-83cb-51ff47ad5fe0": "Apple Wedge LLC",
+  "41326549-a13b-4f3c-b85b-b0a05987768c": "Kraft Foods North America",
+  "419fa129-ef68-442a-b967-3d9dd7a7a8af": "Ambriola Co., Inc., The",
+  "41a19ae8-0785-4e8b-951f-19525e858941": "Bevovations, LLC dba New England Apple Products Company",
+  "4220df3d-f01c-4090-9710-72e51808d21d": "FRUSELVA USA",
+  "436b0935-98aa-45be-9ec4-d3964a1279f0": "Basic Grain Products Inc",
+  "43f58eff-f07f-453d-bfa0-72e4be101168": "National Steak Processors (2024), LLC.",
+  "443b78de-c9ef-4f80-aa74-74c7fc4af746": "Global Lam Sheng Kee inc.",
+  "448c2e23-8f34-43bd-b5bb-5092facd0c46": "Comercializadora Pepsico Mexico",
+  "44d2fd70-fd4e-4ac7-be09-7eb6dc2eb6ca": "Newman's Own Organics",
+  "44f4c620-22de-4faf-9cfa-cd1539f59a07": "AC Culinary Group LLC.",
+  "4576cde0-be6b-462b-a6b0-5061a791eff2": "Saratoga Potato Chips LLC",
+  "459abebf-e1f4-4dbb-ab55-e7856cf8962f": "Rise'n Roll Bakery, LLC",
+  "459f8b96-08a1-4ad0-ae81-a63d2c98cfb3": "Ambrosia Brands LLC",
+  "45a3adca-ef4a-4bf9-995b-84eae5a055b1": "El Tampiqueno Food Products, LLC",
+  "45abc8a2-6c26-41d8-a186-9e585b0adae8": "San Francisco Spice Company, Inc.",
+  "45cc52fd-df87-4af0-a192-9cd217f18242": "National Food & Beverage, Inc",
+  "460162b3-7c47-464c-a170-c9ccf65d6741": "Kettle Foods, Inc.",
+  "468651b9-925f-4de7-b8a1-eb1a71b70c7c": "GELLERT GLOBAL GROUP",
+  "472de067-a8b5-4f82-9bdb-758497685049": "Bear Stewart Co",
+  "47b15959-c6aa-47b6-8d36-11159c3ae8a5": "Firehook of Virginia",
+  "48639a49-a519-4bb3-98ad-d1821d7d9ace": "Enoki King Mushroom Farm Inc.",
+  "48868d07-a74f-4283-bba2-722f4ee20796": "Bountiful Trading Inc",
+  "49046e56-747b-451b-a8ac-ee1d7b54a808": "Stern Produce Company Inc.",
+  "492bc27b-ddcb-4cf4-ac46-7a08471c0a2e": "Amra Services Ltd.",
+  "497b8b5d-eb53-44e6-b835-062f46f2c9d0": "DSD MERCHANDISER INC",
+  "499ff2eb-343f-4969-89f2-9d9620c7096f": "H Group",
+  "49a40ea6-c6bf-415f-ba7e-18c615b109fe": "New Frontier Foods/Ocean's Halo",
+  "49c450bf-f567-48c6-bdaa-6ca61a5aacc1": "CATAO MARKET LLC",
+  "4b24b80b-a1ab-4049-be2f-9d7934b0292f": "HANA GROUP",
+  "4b994311-052e-424a-b539-33d742e9bffa": "CHETAK SAN FRANCISCO LLC.",
+  "4bd7b1de-19da-4e61-ab18-0e5a6045da09": "Harb Dairy, Inc. DBA Green Cedar Dairy",
+  "4c04812d-7610-4786-8418-8fec182d453a": "Korean Food Co.",
+  "4c946bd4-ce05-4b7a-9806-04193f002c9a": "Maple Island Inc            .",
+  "4cad92ed-7937-4a15-9588-351f34d9fccd": "Bozzutos' Inc.",
+  "4d1d83f9-0e66-407a-830d-d76362183cca": "Mizkan America, Inc. - Corporate",
+  "4d26648a-9feb-4172-8724-0f4bb4f60a89": "Lydia Pack 3 Inc",
+  "4d4507b8-e2f5-4d88-bcfb-b96fdfb8255e": "The Posh Bakery, Inc.",
+  "4e63d900-6be1-4a45-b53b-6be448d896bf": "Thomson International, Inc.",
+  "4e69ff47-8c99-41ce-8d49-07fa8c0d5684": "Strong America Limited",
+  "4f9dbf04-a7f9-4bba-99ff-c61d234e8c20": "National Frozen Foods Corporation--Seattle",
+  "50244582-bca0-4923-bd57-74fbc0d44fa8": "Blank Slate Creamery Production",
+  "503cc4ad-ad7d-4dc7-9e9f-8d79570db36d": "Wiet Peeters Farm Products Limited",
+  "508c7fbe-fcb5-42e2-be24-a88d3623368c": "Jer's Chocolates",
+  "50cb4e22-c08f-4c28-85a8-89f66703fe31": "Mars Food US",
+  "50da41ac-c889-4878-97b6-65029f63a3c5": "Global Commodities Corp.",
+  "50e85265-e375-440c-9254-e26c1d19f4e0": "Southwest Ice Cream Specialties",
+  "51024a91-3903-4391-9b40-31cfa6c1d744": "SARA LEE FROZEN FOODS",
+  "51328a86-af8f-47f5-9b82-240e12770ba0": "Vita Warehouse Corp.",
+  "52767c33-db04-48ba-a097-399e190772a9": "Whole Foods Market Northeast Regional Office",
+  "52ef1d7f-cc07-470b-917a-c842f6547e80": "Improper Goods",
+  "5318eb5f-8b8d-48e7-83a4-d071850f0418": "Blueroot Health, Inc.",
+  "532501dc-9b05-45f7-a42b-498cd0c0d53b": "Bob Evans Farms Foods, Inc.",
+  "54178336-3017-4953-8506-18327a6e8a53": "Shata Traders Inc.",
+  "545eaa01-15ee-46d2-a530-384992421370": "La Torre Foods Usa, Inc.",
+  "547ba1d5-c8dd-4b7a-ba44-8d513f1b626f": "Navajo Agricultural Products Industry dba Flour Milling",
+  "55454c58-19a2-4ee8-bc90-b3f4870595fd": "Evershing International Trading Inc.",
+  "5565ecb0-a855-4279-b7b8-159b99fae0ad": "J&J Snack Foods Handheld Corp",
+  "55741ba7-09b2-4c02-aa58-bfd2932bd48d": "DANONE WAVE",
+  "558de256-b275-4757-8d9b-ddc7ae4a4f97": "Riverside Foods Llc",
+  "5610fffc-a3cf-4e44-88f0-847e6184f0c9": "ONE FROZEN, LLC",
+  "56141511-fb2e-49e4-ab55-73edd9e00836": "Bakkavor Foods USA Inc.",
+  "561fd88d-e387-4365-adc7-acdc0ad05be8": "RS Hanline and Company Inc",
+  "566f03c9-e94e-43de-a08b-7ee7ac768a36": "Northhampton Peanut Company",
+  "5673639e-172e-4bff-88a0-27aec5d26973": "Lotte International America Corp.",
+  "5684a59b-4a40-4d7a-9a66-61dbb305650d": "Fresh Venture Foods, LLC",
+  "568eb6cd-5c91-4381-852c-e9cf6578e5d5": "Giant Greens, Inc.",
+  "57446c04-d60d-4e4b-a9eb-5c817ec7851f": "Kanan Enterprises, Inc.",
+  "574e68ff-a040-4d09-8553-2737a75cca5c": "WOLFGANG CONFECTIONERS",
+  "577f4809-5062-4dec-a3fa-13840640af97": "Wonton Specialists",
+  "57a28916-eaa5-41c2-b542-4d35fbdef6c1": "Dean Foods of California Inc",
+  "57cffe71-d485-419a-8525-fc705d75c96b": "George DeLallo Co. Inc. New Stanton Warehouse and Production",
+  "57d49f06-ae0f-4d85-bd94-be056dfafce3": "Creminelli Operating LLC",
+  "58001709-964b-4c69-b9a4-5c8c3cca996f": "Taylor Farms Texas, Inc.",
+  "58047e57-7319-48af-b9cb-830e8ea8a265": "Mellace Family Brands California Inc",
+  "583d3f1a-2ba7-424d-a936-0f020bc44a1a": "The Hain Celestial Group, Inc. - Worldwide HQ",
+  "5895307a-90f8-44ab-93df-6ccf892cc082": "Frozen Food Development",
+  "58e242b9-c2e0-49d0-8569-b3cd33b56751": "Ozturk Gardens",
+  "5930966b-be5b-4db2-b0ae-ae9cec9825ea": "Creative Foodworks, Inc",
+  "5985cfc1-e666-4d9f-b2a2-b47050d14be3": "Lawrence Wholesale LLC",
+  "5a2ca7af-aff7-4e40-8b0b-22ba84c04d4a": "Grand Strand Sandwich Company,Inc.",
+  "5a2df64d-39b6-49e5-9ac7-8c009ab28613": "Lochirco Fruit & Produce Inc",
+  "5a439192-1dcb-469c-b652-b3707c910451": "Meninno Brothers Gourmet Foods",
+  "5a752dc8-5484-4cfa-9367-8994d46110a4": "Peanut Butter holdings, LLC",
+  "5a9d7bbb-3122-4bff-bea4-561769c14beb": "Hart Freeze pack, LLC",
+  "5ab48101-09d3-4961-ac37-dbf5b5307b0e": "JX Restaurants, Inc.",
+  "5afe141f-a779-44ed-9d0b-c22c1675d8c8": "East Coast Food Distributors, Inc.",
+  "5b27e914-920d-427b-a9c1-d8c12bc879e1": "SUPERFOODS, INC.",
+  "5b397a56-844c-4f84-9f21-31ae560bca25": "CJ Foods Inc., A Division of CJ America",
+  "5bbebfbd-f6aa-4c81-ba23-430fbf253321": "Sunny Dell, Inc.",
+  "5bd19e67-1fed-4cbc-ab27-65f87ec3eafd": "Vaqueria Tres Monjitas, Inc.",
+  "5c4bda57-f40c-470e-b5bc-932634f4d378": "Cool Creations, LLC",
+  "5c80c73f-4644-43b1-8fde-cf172340bbeb": "D & D Foods, Inc.",
+  "5caa811d-df3d-4afd-8aeb-54ee0817b591": "Phu Huong Food Company, Inc.",
+  "5cb2cc67-5329-477d-bfc7-ff4ce61ca656": "A&C US Trading LLC",
+  "5d0f61c9-7198-46de-aa68-f51d49b7a876": "Bedessee Imports, Inc",
+  "5e7cf8ae-a0d2-4712-a5f9-f58cdc35ad65": "Cafe Spice GCT DBA Zaika Flavors of India Inc.",
+  "5ea3df13-6a0e-44bc-9b7e-1bbf72baf554": "Prime Food Processing LLC.",
+  "5f7a06c4-bc52-4dec-8a8e-4a8333c44a6c": "Nisbet Oyster Co Inc",
+  "5fa5efa7-3756-49d7-babf-c5b42ccbc5d7": "Simkins Brothers Sweets, LLC dba Natural Way Food Group",
+  "6029ce26-e0ae-426e-8f88-c0830e458b53": "Boichik Bagels, Inc.",
+  "602cce05-718c-4f76-b3bc-a5be21ef5905": "Gospodarstwo Pasieczne Sadecki Bartnik",
+  "6066aaea-96c6-4c7a-9b8f-17637f5e36b8": "Balajee Trade Link LLC",
+  "606b6244-2693-4fbe-a011-53ebb3a9ca65": "Bakery by Frothy Monkey",
+  "61d35ee0-8662-44b2-b510-790cfe52721b": "Coast Citrus Dist",
+  "624b7614-2b8e-4de4-96e3-9997f525c2de": "Global Juices & Fruits LLC",
+  "6278a9c4-acb7-47e8-a0d5-50d45d538142": "Belmont Confections Inc",
+  "63dc5c28-7ccb-4e6f-9f71-1acdaeaa2f49": "Zumbro River Brand, Inc",
+  "6415d2d0-9376-4eeb-be67-f15d633be650": "Blendtopia Products, LLC",
+  "65c81a27-2c87-48dc-b8c6-83e89282ccb9": "J2C Hawaii  LLC",
+  "65cce5e4-a54a-46b8-bc0e-1ccf686a0deb": "Alimentos Congelados, S.A. (Pinula)",
+  "662125e1-fd7e-426a-ab64-0435cc0baed5": "WhiteWave - Louisville Pilot Plant",
+  "66d74622-96d0-440d-ae2d-0d70c27227f6": "Blue Planet Foods, Inc.",
+  "66f56448-ad6b-4ac4-a496-57e9c9926b8b": "Winn-Dixie Logistics, Inc.",
+  "66f94b86-233c-41ce-9295-62df2f3cee38": "The Truck Farm, LLC",
+  "678bd5ad-10ef-41c3-b912-3b4cac4e706f": "CB DISTRIBUTION LLC",
+  "67b2130b-14fb-4820-8ef5-31eec2b5504a": "Ghiringhelli Specialty Foods Inc.",
+  "67e0019a-0361-47fc-a507-cc90b9e975fa": "Natural Foodworks Group",
+  "68d28716-f261-4ce4-8097-787534e11a77": "Frito-Lay, Inc. Headquarters",
+  "68eeae6f-bb86-471e-ba3c-18ec881c92d2": "Bakkavor",
+  "69065785-d287-426d-b6c9-711d899e9dc9": "Roland Foods, LLC",
+  "693db9ba-7b38-4b01-a064-c3c381339486": "Barron County Organics",
+  "69c205cb-38b8-4f6e-84be-44d8f8730d40": "Food Entrepreneur Accelerator and Startup Terminal, DBA FEAST Detroit",
+  "69c83e5e-ebbd-40d6-9a1f-b06cab6ee348": "The Dannon Company, Inc - Discovery & Innovation Center",
+  "6a722516-0cd3-4cd5-8f2f-6389ae04b9bd": "IF Holding II, LLC",
+  "6a82db73-e5d5-42d7-a53e-6994f8e747a7": "Chicken Soup For The Soul Food",
+  "6a90048f-d0e5-47bb-9f42-038ad7f871ea": "Braga Fresh Foods LLC",
+  "6a96f8b4-b8a6-458e-b04d-0d5aef3f5e12": "The Gatorade Puerto Rico Co",
+  "6a9888f1-6e22-4495-ba20-9d38cd049b77": "Lunds Mitchell Rd LLC",
+  "6b08c2fa-3c08-484d-8f98-e67747a43bbf": "Fetting's Frozen Foods LLC",
+  "6b9fbd3c-091a-4a07-8df9-f983ef5f001e": "JCB Flavors, LLC",
+  "6bf99e67-1052-4c31-b7bc-be49f19a54ed": "Fox  Confections LLC",
+  "6c22087e-7291-4a34-a98c-05ccb5562676": "Missa Bay, LLC",
+  "6c7bbb06-f0ea-4c84-8549-1a3fe567f5da": "California Olive and Vine, LLC",
+  "6c95b182-493d-4014-90f6-b100c3ea1271": "Bell Industries LLC",
+  "6d69eb81-eeb2-4b18-9b97-14101a645023": "Big Bold Health Holdings Inc",
+  "6d6bfc88-f664-4722-a9b4-28e1d1bdf330": "Unilever United States, Inc.",
+  "6e50a7d1-b77b-4f7b-ae19-7567045a1594": "The Newark Nut Store",
+  "6f55921e-3b4f-4c4b-a188-b9c5e3711d59": "Taylor Farms Northwest, LLC",
+  "6f9b8cc7-6f2a-4412-9b8b-d46475d771b6": "NATURES TOUCH FROZEN FOODS LLC",
+  "70db5a1d-4462-450f-8795-3c13124738d2": "SIGMA FOODS INC",
+  "7121b28e-5274-495c-a417-2637ea7f1afb": "Exotic Superfoods New York, Inc.",
+  "71c8a3bb-b358-400f-a805-8f4d1742e959": "Garland Ventures, LTD DBA Bally Plus",
+  "7236cf1e-7077-4b47-98ee-4d89dee41c76": "The Hain Celestial Group- Worldwide Headquarters",
+  "725360f3-7027-41d1-9a82-1f110d097e77": "Kroger Corporate Food Technology Laboratory",
+  "73087dd9-994c-4144-8949-bd6a1ea3a0d5": "Heritage International",
+  "7343ef5c-cb44-4954-9833-0333d7db8095": "Oriental Packing Co., Inc.",
+  "736fa477-ab98-45d3-9a9c-bf691a021b93": "Krispak Inc",
+  "73ea6fd2-186b-4bee-8626-d2e40d053c95": "Taylor Farms Florida, Inc.",
+  "74381efd-6d20-4ef6-9f6e-c667b57b0a0d": "Select Custom Solutions, LLC",
+  "743a5c5e-73c3-4dac-9bd5-7b6935013a2d": "SOUTHEASTERN GROCERS - MARKETI",
+  "74a98e7c-8b16-4454-99cc-d0fc1e7b36dd": "Raritan Pharmaceuticals, Inc.",
+  "75322dbc-7d91-474e-9f21-24d291ef6d8d": "Nestle Waters North America",
+  "756cfd67-d9e3-4dff-afd4-51682f9ce5d1": "Market Day Local Inc.",
+  "7668b8a0-6a02-4dbe-a718-ee293d7808e7": "House of Spices India, Inc.",
+  "76adfaef-9cd1-435e-9524-98526811a062": "Kettle Cuisine Midco, LLC",
+  "76d9bc7b-1a14-4175-977e-20df8b542a75": "Coca-Cola Refreshments, USA Inc.",
+  "77012e53-cea7-452c-921e-55e961368f94": "Vega / Sequel Naturals",
+  "773ed6f8-a923-4cf2-abae-b5562d352a65": "Citrus Systems Inc",
+  "77ff83be-c260-447e-a9cf-e84070076e96": "Boar's Head Provisions Co., Inc.",
+  "780bb7da-ef6d-4610-95a2-c3fa2628a71b": "Leclerc Foods USA",
+  "781bedb7-c74a-43a4-8025-20ed35d7caca": "Swire Coca Cola USA",
+  "78918acf-b8c2-4313-892e-8b7ba92af93b": "Tucson Tamale Wholesale Company, LLC",
+  "78b90eea-563b-4adb-852d-98160342eca1": "Ohio Hickory Harvest Brand Products Inc.",
+  "78e30c4b-f4cc-4599-b64c-5a20e29dced1": "Lidl US TRADING",
+  "79597469-388f-42bc-aa21-1cb55067e4f8": "Glenn Wayne Wholseale Bakery Inc.",
+  "79dfb531-63d8-44cd-9cf7-1bb8549f0f73": "Atkins Indiana Distribution Center",
+  "79ec693a-57d7-4610-bd36-bc211e413af4": "Shandong Ling Xian Food Co.,LTD",
+  "7abc1c85-84b2-4f1d-8554-4d87f1036fac": "Inland Seafood, Inc.",
+  "7af1f7a6-dc61-4824-98ec-49309d596b68": "Prima Vera Nueva, Inc.",
+  "7af29a72-b8f9-4915-9c86-e83bfa39db5e": "W & W Dairy, LLC",
+  "7b198529-58e2-4742-8e9c-a1cac3750185": "Appeeling Fruit, Inc",
+  "7b6fbd92-9c7f-4c52-82d3-0a7171ddc2cc": "Early Bird Foods & Co., LLC",
+  "7b72a578-c9a5-4ca2-98ca-e3de327d288a": "PROLAINAT",
+  "7b99bc08-b87e-4b39-9c5d-df1158888812": "Meijer Inc./Traffic Dept.",
+  "7ba374be-892d-46f3-81d7-d6fb8df12018": "Jonco Industries",
+  "7bb92783-5451-460c-87d0-564767d2c96f": "Mercola Group",
+  "7c0cf41d-802a-47b1-bb4e-203c073ac935": "Texas Star Nut and Food Co., Inc.",
+  "7c96d2df-44f3-4825-b24d-62d69e5158f1": "CONTINENTAL DAIRY FACILITIES SOUTHWEST LLC",
+  "7ca9d2dd-41a7-4b3f-bd58-cea7f9d18261": "Pacific Coast Fresh CO",
+  "7cc79a44-53c6-440b-9a88-8ecf68d5e7a1": "KAREEM MART INC",
+  "7da4f9aa-73a7-48a1-87b0-f192784929a2": "Never Any! Brand",
+  "7dbe3baf-fcf7-4a00-8163-855abede0104": "Pepsico Foods International",
+  "7deca980-aad6-4bda-bf5f-c795394f6041": "CAHILLS FARM CHEESE LIMITED",
+  "7df570dc-0e05-4804-9c3a-1ee25efc5e9d": "Cal Maine Foods",
+  "7dff84f2-bc14-4a1e-ab61-de0fbb8b8532": "Del Monte Research Center - Walnut Creek",
+  "7e1fc8c0-1cec-416c-befe-ecf55f4219de": "Hoover Mill, Inc.",
+  "7e399ecf-201b-4045-9a78-275c4d0f4c94": "Iberia Foods Company of New York, Inc",
+  "7e5a928c-14b6-4d45-91ce-f779928ae42f": "Andersen & Sons Shelling, Inc.",
+  "7f0bc951-809a-4531-a685-9314d217e38d": "Kermit, Inc.",
+  "7f6d0473-c041-4aae-ac38-e0e73fc325de": "SHANDONG JOYWIN INTERNATIONAL TRADING CO.,LTD.",
+  "7f74ca96-fa8a-4375-bdd0-f51221a1026a": "Roots Organic Gourmet",
+  "7f867bbd-6485-4960-aca4-efe179354297": "Pure Hothouse Foods Inc.",
+  "7f9e0813-c74b-4806-a595-bc1962459013": "Samyang Foods Co Ltd",
+  "80363754-e8e1-4c64-9a43-0b063f1e0f51": "MR BING FOODS INC.",
+  "80f92770-d800-43f6-9889-a5f13e4135eb": "B.C.S. International Corporation",
+  "81972d12-93de-4a09-945a-d59cdbfe6737": "Advantice Health",
+  "82667f74-1b2f-4038-9b76-0cc0d0601d25": "Woodridge 31 Copacking Company LLC",
+  "83114a02-2552-4727-8771-3710013ebee3": "Bunge Oil North America Inc.",
+  "8340d6fa-12cd-4ffb-acec-f710cde01aea": "Pepsi Beverage Co",
+  "834c21e2-fb9c-46ac-9a32-eee92ba02090": "Family Dollar Stores - NC Distribution Center",
+  "8392af15-8253-45be-bf61-f2c9ad7a4a66": "Custom Foods Inc.",
+  "83e5e24f-1c65-4ed9-9e5b-b5c4bc08bfef": "Chelsea Food Service Division of United Airlines",
+  "83e8602f-12e8-4f3b-a8d9-89113d99ef8b": "Kraft Foods Global Inc",
+  "851ed966-7c4b-4622-81ff-869163068cae": "ISB Food Group, LLC",
+  "852f5f50-0787-432e-aeaf-4189c081d110": "Simply Natural Foods LLC",
+  "85b6497f-86ae-4996-ab74-dec2abd34a8b": "Taylor Farms Maryland, Inc.",
+  "85b93ec0-e01b-4ace-a741-848b199e1b44": "Banks Square Market Corp dba The Produce Connection",
+  "863361d9-c8f0-4484-9d1f-55e0162b714a": "TAHARKA BROTHER'S ICE CREAM",
+  "86637004-936b-4fce-99eb-802afe9b9da7": "Ferrara Candy Comp",
+  "8677a7d9-07fe-4210-a35d-c59804d720b4": "Vidalia Valley, Inc.",
+  "8680c775-655f-4294-9582-835a0bc756de": "Bakery Express of Southern California",
+  "86a2720b-8315-4605-8896-0f2052475425": "Chobani Idaho",
+  "86b5018d-c6bb-40ea-81f7-7d9fd628aa96": "First Source Llc Buffalo",
+  "86d3dd50-ff8c-4ddb-b898-5fe36cbbaa44": "The Great Spirits Baking Company, LLC",
+  "873dea77-1267-42ce-9fd4-f34b05bc5d72": "Vitalabs, Inc.",
+  "87ac3f2d-47d5-40c6-a64a-9e11862871d8": "Health & Wellness Center, Inc.",
+  "87c95cff-d4b3-4160-a0bb-5e139ee95b38": "Whole Foods Market Group Inc.",
+  "87ce57d2-7edb-483b-a9ab-24ef4040d3a8": "Poppie International INC",
+  "87e1103a-1497-4765-926c-9a9060227847": "Horizon Vert Pure Llc",
+  "882bb929-56f4-4380-8724-f3c92a64f08e": "Pharma Nobis LLC",
+  "8919a5a5-9cbc-46d7-9657-9bc42facc732": "Yorgo Food's Inc.",
+  "89ad5408-9858-476b-828e-06fc6ff09ba8": "Garden Fresh Salsa, Inc.",
+  "89c241f3-a5e6-4f8d-bdd3-1a424bcf8a81": "MG Foods Middletown",
+  "8a241ef9-1da8-4e18-9b1f-647276217a40": "Greystone Foods LLC",
+  "8a4a7422-0e40-4e16-b564-dbd86dcf9a94": "MeriCal, LLC",
+  "8aa63e1f-e554-4a39-a3e6-385e4653eff4": "Happy Colon Foods",
+  "8abeecaf-31b1-47fb-a89c-0eba189f5da3": "Mother Earth International LLC",
+  "8b7ff44c-fc0f-4dce-b383-9b1f8458ade9": "Kedake Inc",
+  "8b8c0445-214c-4347-b3e3-dfe516552bef": "E & M Corporation, Dba Noh Foods International Of Hawaii",
+  "8b9fc8d8-e8ab-4b65-b246-2443af3b31f7": "Unilever Manufacturing (US), Inc.",
+  "8c68d7f8-cfc8-45dc-9e42-f60bc9439819": "DAISO CALIFORNIA WAREHOUSE",
+  "8c809a97-fbd8-4b34-8510-16e3a01fe55b": "Albertsons Companies LLC",
+  "8cae298c-bd14-478d-ae91-d1bae2548f54": "Lavoi Corporation d/b/a/ Epi De France",
+  "8cf159f2-4195-421d-8cfc-f25dd9c6371b": "Chicken of the Sea; Thai Union",
+  "8cf37d15-9968-4be7-9f74-694cb8ce3f2e": "Whole Foods Market Brand 365, Llc",
+  "8d4cbdba-7ab0-424b-a54e-2e6234d06ce2": "S-L Snacks NC, LLC",
+  "8dd50225-6f39-403c-b4db-a754797237ad": "Schnucks Markets Inc",
+  "8dd9dba9-cb9f-40a5-bb88-ab3f5312941e": "Bakery Express - Mid Atlantic, Inc.",
+  "8e5763a4-d8eb-4b98-802d-aafdcbf12e32": "Metro Produce Distributors, Inc.",
+  "8ecbaf59-22e0-4052-9c60-1205af33b343": "WE R NUTS",
+  "8ef7dcb4-1fa7-407a-9801-23fc6ff0cbaa": "Quaker Foods and Snacks North America",
+  "8f3f1732-f49e-4787-a3ee-56432cbc3a9c": "SunOpta Food and Grain, Inc.",
+  "8f83a20f-cb27-4fcf-a301-b637ce35965d": "Glaxosmithkline Consumer Healthcare Holdings",
+  "8fb2c831-a0fe-4a4a-b113-523cbce8205c": "Desert Premium Group, LLC",
+  "8fd600f8-99a2-4eec-b425-0ebfe44b19e2": "Food Castle, Inc.",
+  "9004afe3-fdb9-486a-8322-24abdea0dc93": "Classic Delight Inc",
+  "903cc955-bd84-4c40-baf3-5c6ec7d0df09": "Charter Baking Company",
+  "905ec5ee-2027-4eb6-bc12-d91bb3574a00": "Doctors Scienfic Organica",
+  "907ea7cd-db6c-4a7a-8c91-faa3565dcf0b": "J R Simplot Co Corporate HQ",
+  "912634fc-82b5-4824-9c26-8137d04b5096": "Sun Noodle New Jersey, LLC",
+  "91c0ff60-86eb-4cae-8c30-4a11054b69f6": "LYFE Kitchen Retail, Inc.",
+  "91cff325-6315-469a-ab9c-91ef64f490c4": "Green Organic Vegetables Incorporated",
+  "91eedb3a-e003-437e-b7a8-45d8450661e7": "UNFI",
+  "920e5a91-697c-4aa7-9a79-365c9c294e94": "Thai Culinary Arts Studio LLC",
+  "9335865f-3d26-4061-ad06-fba76d1c521f": "Red Monkey Foods Inc",
+  "93e65599-68b5-4ed1-827f-338107b2fcf6": "Winter Gardens Quality Foods Inc",
+  "94198006-2d1d-4f24-be7d-532128a39d84": "Mister Cookie Face Corporation",
+  "9426bcd2-1b64-4b71-a672-2d8ef3f2957b": "Jumbo Foods, Inc.",
+  "94832ffd-4bd2-4f04-b181-52aabf2d8f4f": "MARS FOODS US",
+  "9490b1e8-1815-4ac2-b432-044f17bfa814": "yoders country market",
+  "949e363c-8881-4c20-ba4f-57304ee1e7cf": "Indianapolis Fruit Company, Inc.",
+  "962b076f-04f9-4aa3-b57b-2c46197109e3": "Rhodes Legacy, Inc.",
+  "96b4054d-ed46-44a2-b773-26c9e1420469": "Julie's Real Foods LLC",
+  "96bc08d4-67b0-4f37-9152-4b464987b9c0": "Justin's Nut Butter",
+  "96d1974d-1040-477e-9007-2be99259c8b9": "keen-wah LLC",
+  "96f08e25-2963-402f-ae9c-b4b02bb5d7a3": "Taher, Inc.",
+  "96f24246-c6f7-4978-9232-a5c8508a8097": "Mrs Millers Homemade Jams LLC.",
+  "96fbce73-c067-4dcf-b04d-8b6c76c57174": "El Super Leon Ponchin Snacks, Inc.",
+  "972dcff3-19dd-4dae-9577-edbe7ffe837a": "K F K Seasonings Llc",
+  "976b6a0b-bb95-4ff0-bdc2-d60dee08be76": "Momyer Distributors Inc",
+  "97e100c5-1edf-48b7-a523-d764f2e72959": "SUNOPTA GRAINS AND FOODS",
+  "97e364d1-0b97-4b7a-8440-c10354f03c9a": "Ross Acquisitions Company",
+  "97f150a2-a1ef-4450-96b3-be57cb4aae17": "The Two Little Guys Company",
+  "983f4704-c2a3-4362-a9e5-593f96a0cd7b": "Wawa Beverage Company",
+  "9950a952-fd52-43ad-aca3-b3e18a19110c": "Give and Go Prepared Foods Corp - Finch",
+  "99a41608-4406-45d0-8e6c-80646d735b6f": "Riggio Dist Co",
+  "99cf2f32-bb12-457a-bb54-c380bc9d57d6": "ZMB Enterprises",
+  "99e55bac-4417-4e3f-9f82-63af0036ff3c": "Ineligible Meat and Poultry",
+  "9a2df188-921a-4186-8ef8-fd4dea65dac6": "Nutrition Corp",
+  "9ac4f34d-dfc7-4e06-b59f-c3f77c879b62": "nSpired Natural Foods, Division of the Hain Celestial Group",
+  "9b786dd7-54b8-4795-9aa8-09b2e615a0db": "August Egg Company",
+  "9b977596-7422-4074-b997-9ad45526b817": "Bakery 37 Inc",
+  "9ba31aaa-33fb-46d8-8d91-596222a4d40b": "Meijer, Inc #816 - Grand River Packaging",
+  "9be5d35e-94a5-4160-ad72-0fa42a90018f": "Vietti Acquisitions, LLC",
+  "9be7faaf-26eb-4971-bdf0-0a88517fc3f4": "New American Food Products, LLC.",
+  "9c0ea11e-694b-4c9b-9403-39897ac5feb0": "Danncy Vainilla",
+  "9c8ba60e-9780-4dec-8e27-f18b6c690e7b": "TreeHouse Foods, Inc / Bay Valley Foods",
+  "9c8c54cb-2cec-48cd-a7a4-e1e359ad4743": "High Performance Formulas, L.L.C. (HPF, L.L.C.)",
+  "9cb17d10-0c0e-44ad-8bab-e4adb7393e67": "Taylor Farms Pacific Inc. (MacArthur Facility)",
+  "9d5ba6ff-f4eb-4fb2-9697-21f096f5b52d": "Pacific Seafood - Portland, LLC",
+  "9de3dff3-c623-486e-b07a-a711d34c5dca": "Del Monte Fresh Produce North America, Inc",
+  "9e3df8f7-1b6b-4cdf-b233-ee5b2ed7088c": "World Market Management Services, LLC",
+  "9f13f44b-3524-43aa-8c10-4b2b2c47c8fe": "Ballester Hermanos, Inc.",
+  "9f208cd2-c1f0-4cd9-bb3f-faf4743810f1": "Brett Anthony Foods",
+  "a017499c-3742-468f-8c92-46ad0a8459a5": "Karben4 Brewing LLC",
+  "a1145994-0e40-47c3-9f0f-cee12cdd9c4a": "McCormick & Company - MSS - HQ",
+  "a17460cc-b95b-4040-be48-6decec48c814": "EL Chilar Huff",
+  "a1b9eb6a-d4f8-46c4-af18-b93116c1e8c7": "El Abuelito Cheese, Inc.",
+  "a1eecb7e-c3fe-44fb-93e0-5e6923703304": "Taylor Farms New England, Inc.",
+  "a233560b-183c-479e-b228-ccf9543c0360": "Udi's Healthy Foods,Granola & Gluten Free",
+  "a23d6be0-ac9c-424c-9fb3-bac017749f2a": "Piazza Produce (dba CIBUS Fresh)",
+  "a295f466-c370-47e9-9228-873c054fb0f5": "Four Brothers Packaging Inc.",
+  "a38049a4-f9d6-4ccf-90b4-dc25376c2c99": "Perrigo Nutritionals",
+  "a405931a-a47d-4464-989f-a09d56f915e6": "GREENCORE USA",
+  "a41ec3cb-c3b7-4b36-aab2-1be51965483f": "Alpine Slicing and Cheese Conversion Company",
+  "a44f4e4d-dd88-404a-9672-f1ca5080a729": "Prima Foods International, Inc.",
+  "a56081bf-38cc-49c5-9585-5b9929572265": "Dutch Valley Food Development Inc.",
+  "a575b4c6-24ad-441f-81ce-6f2293bca28a": "Twenty-First Century Healthcare, Inc",
+  "a5d302ed-358e-4d02-a3bc-79b6f246575a": "Fruit Fresh Up, Inc.",
+  "a64a9911-bc6f-4a90-994d-45b966577297": "Wakefern Foods Corp.",
+  "a655bfb6-b473-4954-8ac1-6a0f9347d70a": "The French's Food Company, LLC SUBS Reckitt Benckiser",
+  "a67911b3-9a32-485c-aacd-f7db00693686": "Dedinas Franzak Enterprises dba Cheeze Kurls Inc.c.",
+  "a7142d64-838e-461b-aece-7c7068be299c": "Advance Pierre                                    N",
+  "a730fe93-cddd-4e26-b87e-a65ee587f871": "FoodScience Corporation",
+  "a788c8fc-922c-45c7-bd38-6bb610a9a070": "Hardies Fruit & Vegetable Co., LP",
+  "a889f9b3-26b7-43c5-89b8-f35668c13028": "Western Mixers Produce & Nuts, Inc.",
+  "a89db50a-440b-4647-9ab0-31539abb5f25": "U.S. Tov, Inc.",
+  "a8da6f0e-8c44-465d-96aa-21769c2dcd16": "Del Monte Fresh Produce N.A., Inc. HQ",
+  "a9356f89-73fc-44f0-b010-08ba1ac14b60": "Evergreen Orchard Farm, LLC",
+  "a953c0cf-939a-4cb4-bd31-cf4970dff67d": "BlendTech Inc",
+  "a9593fd4-4393-4caa-925d-c85a357f75e7": "South Asian Food Inc.",
+  "a9a2b67a-b826-4cae-b0b7-e7d3427b5d50": "New B.C.N. Trading Inc",
+  "aa50de13-d502-4cbd-810e-c950a23b9423": "Table 87 Frozen, LLC",
+  "aa607810-4708-4499-a88e-ebe1cc2c4f98": "SK Food Group Groveport",
+  "aac6c7c8-7878-4d7b-9700-ea6ddcbe06c9": "Cedarlane Natural Foods Inc/Frankly Fresh Foods Inc.",
+  "aae04697-9923-4106-b430-610fcd10590a": "House Of Thaller Inc",
+  "ab3bd2e5-d7d9-4291-b560-f620e46dd182": "Bay Valley Foods LLC/ TreeHouse Foods, Inc",
+  "ab4a9a9b-6902-46fa-a62d-16df1a834006": "H. A. R. Maspeth Corp.",
+  "abe61556-5d61-4e06-b4dd-f0e4f8a58662": "National Enzyme Co",
+  "ac60ec70-90e0-495e-88d4-19f6f7841ed9": "Rose Street Bread Lab",
+  "acbb2421-d139-4262-87fd-587db105fcae": "Natures Best Inc",
+  "acd6beda-7cfa-4d4c-89bf-0f2ca787d337": "Juniper Granola, LLC",
+  "ad0eb867-3e3b-499e-ac23-b42a2fa42b6b": "Commercial Bakeries",
+  "ad4394e2-1401-42af-8b22-767ac2c72620": "MegaMex Foods, LLC - R&D Center",
+  "ad4eba0c-2658-4959-84c0-d667058e90f1": "KRISPY KREME DOUGHNUT CORPORATIO",
+  "adb73541-9952-4b6b-abcc-a1fdb0cc64fa": "DeMoulas Supermarket, Inc.",
+  "adfb40e1-b92a-431d-84fe-8cbe31eb4895": "Quaker Manufacturing, LLC",
+  "ae397c5b-34ed-43f9-90ed-192e733643b7": "Joy's International Foods",
+  "aebeb631-5ad1-4e1f-8168-2bc865ac309b": "EURO FOODS GROUP USA NJ INC",
+  "aef53f2b-1434-49f2-a90e-a9e418e95446": "BrightFarms, Inc.: WDC Greenhouse LLC",
+  "af1a25b3-987d-4689-bd16-ae8c970e6178": "Stellex/CF Houston, LLC",
+  "af60803e-cabf-41ee-a9fc-cbd9a242c507": "English Bay Batter Inc (Toronto) US Division",
+  "afb06ee3-488f-43dd-9034-64906163a018": "LITTLE RED ROOSTER COMPANY",
+  "b15d5e2a-c9fa-4ea3-ad7c-e27a91b30b15": "El Milagro of Texas Inc.",
+  "b1e4e7c4-8dd4-4852-9f9a-5d5ca3d47608": "Totally Cool, Inc.",
+  "b23e6406-0e73-4ab1-b91a-dfb321f6a7b6": "BEF Foods, Inc",
+  "b273f064-e39f-43c9-b8a6-24a483f0c46c": "Bumble Bee International",
+  "b275ba7b-581e-4c0b-8f5c-8aedcb7abeba": "Nature's Way Purewater Systems, Inc.",
+  "b2a97706-9e62-4daa-ab90-d007e79a12fd": "GH Foods",
+  "b3314f39-42a0-4469-8172-e97c24668ebf": "San Miguel Produce, Inc.",
+  "b346240d-d2c8-48c2-a848-be45b395a9fa": "Tom Bumble LLC",
+  "b3796c9e-841a-4844-98a8-f9523d17d499": "NuGo Nutrition HQ",
+  "b3d40c5a-dac8-4e37-86ea-c585b5404a09": "Loffredo Fresh Gardens Inc. DBA Produce Innovations",
+  "b4566f6b-219d-4f99-8b43-d7dfdc840526": "KPCM New York Inc.",
+  "b489891c-b4d6-4704-b6cf-d9c2e869c9d3": "AMB FOODS INC",
+  "b4aaf7ff-5597-49fd-8980-9582e09c5cbd": "CERELES EN GENERAL SAS",
+  "b4ecc5f4-53c4-4445-bef5-37940cb483db": "Natural Waters of Viti Limited",
+  "b5ae6c15-258a-465b-b71f-b32b68dd53eb": "Dr. Pepper Snapple Group Inc",
+  "b5c76087-0d76-4d67-9ccf-4e6badc39bd5": "St. Jean's Coast Mountain Resources Ltd. (dba) St. Jean's Ca",
+  "b5da88aa-6b3b-442f-b0b0-13f1c8557d74": "THGH Partners, LLC",
+  "b5ea4a52-4cc7-49ed-93d7-7357dcbf0286": "HEALTHY FOOD INGREDIENTS",
+  "b5fb9d07-bff6-4e8a-8f1a-4c88f7f9f1c1": "Mai Cuisine",
+  "b605565d-54cb-4dfa-8280-c12e477e9d6d": "Tyson Foods Discovery Center",
+  "b62df49f-2068-4223-a656-e2961f7d2ff8": "World of Coca-Cola",
+  "b6427d5c-d344-4528-8138-73dbf6414c4a": "River Ranch Fresh Foods  LLC",
+  "b66be75d-ac45-4d11-8193-14e6d0335dfb": "Caraluzzi's Markets",
+  "b6a62981-b44e-4236-a674-d3391abe282b": "Portland French Bakery L T D",
+  "b6e8c9db-d3e8-46dd-b491-9053009a2c9d": "Harris Teeter Distribution Ctr",
+  "b746f1c3-bff4-45de-bf09-dfc7daaa7809": "West Thomas Partners, LLC. dba Gluten Free Bar",
+  "b74f68e2-057b-48e5-b0b3-eb9aa8e0dc07": "French Broad Luscious Chocolates",
+  "b79a013b-d6c9-489f-81b2-a65bed5f4c98": "Innovative Nutrition Technologies",
+  "b7fa4049-84e2-449d-a108-7678ecd009a4": "National Frozen Foods Corporation",
+  "b8043868-43dc-488f-b093-72afb14548f0": "Michael Foods, Inc.",
+  "b84d5f14-b4e5-4211-854a-aee857919a4b": "Pork and Poultry",
+  "b86e5a19-cc27-4ade-a855-143c4dd566ce": "Robin J Vos dba TS Food Packaging",
+  "b8ad37d4-b838-460c-82e5-a466d00760d9": "United Packers, LLC",
+  "b9519c11-3f88-40e8-a972-0c6df29c7e80": "Shovel and Spoon LLC",
+  "b9a82268-37ed-44ea-a254-eedcd5fb031b": "Despana Brand Foods",
+  "ba04c2ea-4bfc-4fb6-8954-1172cf2ae37b": "Sodexo Operations, LLC",
+  "ba33107d-539d-4075-983e-0898003fbc23": "Flying Food Group - LAW",
+  "ba52f811-a42e-44ef-b2c2-93e87fab75aa": "Coca Cola Bottling Company United-East, LLC",
+  "ba8fac1c-d2bb-4b02-8cfc-dd23498b2c08": "SECOND NATURE BRAND",
+  "ba9d55b0-8ee3-4b42-9b3e-a70d43c23bf9": "NW Nutritional Foods LLC",
+  "bb4a8807-8312-4a7d-bc3a-35fb080ab0bf": "Health Matters America Inc.",
+  "bb67cdb4-0a09-4a97-b643-3134df3fa380": "Solata Food LLC",
+  "bc3aac7d-15ab-4609-8270-75cbf775f226": "FRC INC",
+  "bd160e60-65e3-4890-b500-38b73e574fd5": "EL Chilar-HF, LLC",
+  "be4cf8df-d617-4099-b043-0f0da52be6df": "Unified Western Grocers Inc",
+  "be859f56-7f36-43d5-a509-4ec03b15b5be": "TRUONG GIANG WAREHOUSE",
+  "bf1844f9-eec8-46fa-92e1-e01f7b078734": "Mt Perry Foods Inc",
+  "bf233334-f548-4935-bb25-29db8b47423a": "S & M International Inc",
+  "bf5db405-539d-4da7-8ca1-a01a3ac3d0e5": "Baron Spices Inc",
+  "bf73c923-6f16-4e16-93a1-9178fd465045": "Cho Fuku Group (usa) Inc",
+  "bfdc9eb0-f58c-47b5-ab05-27f861eae223": "Pepsi Beverages Company",
+  "bfe84eea-c9f7-4411-afa1-4f4a576fac6c": "Hammond's Candies Since 1920 II, LLC",
+  "bfffc415-ca64-4bfa-8aee-1958fca90930": "United Natural Trading",
+  "c02db429-4761-471c-8611-0fee23b7a5b9": "The Idaho Foodbank",
+  "c04912ba-7801-4cd4-a6d7-635f91604afd": "Kingston Pharma LLC",
+  "c0694fed-5b4c-4864-9042-974270a67b35": "Vadilal Industries USA Inc.",
+  "c0f08519-b4f5-4a4b-8012-3d0279ec1130": "MIBO Fresh Foods LLC",
+  "c0f8fdee-f0a2-42f6-9526-af740d383b02": "HAWAIIAN HOST CANDIES OF LA INC",
+  "c1104a8b-9bea-48af-8436-d4eac4edbcb1": "Ungar's Food Products, Inc.",
+  "c117342f-2e45-4571-ae42-c63ac14f7f7b": "Stickney Hill Dairy, LLC",
+  "c143b725-e1ca-4d46-b588-d153dc396375": "Kick Ash Products LLC",
+  "c16c7dfa-8d43-4a9a-bbe2-faea6ca21282": "CH Guenther & Sons, Inc",
+  "c1ae3d86-d3eb-4def-a440-c3983329288d": "Koru Pacific Packaging, Inc.",
+  "c1b3c580-0206-443d-b6d6-2860f58ad25d": "Consumer Product Distributors Inc. dba J Polep Distributif",
+  "c2a0547b-54c2-4858-982c-6118683710c4": "Sam MillsUSA LLC",
+  "c2f28777-cdbb-42b2-915d-0db4252f7b73": "SIMPLY GOOD FOODS CO",
+  "c4747e53-bd67-44a2-9665-8ba8e35025ae": "GT's Living Foods",
+  "c47f08c7-88b2-4bfd-bcd9-e0659080fc71": "GH Foods CA LLC",
+  "c4d0a1a2-8bf6-400b-8f58-9fb69da47c63": "Bakery Express of Central Florida, Inc.",
+  "c4d70768-c589-4d7c-8359-b2c5cf5e19b6": "Riviana International, Inc",
+  "c5c6d9b3-71b5-4551-80d2-c0f78818fffa": "Sequel Naturals Ltd",
+  "c683293a-de78-40ab-a878-ce4128f4e431": "Meadowgold Dairies Hawaii LLC",
+  "c684b40b-7a25-4edf-8e48-872cc50752ce": "Schnucks Markets Corporate Office",
+  "c6ebc81c-3e57-4770-b477-0b657a5ee0dc": "Nestle USA, Inc - Northbrook Pizza Head Office",
+  "c7001be0-6cee-4f60-9621-105ba1ca77a0": "Taylor Farms de Mexico S. de R.L. de C.V.",
+  "c745d6f5-21fb-4b19-9be3-af16d4d5223e": "Lund Food Holdings Inc",
+  "c746e879-e29f-4080-973d-6e480deb3541": "Altura Food, Inc.",
+  "c8bffac5-eb0e-4029-bf6e-4776aae56859": "Hearty Acquisitions LLC",
+  "c8c98b30-602e-4223-997a-4c8644259dd6": "Woosung America Corp.",
+  "c8ffcebb-e269-4195-9d86-e61a29163933": "Brunkow Cheese of Wisconsin, Inc.",
+  "c958bf40-6cdc-4643-a08a-e8117069bf06": "Benson's Old Home Kitchens Bakery Division",
+  "c987ffb8-3470-472c-aa72-3abe66f4cd88": "Tristar Food Wholesale Co Inc",
+  "c9bfeb2e-ca6f-407a-b720-b5387095fb93": "TESOROS TRADING CO.",
+  "ca37dd23-26a9-4722-8690-285b8073c727": "Ponder Foods",
+  "cab0f2e3-eeff-4c16-b85b-06f1ffbe7ec9": "COCA COLA BOTTLING COMPAN",
+  "cadd481b-f844-4ecc-9477-70cec1627521": "NutraCap Labs LLC",
+  "cb2a690b-e2ec-4c77-b566-5b3154cc6420": "Fantasy Cookie Corporation",
+  "cb5c203f-ec0d-4b9e-afb7-545c6c44b73e": "White Wave Foods, Inc",
+  "cb6626be-9b67-4b32-a5ed-9de25554eda7": "Everpress Juice",
+  "cbbee4d5-757f-426b-9f19-65ee23f535c4": "Foremost Foods International, Inc.",
+  "cbf54a96-7b54-4b58-844f-c2e80623390c": "Chemi- Source Inc, Nutra Pak",
+  "cc0e992a-0dc2-4783-9f82-2acc7417d586": "Bioriginal Food & Science Corporation",
+  "cc161c74-408f-4f2f-91b6-fec987f06843": "Lovin Oven, LLC",
+  "cc67aaff-672d-4ddb-886a-3ff87504c60d": "Revive Organics, Inc.",
+  "cc76650b-6ed2-47d4-b9e4-ebacfd9a72a0": "Bio-Botanica, Inc.",
+  "cd21aea8-7628-487a-8dff-3c894e0b3e04": "Jerusalem Manufacturing Natural Foods & Wholesalers, Inc.",
+  "cd2f1650-509b-4530-a7ca-92f0dd565eeb": "Gedney Foods Product, LLC",
+  "cddd5f88-aaf4-4c54-bb47-cdbccf319e44": "Big Y Supermarkets",
+  "cdf980ad-33e7-4599-902c-589b8afeee7c": "EGGS UNLIMITED LLC",
+  "ce38ebce-cd96-4815-b9b3-c4fa3ec9f21f": "LACTALIS CANADA, INC",
+  "ce4f9fad-709b-4ca6-af39-82d0b87ed5c1": "Arizona Nutritional Supplements",
+  "ce7c3b24-ba5a-44a9-b3a2-7989410d0bde": "Pennsylvania State University  Berkey Creamery",
+  "cf2421c7-4ac3-4d77-8a94-4fe3d92d5cbe": "The TJX Companies, Inc.",
+  "cf447a00-e7e4-44aa-a370-507690125bef": "LUTHMAN BACKLUND FOODS USA INC",
+  "cf9243a5-1c28-481f-801e-a7bb9674a51f": "Jem Raw Chocolate, LLC",
+  "d05df9d9-bd7a-426e-869a-c2297ac20c36": "Russ Davis Wholesale, Inc.",
+  "d0a5b075-dc8a-4ea7-b446-d0e05720cf45": "fayeon distributors inc.",
+  "d0eff838-8e86-44c8-9e15-d74d2d24af87": "MEGABUSINESS LLC.",
+  "d11509be-daa9-43f0-9c76-b47b7da12585": "Supreme Distributors, Inc.",
+  "d18391fb-6e6d-41b5-a06d-3abc45b9ba54": "Twin City Foods, Inc.",
+  "d1b07b8d-119b-4412-a2d4-2ba58ec855bc": "Monfitello",
+  "d1b17853-0cae-4ee1-af74-d09286e3d686": "Restaurant Depot",
+  "d1cf0ffe-c7a6-497c-8cfe-327c93c3f398": "Freshouse Produce",
+  "d1fa2386-2e2f-4a33-a5b9-13ef3f169fe3": "sotto i trulli",
+  "d246790a-4d31-4e2c-99ec-15598ed27e49": "Blooming Import Inc.",
+  "d255de1f-9bc3-4330-ab8c-16f8c30170ee": "Ice Cream Specialities",
+  "d2560078-0a06-478c-bbed-1e756b9f9a7d": "HEB Retail Support Center",
+  "d27ac898-d4f0-4a33-8310-56c5299c18e5": "Manufacturing Solutions International",
+  "d321fc00-f841-4677-aa9a-c2919c29e92f": "Cumberland Valley Creamery, LLC",
+  "d324d5a8-d31e-485a-a65b-5e8c4e933557": "Weis Markets, Inc., Ice Cream Division",
+  "d3c28230-df75-4ead-a890-1593d95c860e": "Real Foods of Seattle, LLC",
+  "d43a4539-ae30-423f-93ea-ee7de8919f8c": "Tai Phat Wholesalers LLC",
+  "d4988926-83df-41ea-85f2-d10305fba6eb": "BLUE STONE IMPORT USA INC",
+  "d4afcd3e-47b2-4614-9698-d96bd1232f35": "Elevation Foods",
+  "d503cc9f-136b-42fb-b443-8810a848b6a1": "Oregon Freeze Dry, Inc.",
+  "d51f831e-e74a-4683-acea-402a2bc359e8": "Hot Mama's Foods",
+  "d542b419-d2bf-4b1e-b459-233887b20934": "Onions 52",
+  "d6adaedc-b07c-4b24-8c08-89638c076471": "C & S Wholesale Grocers, Inc.",
+  "d6c0451b-87e8-4c35-8c8e-059a32c89eef": "BLUE ROBINS INC",
+  "d70ea69a-7b56-42dd-9d2b-88cd442e5fc4": "FINESALER LLC",
+  "d7459897-31d8-4822-8030-1c41d20a2935": "Bj Wholesale Club",
+  "dac7938e-43f1-48df-a35f-fa9fdeb38730": "Nash Cheese Co LLC",
+  "db288172-c710-4e5f-bb3e-41da51e03075": "RON DAVIES JR",
+  "db57e5b5-3df2-4fa0-8221-8d15daf07340": "White Castle Intl",
+  "db7e8b70-2d1b-4ee4-b699-1eed16512a1f": "Case Farms, Processing",
+  "dba4580d-57fa-441c-a2ed-ba77593ef85a": "Dierbergs Central Kitchen",
+  "dbd43fbe-e4f8-40b0-9ba6-a63cf8189952": "Ochoa's Queseria LLC",
+  "dc1d68c3-565c-4569-aafd-fe59b2d40748": "Refresco Beverages US Inc",
+  "dc407647-f757-4226-ac2c-951dbe321cf0": "Wehah Farms",
+  "dc48c1f0-0748-4f16-8770-0475d1d5aa46": "Commerce International Inc.",
+  "dcc83d30-3534-4ebc-8118-9c7b3cb5c916": "Pulmuone Wildwood Inc",
+  "dcccba49-23fb-40ba-8d6c-0b7d5529ec56": "Bak EZ",
+  "dd10ec3d-6e8e-4bdb-b099-dc6d4a76ae39": "House of Raeford Farms, Inc.",
+  "dd932bd6-f2f2-492a-8a20-dd1162387ee8": "Wild Blue Yonder Foods/Waugh",
+  "ddb116e6-94fd-4175-8d0f-886e14ffe729": "T.F. Foods Incorporated",
+  "dde06df4-bff8-4900-90bc-709dc8de3df5": "Brinkhoff & Monoson Inc",
+  "de0389f2-c19e-46d2-bbbb-c933f5939411": "King's Hawaiian Bakery",
+  "de828cf4-b349-4c5b-9ec1-d2bbd12f3c1c": "Ittella International, LLC",
+  "dea1844b-17f7-4fe4-9a55-0d46d9762402": "Tate's Wholesale, Llc.",
+  "decbf683-dab6-4fae-bbf8-8e85bfab1ec8": "Diva Fam Inc",
+  "ded1f63c-53b0-4cd9-9054-cf8497ad127a": "Chattanooga Coca Cola Bottling Company dba United Packers, Inc.",
+  "df0c68d3-e128-4fd8-a0de-276471c84687": "MIDWEST POULTRY SERVC C/O H & LELECTRIC",
+  "df663fb7-26d4-468d-8d0d-f76d6a37e92d": "Adams Extract & Spice LLC",
+  "dfe1f51c-b477-41ff-93e2-1dc59bac6513": "Westby Coop Creamery",
+  "e05b07d0-a935-4737-8278-a2480b598433": "Rucker's Wholesale & Service Co., Inc.",
+  "e092ba59-48e7-400f-abb9-2c700cdc5224": "International Desserts and Delicacies",
+  "e093fb3e-8591-416b-b996-45dfd89d0faf": "Country Favor Inc.",
+  "e0a08019-15a5-4c4b-8484-37d8a46636f4": "CUISINE, KETTLE",
+  "e0a23b39-8966-4fdd-89cb-3aa0a4002abb": "McCormick & Company,  Inc.- Consumer Product Division",
+  "e1b43fd7-487b-44d3-911e-bc84fd288e0c": "Pro-Form Manufacturing LLC",
+  "e2119d2f-dc89-432c-9bf8-bb595e826f74": "Triple B Corporation -  Charlie's Produce",
+  "e231ad86-566a-46bd-8e4a-050d20a76f51": "Twin City Bagel, Inc.",
+  "e382e335-8ab6-4442-9ea2-7e3e6f1ba8f0": "New Classic Cooking LLC",
+  "e3bc252c-351d-4389-9a27-817abab225f0": "Maytag Dairy Farms Inc",
+  "e45841da-f811-4bd1-a5d8-5f862dbf0eff": "R. Walters Foods, Limited Liability Corporation",
+  "e4cc6611-427f-4174-9d0a-e1d3702de7be": "Olam Tomato Processors, Inc.",
+  "e4f089ce-c165-49a6-9c59-997e64dbe265": "WFM Purchasing, LP",
+  "e4f78764-d654-48e9-8f66-c22f7dc18bcd": "Bubbies Homemade Ice Cream and Desserts, Inc.",
+  "e58ac3ad-ec38-49a1-8f97-639159539f10": "ERG Foods, LLC",
+  "e5fdb194-a559-4e52-a2d1-cfc89a6ca6d3": "California Bread Co.",
+  "e67606b4-6ddc-4d29-af03-7b8c6ba44c38": "SUBCO FOODS INC",
+  "e6c79338-ebc6-40d2-87fd-eda755866794": "Lexunder Inc",
+  "e700d9ef-ac0f-4302-a651-2d30a11edc12": "D.S. Waugh",
+  "e7a2e740-b840-4093-9a9e-e6bed823b973": "Lancaster Foods LLC",
+  "e7dcdc7a-7e14-4d12-b1a1-445958b54d9c": "Dove Chocolate Discoveries Llc",
+  "e8cec533-e530-4883-bfaf-c746d1a65d93": "University Of Wisconsin Madison Babcock Hall Dairy Plant",
+  "e94f4c3d-1434-41b3-9a31-2e2700de7ace": "Catalina Snacks",
+  "e9665816-f41d-40d4-a676-dee4e262d0e5": "Nashua Nutrition",
+  "e9cf50b2-8890-4ad3-8baa-0f064f4c51a3": "J and J Bunting, Inc",
+  "ea17cd67-9d67-413b-958e-885207c6f801": "Dursett Amigos, Ltd",
+  "ea88821c-45ca-42d6-bf58-393e9d23440f": "MARS SNACKING",
+  "eb3910c4-c05f-4f96-ac21-1ef5246063dd": "Berner Food & Beverage, LLC",
+  "eb4660b6-0957-4b07-bb31-508fb63b9076": "G&C Food Distributors, Inc.",
+  "eba5c567-acad-4cbd-9be9-56015c63a5e6": "World Health Products LLC",
+  "ebd79544-23cf-4f94-af52-69a6362bac99": "ISF \"USA\", LLC",
+  "ec5a10e1-b40e-4072-a009-8a0a65dc8303": "Falafel King Enterprises, Inc.",
+  "ec5dba54-534e-4638-bd12-964e0eb24c19": "Country Fresh Products, LLC",
+  "ecbb475f-a094-46d9-96b6-b42b2daa7157": "Lsg Food World Inc",
+  "ed021dd5-30b1-4dab-ab53-9760d1c2a2dc": "Ikko International Trading LLC",
+  "ed196652-db00-44a9-979b-3e1059fd18c6": "Tas Tematic Foods Inc",
+  "ed475a3b-4790-4a51-b4c7-fe2a90906f2b": "C. H. Guenther & Son, Inc.dba Morrison Milling",
+  "ed728b6c-3a1c-4c10-bb7f-ed2da9c9b237": "Win Luck Trading Inc",
+  "edae8a30-be5a-4dee-858f-0fcb8ea93784": "BioMylz Pvt. Ltd.",
+  "ee057349-e67b-4a0b-9427-9f2aaa89615d": "ELITE CONFECTIONERY LTD",
+  "ee0fa662-3299-4e5c-bdb7-275fba9c48f0": "R. Walters Limited dba Meninno Brothers Foods",
+  "ee5b0acc-fc51-4eab-8583-f092e34e0781": "JOHN B SANFILIPPO & SONS INC",
+  "ee68269b-2232-4e52-8e61-781c71bf9fae": "Greater Pittsburgh Community Food Bank",
+  "ee8ec025-9130-4e47-8ed0-9f4b5dead98e": "Marina Del Rey Foods inc.",
+  "eef72142-411b-4fdd-971c-df82ec127a73": "Pinks Bakery Seattle, Inc.",
+  "ef120dfd-6aa0-4a91-801e-adac0058ca67": "EMILIA FOODS SRL",
+  "efdd2aaa-196c-4f92-9b44-eb1b4bcf252b": "Coca Cola Bottling Group United",
+  "eff20e74-b6cf-47ff-8e0d-f0d690b161cc": "CAMBRIDGE FARMS OF HANOVER LLC D",
+  "eff9c8c0-a63e-4217-b867-e71615df83ef": "Laboratories Cop Inc",
+  "effba302-7999-475c-8fdb-106f5112a883": "RB Health (US) LLC",
+  "f015cefc-1825-4596-8483-3d1dadef78ed": "Dessert Holdings Llc",
+  "f07f319c-e0b8-41d4-a491-f94de5667cbb": "Southeastern Mills Custom Seasoning Solutions",
+  "f0c72092-a206-405f-86f3-7047f95310d9": "Super Store Industries-Turlock Dairy Division",
+  "f1107f43-1e45-45d3-8da0-fb8dedef8d17": "Vern's & Son Food Service Distributing",
+  "f13894b4-548f-4a92-94d8-1ae314aead33": "The HMC Group Marketing Inc",
+  "f1d0046a-4728-41d2-b023-ffb93b5e67e1": "F&S Fresh Foods, Inc.",
+  "f1ec6b85-bc61-48c0-a0b3-3bfef6f47284": "Massey Fish Company",
+  "f285f119-2fb2-4312-a728-ca23a0b32927": "Hearthside Food Solutions",
+  "f2dcfd04-4c86-4389-96a9-ba5193cab49d": "TILLAMOOK COUNTY CREAMERY ASSOC",
+  "f366cbc2-7d37-4028-920c-c45b7d00fa15": "Innovative Labs, LLC",
+  "f38c246b-0a28-423b-bd8d-3fec30a19f95": "Defense Nutrition",
+  "f3984064-3944-4343-b507-7373992ad5a7": "Perfect Foods Bar",
+  "f3bd0dc6-0726-4a42-9625-46e4fbf4cc5b": "Bee Well Honey Farm & Supply Inc.",
+  "f3fb59f7-20f5-4937-9601-274e6930904f": "King Juice Company, Inc.",
+  "f4ba623e-8e6d-46a8-968c-466ada43515f": "Shah Distributors",
+  "f4d6db03-0c69-440b-a649-888ee02e2069": "He Butt",
+  "f5850d94-0a19-469e-8033-3fceb09b5a52": "Buell's Orchard",
+  "f5dc3938-b811-41f4-a9cd-93a34755df8e": "Paris Brothers Inc",
+  "f6503317-2e04-43d9-9ab7-dc294172eab9": "Dough Masters Co Inc",
+  "f6a7996d-3f01-4437-8627-f8c5a309d5f1": "Middlefield Original Cheese Cooperative",
+  "f7287b11-54d7-4792-ba42-b570477e39e6": "F & S Produce Co., Inc. (Site II)",
+  "f76fc558-f10d-48fb-95c7-7165bdb293f7": "Starway Inc.",
+  "f7a8a06c-ba00-435a-9f55-ac9d181e7e97": "Advantage Health Matters Inc.",
+  "f7d76eba-61da-476d-a85c-1a4d51bf71ca": "Nutricia North America",
+  "f840eb24-681b-413c-a416-513d24dff4a4": "Harry and David Operations, Inc.",
+  "f88d160c-6457-4a82-a09e-6ecc24be0e64": "Woeber Mustard Manufacturing Co Inc",
+  "f8ada728-6b9b-46b0-81bb-f74c43be48db": "Agropur MSI Ingredients LLC",
+  "f99a4997-0988-491f-9325-c2350fec4851": "Savannah-Imperial LP- Savannah Sugar Refinery",
+  "f9c33ddc-9152-4a64-997d-7e6c0891f88f": "Natural Organics",
+  "fa350312-1b1c-4329-b2bb-2d58dff345e3": "Euphoria Trading  Company, LLC.",
+  "faa49714-e908-41aa-af7e-2bec9519806c": "Unistel Industries Inc.",
+  "faa5cc2e-e3ca-46f4-abe6-1d3d9be9a254": "Flying Food Group, Inc.",
+  "faa74c7b-b597-4c97-8780-b8b86d59036f": "M.O.M Enterprises, LLC.",
+  "faff66f0-5741-4fe8-b390-4ce1db799a3c": "Pollio Italian Cheese Company",
+  "fb3dc243-4b96-4d1d-bba0-78bebd65083b": "Fannie May Confection Brands Inc",
+  "fbe881e7-981c-40b0-9939-81c038698dba": "Taylor Farms Retail Inc",
+  "fc54e1ac-cadb-4264-8a24-1806a41825bd": "World Class Distribution, Inc.",
+  "fc978e7d-bd67-4434-88b1-e95f9263a85f": "PERU FOOD IMPORT INC",
+  "fcf9697c-5a51-403a-a06d-7dfab892eb74": "PBM Nutritionals, LLC",
+  "fd056ace-38cb-4086-ac6f-fdcb9000bc73": "Utz Quality Food Inc",
+  "fdd6f647-00ba-492d-b876-3b14b52c6cfb": "CV EAST LLC, CORNERSTONE MARION LLC",
+  "fdfa5c20-1a4e-4feb-9da6-80401750b3b7": "LSG Sky Chefs",
+  "ff0350cf-83ad-4fad-ac35-ee745472c1de": "Herbalife International Of America Inc",
+  "ff4956c8-3fb8-47f4-a8a4-6aeb908d4d2d": "Dole Fresh Fruit Company",
+  "ff7f93d4-1814-4fc0-adfc-ff4492f0a44b": "Crown Food Distribution Inc",
+  "ff942fcd-0bff-4705-997f-939f3322a0a9": "Perdue Foods LLC",
+  "ff9c2e1c-e064-4cc3-9929-4ee04b57dad5": "Give & Go Prepared Foods",
+  "fff6803b-1728-4a3a-b870-b3a53c4de8f0": "Arise Gluten Free Bakery"
+ }
+}

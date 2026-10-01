@@ -1,0 +1,337 @@
+// Turns the database rows for one product into the five things a shopper is
+// shown about it, in a fixed order, every time:
+//
+//   Flagged · Recalls · Organic · Non-GMO · Owner
+//
+// Both the search results page and the product page use this, which is the
+// point: the same product can never be described two different ways on two
+// different screens.
+//
+// EVERY FUNCTION HERE OBEYS THE THREE-STATE RULE
+// For each question there are three possible answers, and they are NOT the
+// same answer:
+//   confirmed      — we looked, and the record says yes
+//   nothingOnFile  — we looked, and there is nothing on file
+//   unchecked      — we have not been able to look
+// Collapsing the third into the second is the most tempting mistake in this
+// whole app and the one that would turn a gap in our data into a false claim
+// about somebody's product.
+
+import type { StatusKey } from '@/lib/design'
+import { isoDate, isoYear } from '@/lib/design'
+import { RELEVANT_DOMAINS_BY_TYPE, type ProductType } from '@/lib/productTypes'
+import type { RecallItem } from '@/lib/recalls'
+
+// One cell in the five-column strip.
+export type Signal = {
+  // Which of the five questions this answers.
+  column: 'flagged' | 'recalls' | 'organic' | 'nonGmo' | 'owner'
+  // Which status colour it takes. Drives the chip, nothing else.
+  state: StatusKey
+  // The short label that goes in the chip (fits ~13 characters).
+  label: string
+  // A longer, plain-English version for the product page, where there is room.
+  detail?: string
+  // The date the underlying record was read, when there is one.
+  asOf?: string | null
+  // Where to click through to.
+  href?: string
+}
+
+// The shape this module needs from Prisma. Written as a structural type rather
+// than a Prisma payload type so a page can pass any query that happens to
+// select these fields, without having to match an exact `include` block.
+export type ProductForSignals = {
+  id: string
+  productType: string
+  ingredientDisclosureStatus: string
+  ingredientCheckedAt: Date | null
+  productIngredients: { ingredient: { flaggedForResearch: boolean } }[]
+  certifications: {
+    certificationStatus: string
+    lastVerifiedDate: Date | null
+  }[]
+  productCertifications: {
+    scheme: string
+    status: string
+    lastVerifiedDate: Date | null
+  }[]
+  company: {
+    id: string
+    legalName: string
+    vettingStatus: string
+    parentCompany: { id: string; legalName: string } | null
+  }
+}
+
+// Whether a question can even be asked of this kind of product. The repo
+// already answers this in productTypes.ts — a baby bottle
+// ("baby_child") has no `organicCertification` domain — so we use that
+// rather than inventing a second list that could disagree with it.
+function domainApplies(productType: string, domain: string): boolean {
+  const domains = RELEVANT_DOMAINS_BY_TYPE[productType as ProductType]
+  // An unknown productType is a data problem, not a licence to guess. Treat
+  // the question as askable and let the status come out as "unchecked".
+  return domains ? domains.includes(domain) : true
+}
+
+// A name-matched source (USDA organic, the Non-GMO Project, recalls) is only
+// run against companies a person or a barcode has confirmed — see
+// src/lib/vetting.ts. So for an unvetted company, the absence of a record
+// means NOBODY LOOKED, not that there is nothing there. This is the single
+// most important line in this file.
+function wasCheckable(company: ProductForSignals['company']): boolean {
+  return company.vettingStatus === 'vetted'
+}
+
+// ---------------------------------------------------------------- flagged
+
+export function flaggedSignal(p: ProductForSignals): Signal {
+  const asOf = isoDate(p.ingredientCheckedAt)
+
+  // "unchecked" is the column default in the schema and means no lookup has
+  // been attempted. The schema comment is explicit that the UI must say
+  // NOTHING about disclosure in this case.
+  if (p.ingredientDisclosureStatus === 'unchecked') {
+    return {
+      column: 'flagged',
+      state: 'unchecked',
+      label: 'Not checked',
+      detail: 'We have not looked up an ingredient list for this product yet.',
+      asOf: null,
+    }
+  }
+
+  if (p.ingredientDisclosureStatus === 'not_disclosed') {
+    return {
+      column: 'flagged',
+      state: 'unchecked',
+      label: 'Not disclosed',
+      // Worded as the schema asks: "not found in the sources we check",
+      // never "does not exist anywhere".
+      detail: `No ingredient list was found in any source we check${asOf ? `, as of ${asOf}` : ''}.`,
+      asOf,
+    }
+  }
+
+  const flagged = p.productIngredients.filter((pi) => pi.ingredient.flaggedForResearch).length
+
+  if (flagged === 0) {
+    return {
+      column: 'flagged',
+      state: 'confirmed',
+      label: 'None flagged',
+      detail: 'No ingredient on this product currently has open or conflicting research on file.',
+      asOf,
+    }
+  }
+
+  return {
+    column: 'flagged',
+    state: 'openResearch',
+    label: `${flagged} flagged`,
+    detail:
+      flagged === 1
+        ? 'One ingredient has conflicting health research on file. The studies, and who funded them, are on the ingredient page.'
+        : `${flagged} ingredients have conflicting health research on file. The studies, and who funded them, are on each ingredient page.`,
+    asOf,
+    href: `/products/${p.id}#flagged`,
+  }
+}
+
+// ---------------------------------------------------------------- recalls
+
+// `listed` is what getRecallsListingProducts() returned for this product:
+// notices whose own text lists this product's barcode. Nothing weaker counts
+// as a recall OF this product — a brand-level notice is a recall of the
+// brand, and it is shown separately on the product page.
+export function recallSignal(p: ProductForSignals, listed: RecallItem[] | undefined): Signal {
+  if (listed && listed.length > 0) {
+    const newest = listed[0]
+    const year = isoYear(newest.actionDate)
+    return {
+      column: 'recalls',
+      state: 'recall',
+      label: year ? `Recalled ${year}` : 'Recalled',
+      detail:
+        listed.length === 1
+          ? `A ${newest.sourceAgency} notice lists this product's barcode.`
+          : `${listed.length} ${newest.sourceAgency} and other notices list this product's barcode.`,
+      asOf: isoDate(newest.actionDate),
+      href: `/products/${p.id}#recalls`,
+    }
+  }
+
+  if (!wasCheckable(p.company)) {
+    return {
+      column: 'recalls',
+      state: 'unchecked',
+      label: 'Not checked',
+      detail:
+        'Recall notices are matched by company name, and this brand has not been confirmed as a company yet, so no notices have been matched to it.',
+      asOf: null,
+    }
+  }
+
+  return {
+    column: 'recalls',
+    state: 'confirmed',
+    label: 'No recalls',
+    detail: 'No government notice we hold lists this product.',
+    asOf: null,
+  }
+}
+
+// ----------------------------------------------------- organic / non-GMO
+
+// USDA organic has its own table because its scope semantics are unique;
+// every other mark (Non-GMO Project and so on) is a ProductCertification.
+// See the comments on both models in schema.prisma.
+export function organicSignal(p: ProductForSignals): Signal {
+  if (!domainApplies(p.productType, 'organicCertification')) {
+    return {
+      column: 'organic',
+      state: 'notApplicable',
+      label: "Doesn't apply",
+      detail: 'Organic certification does not apply to this kind of product.',
+      asOf: null,
+    }
+  }
+
+  const current = p.certifications.find((c) => c.certificationStatus === 'Certified')
+  if (current) {
+    return {
+      column: 'organic',
+      state: 'confirmed',
+      label: 'Organic',
+      detail: 'This exact product is listed as certified in the USDA Organic Integrity Database.',
+      asOf: isoDate(current.lastVerifiedDate),
+    }
+  }
+
+  // A surrendered, revoked or suspended certificate is a real finding and
+  // must not be flattened into "nothing on file".
+  const lapsed = p.certifications[0]
+  if (lapsed) {
+    return {
+      column: 'organic',
+      state: 'nothingOnFile',
+      label: 'Not current',
+      detail: `The USDA record for this product shows a certificate marked "${lapsed.certificationStatus}".`,
+      asOf: isoDate(lapsed.lastVerifiedDate),
+    }
+  }
+
+  if (!wasCheckable(p.company)) {
+    return {
+      column: 'organic',
+      state: 'unchecked',
+      label: 'Not checked',
+      detail: 'The organic register is searched by company name, and this brand has not been confirmed as a company yet.',
+      asOf: null,
+    }
+  }
+
+  return {
+    column: 'organic',
+    state: 'nothingOnFile',
+    label: 'Not on file',
+    // Deliberately NOT "not organic". We know what the register says; we do
+    // not know how the food was grown.
+    detail: 'This product is not in the USDA Organic Integrity Database. That is what the register says, not a statement about the food.',
+    asOf: null,
+  }
+}
+
+export function nonGmoSignal(p: ProductForSignals): Signal {
+  const match = /non-?gmo/i
+  const rows = p.productCertifications.filter((c) => match.test(c.scheme))
+
+  const verified = rows.find((c) => c.status === 'verified')
+  if (verified) {
+    return {
+      column: 'nonGmo',
+      state: 'confirmed',
+      label: 'Non-GMO',
+      detail: `Verified under "${verified.scheme}".`,
+      asOf: isoDate(verified.lastVerifiedDate),
+    }
+  }
+
+  const lapsed = rows[0]
+  if (lapsed) {
+    return {
+      column: 'nonGmo',
+      state: 'nothingOnFile',
+      label: 'Not current',
+      detail: `The record for "${lapsed.scheme}" is marked "${lapsed.status}".`,
+      asOf: isoDate(lapsed.lastVerifiedDate),
+    }
+  }
+
+  if (!wasCheckable(p.company)) {
+    return {
+      column: 'nonGmo',
+      state: 'unchecked',
+      label: 'Not checked',
+      detail: 'Verification registers are searched by company name, and this brand has not been confirmed as a company yet.',
+      asOf: null,
+    }
+  }
+
+  return {
+    column: 'nonGmo',
+    state: 'nothingOnFile',
+    label: 'Not on file',
+    detail: 'This product is not in the verification registers we check.',
+    asOf: null,
+  }
+}
+
+// ------------------------------------------------------------------ owner
+
+export function ownerSignal(p: ProductForSignals): Signal {
+  const parent = p.company.parentCompany
+  return {
+    column: 'owner',
+    state: 'ownership',
+    label: parent ? parent.legalName : p.company.legalName,
+    detail: parent
+      ? `${p.company.legalName} is owned by ${parent.legalName}.`
+      : `${p.company.legalName}. We hold no record of a parent company above it.`,
+    href: `/companies/${parent ? parent.id : p.company.id}`,
+  }
+}
+
+// -------------------------------------------------------------- the strip
+
+// All five, always, in the same order. A product with no answer for a column
+// still gets a cell saying so — that is what makes the columns line up down
+// the page and lets a shopper compare two products by eye.
+export function productSignals(p: ProductForSignals, listedRecalls?: RecallItem[]): Signal[] {
+  return [flaggedSignal(p), recallSignal(p, listedRecalls), organicSignal(p), nonGmoSignal(p), ownerSignal(p)]
+}
+
+// How many ingredients we can show, and whether we can show any. Used for the
+// product page's signal row.
+export function ingredientCount(p: ProductForSignals): number | null {
+  return p.ingredientDisclosureStatus === 'disclosed' ? p.productIngredients.length : null
+}
+
+// Sort order for the search results: most to read about first. Not a ranking
+// of how good a product is — it is a ranking of how much there is on file, so
+// the rows a shopper most needs to open are not on page three.
+const SORT_WEIGHT: Record<StatusKey, number> = {
+  recall: 0,
+  openResearch: 1,
+  unchecked: 2,
+  nothingOnFile: 3,
+  confirmed: 4,
+  notApplicable: 5,
+  ownership: 6,
+}
+
+export function mostToReadAbout(a: Signal[], b: Signal[]): number {
+  const weigh = (s: Signal[]) => Math.min(...s.filter((x) => x.column !== 'owner').map((x) => SORT_WEIGHT[x.state]))
+  return weigh(a) - weigh(b)
+}

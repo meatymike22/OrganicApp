@@ -62,6 +62,8 @@ model Company {
   //                      Central, and the manufacturer-supplied brand there
   //                      matches this company's name (scripts/vet-companies.ts)
   //   "automated_ai"   — judged by an AI pass from the collected evidence
+  //   "automated_recall" — named as the recalling firm in a government recall
+  //                      notice that lists one of our products (scripts/match-recalls.ts)
   // Null while unvetted.
   vettingMethod String?
   vettedAt      DateTime?
@@ -72,6 +74,18 @@ model Company {
   // (brand_owner). Often the legal entity named on recalls and filings, so
   // matchers can use it alongside legalName.
   brandOwner    String?
+
+  // What part this company plays between source and shelf. Null = not yet
+  // classified (most companies, which are brands).
+  //   "brand"        — sells products under its own brand names
+  //   "supply_chain" — a middleman that does not own the brands involved:
+  //                    a co-packer or manufacturer making products for other
+  //                    brands, a processor, packer, importer or distributor.
+  //                    Its recalls often concern other companies' brands.
+  //   "retailer"     — a store or chain (its own store brands are usually
+  //                    separate brand records under it)
+  businessRole  String?
+
 
   // Where bulk ingestion first saw this brand (e.g. the Open Food Facts page
   // of the first product carrying it) — the reviewer's starting point.

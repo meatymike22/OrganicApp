@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
+/* Rootify's page basics.
+ *
+ * Colours live in src/lib/design.ts, not here — the pages style with inline
+ * style objects, the same as the company pages already in this app, so there
+ * is exactly one place a shade is defined. What stays in this file is the
+ * handful of things a style object cannot reach: the page background, link
+ * behaviour, focus rings and the font variables.
+ *
+ * The font variables (--font-display, --font-sans, --font-mono) are set on
+ * <html> by next/font in app/layout.tsx. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #faf8f3;
+  --ink: #16201b;
+  --link: #b0502f;
+  --link-hover: #8e3e22;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+/* A visible focus ring on anything reachable by keyboard. Rootify is a
+ * reference tool people read carefully; losing your place because the focus
+ * ring was styled away is a real accessibility failure, not a cosmetic one. */
+:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Rootify is a light, paper-coloured product by design — the palette in
+ * design.ts was contrast-checked in one mode only. Until a dark set of those
+ * values exists and has been checked the same way, opting out is more honest
+ * than letting the browser invert colours whose contrast nobody verified. */
+:root {
+  color-scheme: light;
+}
+
+/* Hides text visually but keeps it for screen readers. Used for the labels on
+ * icon-only controls. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The animated feature icons on the marketing page. Motion is decorative
+ * here, so it is switched off entirely for anyone who has asked their system
+ * to reduce motion. */
+@keyframes rt-ring {
+  0%, 58%, 100% { transform: rotate(0); }
+  64% { transform: rotate(13deg); }
+  71% { transform: rotate(-11deg); }
+  78% { transform: rotate(7deg); }
+  85% { transform: rotate(-4deg); }
+}
+
+@keyframes rt-ping {
+  0%, 55% { transform: scale(0.4); opacity: 0; }
+  66% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+@keyframes rt-rise {
+  0% { transform: translateY(3px); opacity: 0.25; }
+  45%, 100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes rt-spin {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-16px); }
+}
+
+@keyframes rt-flow {
+  to { stroke-dashoffset: -16; }
+}
+
+@keyframes rt-scanline {
+  0%, 100% { transform: translateY(-3.4px); opacity: 0.3; }
+  50% { transform: translateY(3.4px); opacity: 1; }
+}
+
+.rt-bell { animation: rt-ring 3.4s ease-in-out infinite; transform-origin: 12px 5px; }
+.rt-ping { animation: rt-ping 3.4s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+.rt-sheet { animation: rt-rise 2.8s ease-in-out infinite; }
+.rt-sheet:nth-of-type(2) { animation-delay: 0.22s; }
+.rt-sheet:nth-of-type(3) { animation-delay: 0.44s; }
+.rt-merid { animation: rt-spin 4.4s linear infinite; }
+.rt-path { stroke-dasharray: 4 4; animation: rt-flow 1.5s linear infinite; }
+.rt-scan { animation: rt-scanline 2.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-bell, .rt-ping, .rt-sheet, .rt-merid, .rt-path, .rt-scan {
+    animation: none;
+  }
 }
