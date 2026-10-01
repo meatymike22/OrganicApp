@@ -2,6 +2,7 @@ import Link from 'next/link'
 // "prisma" is the shared database client we set up in src/lib/prisma.ts
 import { prisma } from '@/lib/prisma'
 import { describeCategory } from '@/lib/categoryDisplay'
+import { OpenFoodFactsNotice } from '@/components/SiteChrome'
 import { companyAndParents, evidenceNote, getCompanyRecalls, getRecallsListingProducts, getUnlinkedProcessRecalls, type RecallItem } from '@/lib/recalls'
 
 // How many recalls each list shows before "Show all". Some firms have
@@ -267,6 +268,9 @@ export default async function CompanyPage({
           <RecallList list={recalls.naming} companyId={company.id} showAll={showAllRecalls} />
         </>
       )}
+
+      {/* Required attribution for the Open Food Facts data on this page */}
+      <OpenFoodFactsNotice style={{ marginTop: '2rem' }} />
     </div>
   )
 }

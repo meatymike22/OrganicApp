@@ -23,5 +23,15 @@ export function describeCategory(category: string | null, categorySource: string
       isEstimate: true,
     }
   }
+  if (categorySource === 'ai_estimate') {
+    // scripts/apply-ai-categories.ts: an AI reading the name, brand and
+    // ingredients, for products with no official category and no product
+    // word in the name.
+    return {
+      label: `${category} (estimated)`,
+      note: 'Estimated by AI from the product name, brand and ingredients. No official category was available for this product.',
+      isEstimate: true,
+    }
+  }
   return { label: category, note: null, isEstimate: false }
 }

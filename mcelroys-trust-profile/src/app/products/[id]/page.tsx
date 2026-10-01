@@ -23,6 +23,7 @@ const PRODUCT_FIELDS = {
   ingredientCheckedAt: true,
   ingredientSource: true,
   ingredientSourceUrl: true,
+  importSource: true,
   productIngredients: {
     select: {
       isOrganicSourced: true,
@@ -193,6 +194,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           {product.upc && (
             <div style={{ fontFamily: font.mono, fontSize: 13, color: colors.ink4, marginTop: 6 }}>
               {product.upc}
+            </div>
+          )}
+
+          {/* Open Food Facts' licence asks for a link to the product's own
+              record wherever its data for that product is shown. */}
+          {product.upc && isFromOpenFoodFacts(product) && (
+            <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 4 }}>
+              Product data from{' '}
+              <a
+                href={`https://world.openfoodfacts.org/product/${product.upc}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                this product&apos;s Open Food Facts record
+              </a>{' '}
+              (ODbL)
             </div>
           )}
 
@@ -824,4 +841,10 @@ function cardStyle(state: keyof typeof status): React.CSSProperties {
     borderLeft: `4px solid ${status[state].fg}`,
     borderRadius: layout.radius,
   }
+}
+
+// True when any of this product's data came from Open Food Facts: the bulk
+// import, or an ingredient list read from it.
+function isFromOpenFoodFacts(product: { importSource: string | null; ingredientSource: string | null }): boolean {
+  return product.importSource === 'open_food_facts_bulk' || /open[_ ]food[_ ]facts/i.test(product.ingredientSource ?? '')
 }

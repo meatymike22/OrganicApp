@@ -294,6 +294,29 @@ export function SignalTile({
 
 // The footer. Two sentences and a row of links — the legal and sourcing pages
 // a reader needs, and nothing written to reassure a brand.
+// Attribution required by Open Food Facts' licence (ODbL for the database,
+// DbCL for its contents): credit Open Food Facts, link to it, and name the
+// licence wherever its data is shown. See compliance/ in the repo.
+export function OpenFoodFactsNotice({ style }: { style?: React.CSSProperties }) {
+  return (
+    <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: colors.ink3, ...style }}>
+      Product names, ingredients, nutrition and brand text include data from{' '}
+      <a href="https://openfoodfacts.org" target="_blank" rel="noopener noreferrer">
+        Open Food Facts
+      </a>
+      , made available under the{' '}
+      <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener noreferrer">
+        Open Database License (ODbL)
+      </a>
+      ; individual entries under the{' '}
+      <a href="https://opendatacommons.org/licenses/dbcl/1-0/" target="_blank" rel="noopener noreferrer">
+        Database Contents License
+      </a>
+      .
+    </p>
+  )
+}
+
 export function SiteFooter() {
   const links = [
     { label: 'How we source', href: '/sourcing' },
@@ -329,6 +352,7 @@ export function SiteFooter() {
           </Link>
         ))}
       </div>
+      <OpenFoodFactsNotice style={{ flexBasis: '100%' }} />
     </footer>
   )
 }

@@ -135,9 +135,12 @@ model Product {
   //                       Mapped in src/lib/offCategoryMap.ts.
   //   "name_estimate"   — estimated from the product name
   //                       (src/lib/nameCategoryMap.ts). Show as an estimate.
+  //   "ai_estimate"     — estimated by an AI review of the name, brand and
+  //                       ingredients (scripts/apply-ai-categories.ts).
+  //                       Show as an estimate.
   //   "manual"          — set by a person. Scripts never change these.
   // Null when category is null. Set by scripts/categorize-products.ts and
-  // scripts/bulk-import-off.ts.
+  // scripts/bulk-import-off.ts and scripts/apply-ai-categories.ts.
   categorySource String?
   // Barcode — required for matching against Open Food Facts and similar
   // barcode-keyed sources. Nullable since not every product will have one
