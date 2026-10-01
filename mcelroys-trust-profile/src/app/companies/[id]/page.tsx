@@ -1,19 +1,49 @@
 import Link from 'next/link'
-// "prisma" is the shared database client we set up in src/lib/prisma.ts
+import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
-import { OpenFoodFactsNotice } from '@/components/SiteChrome'
-import { companyAndParents, evidenceNote, getCompanyRecalls, getRecallsListingProducts, getUnlinkedProcessRecalls, type RecallItem } from '@/lib/recalls'
+import {
+  companyAndParents,
+  evidenceNote,
+  getCompanyRecalls,
+  getRecallsListingProducts,
+  getUnlinkedProcessRecalls,
+  type RecallItem,
+  type RecallList,
+} from '@/lib/recalls'
+import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { StatusChip } from '@/components/StatusChip'
+import { Callout, Eyebrow, Monogram, SectionHead, SourceLine } from '@/components/PageParts'
+
+// ONE COMPANY: who it is, who owns it, the brands it owns, the products we
+// list under it, and the government notices that name it.
+//
+// Layout follows the "Company profile" screen in the Rootify design canvas:
+// header with an ownership panel, a signal row, then a main column (brands,
+// notices, products) and a sidebar (investor filings, sourcing).
+//
+// The data rules are unchanged from the earlier version of this page:
+//  - an unverified company gets no recalls/filings matched to it, and says so;
+//  - a recall is always shown with the product it described;
+//  - recalls issued by another firm that name this brand are listed apart,
+//    with the reason they are here (evidenceNote in src/lib/recalls.ts).
 
 // How many recalls each list shows before "Show all". Some firms have
 // hundreds of notices (one product line per notice); ?recalls=all lists them all.
 const RECALLS_SHOWN = 20
 
-// This is a Next.js "page" component — Next.js automatically renders this file
-// for any URL matching /companies/[whatever-id-was-in-the-url]
-//
-// In Next.js 15+, the dynamic part of the URL ("params") is passed as a Promise
-// rather than a plain object, so it has to be awaited before you can read "id" from it.
+// How many products are listed by name. Store brands and big makers have
+// thousands; the rest are a search away.
+const PRODUCTS_SHOWN = 24
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const company = await prisma.company.findUnique({ where: { id }, select: { legalName: true } })
+  return { title: company?.legalName ?? 'Company not found' }
+}
+
 export default async function CompanyPage({
   params,
   searchParams,
@@ -21,318 +51,896 @@ export default async function CompanyPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  // Unwrap the Promise to get the actual id string from the URL
+  // In Next.js 15+ the dynamic part of the URL arrives as a Promise.
   const { id } = await params
   const showAllRecalls = (await searchParams).recalls === 'all'
 
-  // Query the database for one Company matching this id.
-  // "include" tells Prisma to also fetch related rows from other tables,
-  // nesting one level deeper each time (company -> products -> certifications)
   const company = await prisma.company.findUnique({
     where: { id },
-    include: {
-      products: {
-        include: {
-          certifications: true,
-        },
+    select: {
+      id: true,
+      legalName: true,
+      dbaNames: true,
+      hqLocation: true,
+      vettingStatus: true,
+      businessRole: true,
+      ownershipNote: true,
+      parentCompany: { select: { id: true, legalName: true } },
+      subsidiaries: {
+        select: { id: true, legalName: true, _count: { select: { products: true } } },
+        orderBy: { legalName: 'asc' },
       },
-      ownershipCertifications: true,
       investorFilings: true,
       supplyChainDisclosures: true,
-      independentInvestigations: true,
-      parentCompany: {
-        select: { id: true, legalName: true },
-      },
-      subsidiaries: {
-        select: { id: true, legalName: true },
-      },
     },
   })
 
-  // If no company matched that id (e.g., a typo'd or deleted UUID in the URL),
-  // show a fallback instead of crashing
   // "rejected" means a reviewer decided this isn't a usable company (junk
   // brand text, a duplicate). The row is kept only so bulk ingestion doesn't
   // recreate it, so it's treated the same as not existing.
-  if (!company || company.vettingStatus === 'rejected') {
-    return <div>Company not found</div>
-  }
+  if (!company || company.vettingStatus === 'rejected') notFound()
 
   const isUnvetted = company.vettingStatus !== 'vetted'
 
-  // Recalls: loaded only for verified companies, as the unverified banner
+  // Products: counted in full, listed up to PRODUCTS_SHOWN by name.
+  const [productCount, organicCount, products] = await Promise.all([
+    prisma.product.count({ where: { companyId: company.id } }),
+    prisma.product.count({
+      where: { companyId: company.id, certifications: { some: { certificationStatus: 'Certified' } } },
+    }),
+    prisma.product.findMany({
+      where: { companyId: company.id },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        categorySource: true,
+        productType: true,
+        certifications: { select: { certificationStatus: true } },
+      },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      take: PRODUCTS_SHOWN,
+    }),
+  ])
+
+  // Recalls: loaded only for verified companies, as the unverified notice
   // says. See src/lib/recalls.ts for how they are matched and linked.
   const recalls = isUnvetted ? null : await getCompanyRecalls(company.id, showAllRecalls ? undefined : RECALLS_SHOWN)
-  const listedProducts = isUnvetted ? new Map<string, RecallItem[]>() : await getRecallsListingProducts(company.products.map((p) => p.id))
+  // Which of the listed products a notice names by barcode.
+  const listedProducts = isUnvetted
+    ? new Map<string, RecallItem[]>()
+    : await getRecallsListingProducts(products.map((p) => p.id))
   // Recalls by this company or its parents about how food was made or
   // handled that name no product, so we can't say whether these products
-  // were affected. Shown once as a hint above the products, never as a
-  // recall of any of them.
+  // were affected. Shown once as a note, never as a recall of any of them.
   const family = isUnvetted ? [] : await companyAndParents(company.id)
   const processHint = isUnvetted ? null : await getUnlinkedProcessRecalls(family.map((c) => c.id))
 
-  // Everything below is JSX — HTML-like syntax that React turns into actual webpage elements.
-  // {company.legalName} etc. embeds a JavaScript value directly into the HTML.
+  const recallTotal = (recalls?.issued.count ?? 0) + (recalls?.naming.count ?? 0)
+  const brandsTotal = company.subsidiaries.length
+
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>{company.legalName}</h1>
+    <>
+      <TopNav />
+      <AisleBar />
+      <Breadcrumb
+        trail={[
+          { label: 'Rootify', href: '/' },
+          { label: 'Companies', href: '/companies' },
+          { label: company.legalName },
+        ]}
+      />
 
-      {/* Unvetted = created automatically from a product database's brand
-          field. The name shown is that brand text, not a confirmed legal
-          entity, and no recalls, filings or certifications have been matched
-          to it (those scripts only run against vetted companies). Stated
-          once, plainly, per the voice rules — no extra hedging. */}
-      {isUnvetted && (
-        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-          <strong>Not yet verified.</strong> This brand and its products come
-          from Open Food Facts and haven&apos;t been verified yet. Recalls,
-          ownership and certifications appear once it&apos;s verified.
-        </p>
-      )}
+      {/* HEADER */}
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: `30px ${layout.gutter}px 0`,
+          display: 'flex',
+          gap: 32,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+        }}
+      >
+        <Monogram name={company.legalName} />
 
-      {/* Middlemen between source and shelf (co-packers, importers,
-          distributors). Their recalls usually concern other companies'
-          brands, so the page says so up front. */}
-      {company.businessRole === 'supply_chain' && (
-        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-          <strong>Supply-chain company.</strong> {company.legalName} mainly makes,
-          packs, imports or distributes food sold under other companies&apos;
-          brands. Its recalls often concern those brands&apos; products.
-        </p>
-      )}
+        <div style={{ flexGrow: 1, flexBasis: 420, minWidth: 0 }}>
+          <Eyebrow color={status.ownership.fg}>
+            {company.businessRole === 'retailer'
+              ? 'Retailer'
+              : company.businessRole === 'supply_chain'
+                ? 'Supply-chain company'
+                : 'Company profile'}
+          </Eyebrow>
+          <h1
+            style={{
+              margin: '8px 0 0',
+              fontFamily: font.display,
+              fontSize: 36,
+              lineHeight: 1.1,
+              fontWeight: 600,
+              letterSpacing: '-0.015em',
+            }}
+          >
+            {company.legalName}
+          </h1>
 
-      {/* Stores and chains. Their recalls are usually of store-brand products
-          or items they sold. */}
-      {company.businessRole === 'retailer' && (
-        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-          <strong>Retailer.</strong> {company.legalName} sells food to consumers.
-          Its recalls usually concern its store-brand products or items it sold.
-        </p>
-      )}
+          <MetaLine company={company} />
 
-      {/* Only show this line at all if there's at least one DBA name to display */}
-      {company.dbaNames.length > 0 && (
-        <p>Also known as: {company.dbaNames.join(', ')}</p>
-      )}
-      <p>{company.hqLocation}</p>
-
-      {/* Corporate ownership — who actually owns this brand. Surfaced
-          prominently because it's information companies rarely advertise
-          and that materially affects how a shopper reads everything else
-          on the page. */}
-      {company.parentCompany && (
-        <p style={{ padding: '0.5rem', background: '#f5f5f5', borderRadius: '4px' }}>
-          <strong>Owned by:</strong>{' '}
-          <Link href={`/companies/${company.parentCompany.id}`}>
-            {company.parentCompany.legalName}
-          </Link>
-          {company.ownershipNote && (
-            <span style={{ display: 'block', fontSize: '0.85rem', color: '#555' }}>
-              {company.ownershipNote}
-            </span>
-          )}
-        </p>
-      )}
-
-      {company.subsidiaries.length > 0 && (
-        <p style={{ padding: '0.5rem', background: '#f5f5f5', borderRadius: '4px' }}>
-          <strong>Owns:</strong>{' '}
-          {company.subsidiaries.map((sub, i) => (
-            <span key={sub.id}>
-              {i > 0 && ', '}
-              <Link href={`/companies/${sub.id}`}>{sub.legalName}</Link>
-            </span>
-          ))}
-        </p>
-      )}
-
-      <h2>Products</h2>
-      {processHint && processHint.count > 0 && (
-        <p style={{ background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-          <strong>Manufacturing-related recalls.</strong>{' '}
-          {[...new Set(processHint.items.map((a) => a.company.id))]
-            .map((cid) => family.find((c) => c.id === cid)?.legalName)
-            .filter(Boolean)
-            .join(' and ')}{' '}
-          {processHint.count === 1 ? 'has had 1 recall' : `has had ${processHint.count} recalls`} about how
-          food was made or handled (for example contamination, unsanitary
-          conditions or foreign material) that {processHint.count === 1 ? "doesn't" : "don't"} name
-          a specific product. There is no evidence linking {processHint.count === 1 ? 'it' : 'them'} to
-          the products below, and we can&apos;t say whether they were affected.{' '}
-          {[...new Set(processHint.items.map((a) => a.company.id))].map((cid, i) => (
-            <span key={cid}>
-              {i > 0 && ' · '}
-              <Link href={`/companies/${cid}?recalls=all#recalls`}>
-                See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
-              </Link>
-            </span>
-          ))}
-        </p>
-      )}
-      {/* .map() loops over every product and returns a block of JSX for each one.
-          "key" is required by React so it can track each item in the list efficiently. */}
-      {company.products.map((product) => (
-        <div key={product.id} style={{ marginBottom: '1.5rem' }}>
-          <h3>{product.name}</h3>
-          <p title={describeCategory(product.category, product.categorySource).note ?? undefined}>
-            {describeCategory(product.category, product.categorySource).label}
-          </p>
-
-          {/* Nested loop: each product can have its own certification(s) */}
-          {/* Ingredient disclosure state. Deliberately distinguishes "we checked
-              and found nothing published" from "we haven't checked" — showing
-              a blank section for both would let a shopper read absence of data
-              as absence of ingredients. Nothing is shown for "unchecked",
-              since asserting non-disclosure without checking would be false. */}
-          {/* A recall notice lists this product's barcode. Only exact
-              barcode matches are flagged per product; brand-level recalls
-              are listed once, below. */}
-          {listedProducts.get(product.id)?.map((action) => (
-            <p key={action.id} style={{ background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-              <strong>Listed in a recall notice.</strong> A {action.sourceAgency}{' '}
-              {action.actionType.replace(/_/g, ' ')}
-              {action.actionDate && ` of ${new Date(action.actionDate).toLocaleDateString()}`}
-              {action.company.id !== company.id && ` issued by ${action.company.legalName}`} lists this
-              product&apos;s barcode
-              {action.reason && `. Reason given: ${action.reason}`}{' '}
-              <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
-                Source
-              </a>
-            </p>
-          ))}
-
-          {product.ingredientDisclosureStatus === 'not_disclosed' && (
-            <p style={{ background: '#fff3cd', border: '1px solid #ffe69c', borderRadius: '6px', padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}>
-              <strong>No ingredient list found.</strong> We checked the public
-              product databases we use and could not find a published ingredient
-              list for this product
-              {product.ingredientCheckedAt &&
-                ` (as of ${new Date(product.ingredientCheckedAt).toLocaleDateString()})`}
-              . That does not mean the manufacturer has never disclosed it —
-              only that we could not locate one, so we cannot tell you what is
-              in this product.
-            </p>
-          )}
-
-          {product.certifications.map((cert) => (
-            <div key={cert.id} style={{ paddingLeft: '1rem' }}>
-              <p>
-                Organic Certification: {cert.certificationStatus} by{' '}
-                {cert.certifyingAgency.trim()}
-              </p>
-              <p>Certificate #: {cert.certificateNumber}</p>
-              <p>Scopes: {cert.certifiedScopes.join(', ')}</p>
-              <p>
-                Source:{' '}
-                {/* A real clickable link to the source citation */}
-                <a href={cert.sourceUrl} target="_blank" rel="noopener noreferrer">
-                  {cert.sourceUrl}
-                </a>
-              </p>
+          {/* Said once, at the top, not repeated beside each empty section. */}
+          {isUnvetted && (
+            <div style={{ marginTop: 14, maxWidth: 760 }}>
+              <Callout state="unchecked">
+                <strong>Not yet verified.</strong> This brand and its products come from Open Food
+                Facts and haven&apos;t been verified yet. Recalls, ownership and certifications appear
+                once it&apos;s verified.
+              </Callout>
             </div>
-          ))}
+          )}
+          {company.businessRole === 'supply_chain' && (
+            <div style={{ marginTop: 14, maxWidth: 760 }}>
+              <Callout state="nothingOnFile">
+                <strong>Supply-chain company.</strong> {company.legalName} mainly makes, packs,
+                imports or distributes food sold under other companies&apos; brands. Its recalls often
+                concern those brands&apos; products.
+              </Callout>
+            </div>
+          )}
+          {company.businessRole === 'retailer' && (
+            <div style={{ marginTop: 14, maxWidth: 760 }}>
+              <Callout state="nothingOnFile">
+                <strong>Retailer.</strong> {company.legalName} sells food to consumers. Its recalls
+                usually concern its store-brand products or items it sold.
+              </Callout>
+            </div>
+          )}
         </div>
-      ))}
 
-      {/* Only render this whole section if there's investor filing data to show */}
-      {company.investorFilings.length > 0 && (
-        <>
-          <h2>Investor Relations</h2>
-          {company.investorFilings.map((filing) => (
-            <div key={filing.id}>
-              <p>Status: {filing.publicStatus}</p>
-              {filing.parentCompany && <p>Parent company: {filing.parentCompany}</p>}
+        {/* Who owns it. Only drawn when a parent is on record: no parent in
+            our records is not the same as "independently owned". */}
+        {company.parentCompany && (
+          <div
+            style={{
+              width: 280,
+              flexShrink: 0,
+              boxSizing: 'border-box',
+              padding: '15px 17px',
+              background: '#F5EFF6',
+              border: `1px solid ${status.ownership.border}`,
+              borderRadius: layout.radius,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                letterSpacing: '0.09em',
+                textTransform: 'uppercase',
+                color: status.ownership.fg,
+              }}
+            >
+              Who owns it
             </div>
-          ))}
-        </>
-      )}
+            <Link
+              href={`/companies/${company.parentCompany.id}`}
+              style={{
+                display: 'block',
+                fontFamily: font.display,
+                fontSize: 22,
+                fontWeight: 600,
+                marginTop: 8,
+                color: colors.ink,
+              }}
+            >
+              {company.parentCompany.legalName}
+            </Link>
+            {company.ownershipNote && (
+              <div style={{ fontSize: 12.5, lineHeight: 1.5, color: colors.ink2, marginTop: 7 }}>
+                {company.ownershipNote}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-      {recalls && recalls.issued.count > 0 && (
-        <>
-          <h2 id="recalls">Recalls and regulatory actions</h2>
-          <p style={{ fontSize: '0.9rem', color: '#555' }}>
-            Notices that name {company.legalName}. Each notice covers the product
-            described in it, not every product listed on this page.
-          </p>
-          <RecallList list={recalls.issued} companyId={company.id} showAll={showAllRecalls} />
-        </>
-      )}
+      {/* SIGNAL ROW */}
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: `24px ${layout.gutter}px 0`,
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
+        <SignalTile
+          label="Products we list"
+          value={productCount.toLocaleString()}
+          note={productCount === 0 ? 'None in our database yet' : 'Under this company in our database'}
+          href={productCount > 0 ? '#products' : undefined}
+          mono
+        />
+        <SignalTile
+          label="Recalls & notices"
+          value={recalls ? recallTotal.toLocaleString() : '—'}
+          note={
+            !recalls
+              ? 'Not checked until the company is verified'
+              : recallTotal === 0
+                ? 'None on record from FDA, FSIS or CPSC'
+                : 'Each shown with the product it covered'
+          }
+          accent={recalls && recallTotal > 0 ? status.recall.fg : undefined}
+          href={recalls ? '#recalls' : undefined}
+          mono={!!recalls}
+        />
+        <SignalTile
+          label="Brands it owns"
+          value={brandsTotal.toLocaleString()}
+          note={brandsTotal === 0 ? 'None on record' : 'Each has its own page'}
+          accent={brandsTotal > 0 ? status.ownership.fg : undefined}
+          href={brandsTotal > 0 ? '#brands' : undefined}
+          mono
+        />
+        <SignalTile
+          label="Organic certified"
+          value={organicCount.toLocaleString()}
+          note={organicCount === 0 ? 'No current USDA organic certificate on file' : 'Products with a current USDA certificate'}
+          accent={organicCount > 0 ? status.confirmed.fg : undefined}
+          mono
+        />
+      </div>
 
-      {/* Recalls issued under another firm's name (a parent company, or a
-          manufacturer making the product for this brand) that concern this
-          brand. Without this section a brand whose recall was filed under its
-          parent's name would show nothing. */}
-      {recalls && recalls.naming.count > 0 && (
-        <>
-          <h2>Recalls of this brand issued by other companies</h2>
-          <RecallList list={recalls.naming} companyId={company.id} showAll={showAllRecalls} />
-        </>
-      )}
+      {/* BODY: main column and sidebar */}
+      <div
+        style={{
+          flexGrow: 1,
+          boxSizing: 'border-box',
+          padding: `32px ${layout.gutter}px 0`,
+          display: 'flex',
+          gap: 32,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ flexGrow: 1, flexBasis: 560, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 34 }}>
+          {brandsTotal > 0 && <Brands company={company} />}
+          {recalls && (
+            <Recalls
+              companyId={company.id}
+              companyName={company.legalName}
+              issued={recalls.issued}
+              naming={recalls.naming}
+              showAll={showAllRecalls}
+              processHint={processHint}
+              family={family}
+            />
+          )}
+          <Products
+            companyName={company.legalName}
+            products={products}
+            total={productCount}
+            listed={listedProducts}
+          />
+        </div>
 
-      {/* Required attribution for the Open Food Facts data on this page */}
-      <OpenFoodFactsNotice style={{ marginTop: '2rem' }} />
+        <Sidebar company={company} />
+      </div>
+
+      <SiteFooter />
+    </>
+  )
+}
+
+// ------------------------------------------------------------------ header
+
+function MetaLine({
+  company,
+}: {
+  company: { dbaNames: string[]; hqLocation: string | null; investorFilings: { ticker: string | null }[] }
+}) {
+  const ticker = company.investorFilings.find((f) => f.ticker)?.ticker
+  const parts: React.ReactNode[] = []
+  if (company.dbaNames.length > 0) {
+    parts.push(
+      <span key="dba">
+        Also sold as{' '}
+        <strong style={{ color: colors.ink, fontWeight: 600 }}>{company.dbaNames.join(', ')}</strong>
+      </span>
+    )
+  }
+  if (ticker) {
+    parts.push(
+      <span key="ticker">
+        Ticker <span style={{ fontFamily: font.mono, color: colors.ink }}>{ticker}</span>
+      </span>
+    )
+  }
+  if (company.hqLocation) parts.push(<span key="hq">{company.hqLocation}</span>)
+  if (parts.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', marginTop: 11, fontSize: 13, color: colors.ink2 }}>
+      {parts.map((p, i) => (
+        <span key={i} style={{ display: 'inline-flex', gap: 18 }}>
+          {i > 0 && (
+            <span aria-hidden style={{ color: '#C9C2B2' }}>
+              |
+            </span>
+          )}
+          {p}
+        </span>
+      ))}
     </div>
   )
 }
 
-// One list of recalls, newest first, with a "Show all" link when capped.
-// Every action MUST show productDescription prominently: a notice covers the
-// product it describes, which is often only one of a company's products.
-// Never render these as a bare count or date list.
-function RecallList({ list, companyId, showAll }: { list: { count: number; items: RecallItem[] }; companyId: string; showAll: boolean }) {
+// ------------------------------------------------------------------ main column
+
+function Brands({
+  company,
+}: {
+  company: { legalName: string; subsidiaries: { id: string; legalName: string; _count: { products: number } }[] }
+}) {
   return (
-    <>
-      {list.items.map((action) => (
-        <div
-          key={action.id}
-          id={`recall-${action.id}`}
-          style={{
-            border: '1px solid #eee',
-            borderRadius: '6px',
-            padding: '0.75rem',
-            marginBottom: '0.75rem',
-          }}
-        >
-          <p style={{ fontWeight: 'bold' }}>
-            {action.sourceAgency} {action.actionType.replace(/_/g, ' ')}
-            {action.classification && ` — ${action.classification}`}
-          </p>
-          {action.company.id !== companyId && (
-            <p style={{ fontSize: '0.85rem', color: '#555' }}>
-              Issued by{' '}
-              <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>
-              {evidenceNote(action) && <span style={{ display: 'block' }}>{evidenceNote(action)}</span>}
-            </p>
-          )}
-          {action.productRelevance === 'supply_chain' && (
-            <p style={{ fontSize: '0.85rem', color: '#555' }}>
-              Relates to a facility or supplier in this product&apos;s supply chain,
-              not to the product itself.
-            </p>
-          )}
-          {action.productDescription && (
-            <p>
-              <strong>Product:</strong> {action.productDescription}
-            </p>
-          )}
-          <p>Reason: {action.reason}</p>
-          {action.status && <p>Status: {action.status}</p>}
-          {action.actionDate && (
-            <p>Date: {new Date(action.actionDate).toLocaleDateString()}</p>
-          )}
-          <p>
-            <a href={action.sourceUrl} target="_blank" rel="noopener noreferrer">
-              View source record (raw government data)
-            </a>
-          </p>
-        </div>
-      ))}
-      {!showAll && list.count > list.items.length && (
-        <p>
-          Showing the {list.items.length} most recent of {list.count}.{' '}
-          <Link href={`/companies/${companyId}?recalls=all`}>Show all</Link>
+    <section>
+      <SectionHead id="brands" title="Brands this company owns" source="From our ownership records" />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+          gap: 10,
+          marginTop: 16,
+        }}
+      >
+        {company.subsidiaries.map((b) => (
+          <Link
+            key={b.id}
+            href={`/companies/${b.id}`}
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'center',
+              boxSizing: 'border-box',
+              padding: '12px 14px',
+              background: colors.card,
+              border: `1px solid ${colors.line}`,
+              borderRadius: 8,
+              textDecoration: 'none',
+              color: 'inherit',
+              minWidth: 0,
+            }}
+          >
+            <Monogram name={b.legalName} size={34} />
+            <div style={{ flexGrow: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: font.display,
+                  fontSize: 15.5,
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {b.legalName}
+              </div>
+              <div style={{ fontSize: 12, color: colors.ink2, marginTop: 3 }}>
+                {b._count.products === 0 ? (
+                  'No products listed yet'
+                ) : (
+                  <>
+                    <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink }}>
+                      {b._count.products.toLocaleString()}
+                    </span>{' '}
+                    {b._count.products === 1 ? 'product' : 'products'}
+                  </>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function Products({
+  companyName,
+  products,
+  total,
+  listed,
+}: {
+  companyName: string
+  products: {
+    id: string
+    name: string
+    category: string | null
+    categorySource: string | null
+    productType: string
+    certifications: { certificationStatus: string }[]
+  }[]
+  total: number
+  listed: Map<string, RecallItem[]>
+}) {
+  return (
+    <section>
+      <SectionHead
+        id="products"
+        title="Products we list"
+        source={total > products.length ? `${products.length} of ${total.toLocaleString()} shown, A–Z` : undefined}
+      />
+      <div style={{ marginTop: 16 }}>
+        {total === 0 ? (
+          <Callout state="nothingOnFile">No products under this company in our database yet.</Callout>
+        ) : (
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: 9,
+              }}
+            >
+              {products.map((p) => {
+                const cat = describeCategory(p.category, p.categorySource)
+                const inRecall = (listed.get(p.id)?.length ?? 0) > 0
+                const organic = p.certifications.some((c) => c.certificationStatus === 'Certified')
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/products/${p.id}`}
+                    style={{
+                      display: 'flex',
+                      gap: 11,
+                      alignItems: 'center',
+                      boxSizing: 'border-box',
+                      padding: '10px 13px',
+                      background: colors.card,
+                      border: `1px solid ${colors.line}`,
+                      borderLeft: inRecall ? `4px solid ${status.recall.fg}` : `1px solid ${colors.line}`,
+                      borderRadius: layout.radius,
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      minWidth: 0,
+                    }}
+                  >
+                    <CategoryGlyph category={p.category} productType={p.productType} size={40} label={p.name} />
+                    <div style={{ flexGrow: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontFamily: font.display,
+                          fontSize: 15,
+                          fontWeight: 600,
+                          lineHeight: 1.25,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {p.name}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                        {cat.label && (
+                          <span
+                            title={cat.note ?? undefined}
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 700,
+                              letterSpacing: '0.06em',
+                              textTransform: 'uppercase',
+                              color: colors.ink3,
+                            }}
+                          >
+                            {cat.label}
+                          </span>
+                        )}
+                        {inRecall && <StatusChip state="recall">In a recall notice</StatusChip>}
+                        {organic && <StatusChip state="confirmed">Organic</StatusChip>}
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+            {total > products.length && (
+              <div style={{ marginTop: 12, fontSize: 13.5 }}>
+                <Link href={`/search?q=${encodeURIComponent(companyName)}`}>
+                  Search all {total.toLocaleString()} products from {companyName} &rarr;
+                </Link>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function Recalls({
+  companyId,
+  companyName,
+  issued,
+  naming,
+  showAll,
+  processHint,
+  family,
+}: {
+  companyId: string
+  companyName: string
+  issued: RecallList
+  naming: RecallList
+  showAll: boolean
+  processHint: RecallList | null
+  family: { id: string; legalName: string }[]
+}) {
+  const processFirms = processHint ? [...new Set(processHint.items.map((a) => a.company.id))] : []
+  return (
+    <section>
+      <SectionHead id="recalls" title="Recalls & notices" source="FDA, FSIS and CPSC records" />
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {issued.count === 0 && naming.count === 0 && (
+          <Callout state="nothingOnFile">No FDA, FSIS or CPSC notice we hold names {companyName}.</Callout>
+        )}
+
+        {/* About how food was made or handled, naming no product. */}
+        {processHint && processHint.count > 0 && (
+          <Callout state="unchecked">
+            <strong>Manufacturing-related recalls.</strong>{' '}
+            {processFirms
+              .map((cid) => family.find((c) => c.id === cid)?.legalName)
+              .filter(Boolean)
+              .join(' and ')}{' '}
+            {processHint.count === 1 ? 'has had 1 recall' : `has had ${processHint.count} recalls`} about how food
+            was made or handled (for example contamination, unsanitary conditions or foreign material) that{' '}
+            {processHint.count === 1 ? "doesn't" : "don't"} name a specific product. There is no evidence linking{' '}
+            {processHint.count === 1 ? 'it' : 'them'} to the products on this page, and we can&apos;t say whether
+            they were affected.{' '}
+            {processFirms.map((cid, i) => (
+              <span key={cid}>
+                {i > 0 && ' · '}
+                <Link href={`/companies/${cid}?recalls=all#recalls`}>
+                  See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
+                </Link>
+              </span>
+            ))}
+          </Callout>
+        )}
+
+        {issued.count > 0 && (
+          <RecallGroup
+            heading={`Notices naming ${companyName}`}
+            preamble="Each notice covers the product described in it, not every product on this page."
+            list={issued}
+            companyId={companyId}
+            showAll={showAll}
+          />
+        )}
+
+        {/* Issued under another firm's name (a parent, or a manufacturer
+            making the product for this brand) and tied to this brand. */}
+        {naming.count > 0 && (
+          <RecallGroup
+            heading="Notices about this brand, issued by other companies"
+            list={naming}
+            companyId={companyId}
+            showAll={showAll}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+// One list of notices, newest first, with a "Show all" link when capped.
+// Every notice MUST show productDescription: a notice covers the product it
+// describes, which is often only one of a company's products.
+function RecallGroup({
+  heading,
+  preamble,
+  list,
+  companyId,
+  showAll,
+}: {
+  heading: string
+  preamble?: string
+  list: RecallList
+  companyId: string
+  showAll: boolean
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          fontSize: 11.5,
+          fontWeight: 700,
+          letterSpacing: '0.07em',
+          textTransform: 'uppercase',
+          color: colors.ink2,
+        }}
+      >
+        <span>{heading}</span>
+        <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink4 }}>{list.count}</span>
+        <span style={{ flexGrow: 1, height: 1, background: colors.line }} />
+      </div>
+      {preamble && (
+        <p style={{ margin: '9px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3, maxWidth: 760 }}>
+          {preamble}
         </p>
       )}
-    </>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 11 }}>
+        {list.items.map((action) => (
+          <RecallCard key={action.id} action={action} companyId={companyId} />
+        ))}
+      </div>
+      {!showAll && list.count > list.items.length && (
+        <p style={{ margin: '11px 0 0', fontSize: 13 }}>
+          <span style={{ color: colors.ink3 }}>
+            Showing the {list.items.length} most recent of {list.count.toLocaleString()}.{' '}
+          </span>
+          <Link href={`/companies/${companyId}?recalls=all#recalls`}>Show all</Link>
+        </p>
+      )}
+    </div>
   )
+}
+
+function RecallCard({ action, companyId }: { action: RecallItem; companyId: string }) {
+  const issuedElsewhere = action.company.id !== companyId
+  const note = issuedElsewhere ? evidenceNote(action) : null
+  const kind = `${action.sourceAgency} ${action.actionType.replace(/_/g, ' ')}`
+  return (
+    <div
+      id={`recall-${action.id}`}
+      style={{
+        boxSizing: 'border-box',
+        padding: '15px 18px',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderLeft: `3px solid ${status.recall.fg}`,
+        borderRadius: 8,
+        display: 'flex',
+        gap: 18,
+        alignItems: 'flex-start',
+        flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ flexGrow: 1, flexBasis: 360, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+          <StatusChip state="recall">
+            {kind}
+            {action.classification ? ` · ${action.classification}` : ''}
+          </StatusChip>
+          {action.actionDate && (
+            <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink3 }}>{isoDate(action.actionDate)}</span>
+          )}
+          {action.status && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                padding: '3px 7px',
+                borderRadius: 4,
+                background: '#F1EEE6',
+                color: colors.ink2,
+              }}
+            >
+              {action.status}
+            </span>
+          )}
+          {action.referenceNumber && (
+            <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>{action.referenceNumber}</span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.45, marginTop: 8 }}>{action.reason}</div>
+
+        {issuedElsewhere && (
+          <div style={{ fontSize: 12.5, color: colors.ink2, marginTop: 5 }}>
+            Issued by <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>
+          </div>
+        )}
+
+        {action.productRelevance === 'supply_chain' && (
+          <div style={{ fontSize: 12.5, color: colors.ink2, marginTop: 5 }}>
+            Relates to a facility or supplier in the supply chain, not to a product itself.
+          </div>
+        )}
+
+        <SourceLine url={action.sourceUrl} label={`${action.sourceAgency} record`} showReview={false} />
+      </div>
+
+      {/* What the notice actually covered, in its own words. This is the box
+          that stops a 2018 notice about one product line reading as a recall
+          of everything the company makes. */}
+      {(action.productDescription || note) && (
+        <div
+          style={{
+            width: 260,
+            flexGrow: 1,
+            maxWidth: 360,
+            boxSizing: 'border-box',
+            padding: '10px 12px',
+            background: '#F7F5EF',
+            border: '1px dashed #C9C2B2',
+            borderRadius: 6,
+          }}
+        >
+          {action.productDescription && (
+            <>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: colors.ink2,
+                }}
+              >
+                What it covered
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.5, color: '#3F4A42', marginTop: 5 }}>
+                {action.productDescription}
+              </div>
+            </>
+          )}
+          {note && (
+            <div
+              style={{
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: colors.ink3,
+                marginTop: action.productDescription ? 8 : 0,
+                paddingTop: action.productDescription ? 8 : 0,
+                borderTop: action.productDescription ? '1px dashed #E0DACB' : undefined,
+              }}
+            >
+              {note}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ sidebar
+
+type Filing = {
+  id: string
+  ticker: string | null
+  publicStatus: string
+  filingDate: Date | null
+  parentCompany: string | null
+  majorShareholders: unknown
+  sourceUrl: string
+  dataPulledDate: Date
+  reviewDate: Date | null
+}
+
+type Disclosure = {
+  id: string
+  disclosureStatus: string
+  disclosureType: string | null
+  verificationBasis: string
+  notes: string | null
+  sourceUrl: string
+  dataPulledDate: Date
+  reviewDate: Date | null
+}
+
+const PUBLIC_STATUS: Record<string, string> = {
+  public: 'Publicly traded',
+  delisted: 'Delisted',
+  private: 'Privately held',
+  acquired: 'Acquired',
+}
+
+const DISCLOSURE_STATUS: Record<string, string> = {
+  full_disclosure: 'Publishes where it sources',
+  partial_disclosure: 'Publishes some sourcing information',
+  not_disclosed: 'No sourcing information found',
+}
+
+function Sidebar({ company }: { company: { investorFilings: Filing[]; supplyChainDisclosures: Disclosure[] } }) {
+  const filings = company.investorFilings
+  const disclosures = company.supplyChainDisclosures
+  if (filings.length === 0 && disclosures.length === 0) return null
+  return (
+    <aside style={{ width: 350, flexGrow: 0, flexShrink: 0, maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: 17 }}>
+      {filings.length > 0 && (
+        <div style={sideBox}>
+          <Eyebrow color={status.ownership.fg}>Investor filings</Eyebrow>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+            {filings.map((f) => {
+              const holders = shareholders(f.majorShareholders)
+              return (
+                <div key={f.id}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                    {PUBLIC_STATUS[f.publicStatus] ?? f.publicStatus}
+                    {f.ticker && (
+                      <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink3 }}> · {f.ticker}</span>
+                    )}
+                  </div>
+                  {f.parentCompany && (
+                    <div style={{ fontSize: 12.5, lineHeight: 1.5, color: colors.ink2, marginTop: 3 }}>
+                      Parent company named in the filing: {f.parentCompany}
+                    </div>
+                  )}
+                  {holders.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 9 }}>
+                      {holders.map((h) => (
+                        <div key={h.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+                          <span>{h.name}</span>
+                          {h.percent !== null && (
+                            <span style={{ fontFamily: font.mono, color: colors.ink3 }}>{h.percent}%</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <SourceLine
+                    url={f.sourceUrl}
+                    label={f.filingDate ? `SEC filing of ${isoDate(f.filingDate)}` : 'SEC filing'}
+                    readAt={f.dataPulledDate}
+                    reviewedAt={f.reviewDate}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {disclosures.length > 0 && (
+        <div style={sideBox}>
+          <Eyebrow color={status.unchecked.fg}>What it says about sourcing</Eyebrow>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 12 }}>
+            {disclosures.map((d, i) => (
+              <div key={d.id} style={i > 0 ? { borderTop: '1px dashed #E0DACB', paddingTop: 10 } : undefined}>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  {DISCLOSURE_STATUS[d.disclosureStatus] ?? d.disclosureStatus}
+                </div>
+                {d.disclosureType && (
+                  <div style={{ fontSize: 12.5, lineHeight: 1.5, color: colors.ink2, marginTop: 3 }}>{d.disclosureType}</div>
+                )}
+                {d.notes && (
+                  <div style={{ fontSize: 12.5, lineHeight: 1.5, color: colors.ink2, marginTop: 5 }}>{d.notes}</div>
+                )}
+                <div style={{ fontSize: 11.5, color: colors.ink3, marginTop: 5 }}>
+                  {d.verificationBasis === 'independently_verified'
+                    ? 'Independently verified'
+                    : 'As published by the company, not independently verified'}
+                </div>
+                <SourceLine url={d.sourceUrl} label="Source" readAt={d.dataPulledDate} reviewedAt={d.reviewDate} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </aside>
+  )
+}
+
+const sideBox: React.CSSProperties = {
+  boxSizing: 'border-box',
+  padding: '17px 18px',
+  background: colors.card,
+  border: `1px solid ${colors.line}`,
+  borderRadius: layout.radius,
+}
+
+// majorShareholders is stored as JSON, e.g. [{"name": "...", "percent": 100}].
+// Anything that doesn't have that shape is skipped rather than guessed at.
+function shareholders(raw: unknown): { name: string; percent: number | null }[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter(
+      (r): r is { name: string; percent?: unknown } =>
+        typeof r === 'object' && r !== null && typeof (r as { name?: unknown }).name === 'string'
+    )
+    .map((r) => ({ name: r.name, percent: typeof r.percent === 'number' ? r.percent : null }))
 }

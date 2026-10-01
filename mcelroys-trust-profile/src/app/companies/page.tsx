@@ -1,134 +1,323 @@
-// Link is Next.js's component for internal navigation — using it instead of a
-// plain <a> tag lets Next.js handle page transitions faster (no full page reload)
 import Link from 'next/link'
-// "prisma" is the shared database client set up in src/lib/prisma.ts
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { colors, font, layout } from '@/lib/design'
 import { VETTED_COMPANIES } from '@/lib/vetting'
+import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { StatusChip } from '@/components/StatusChip'
+import { Callout, Monogram } from '@/components/PageParts'
 
-// This file lives at src/app/companies/page.tsx (no [id] folder), so Next.js
-// serves it at exactly the URL /companies — always the same content for everyone,
-// unlike the [id] page which changes based on what's in the URL.
+// THE COMPANY LIST, at /companies.
 //
-// "async function" because querying the database takes time, and this component
-// needs to wait for that data before it can render anything.
-// How many companies per page. Automated vetting (scripts/vet-companies.ts)
-// can list tens of thousands of companies, far too many for one page.
-const PAGE_SIZE = 50
+// Only verified companies are listed. Bulk ingestion creates thousands of
+// unverified brand-name companies; browsing is for the verified database,
+// while an unverified company's page stays reachable from its products and
+// carries a "not yet verified" notice.
+//
+// Built from the same pieces as the other screens (nav, aisle bar,
+// breadcrumb, the company page's brand cards, the search page's pager). With
+// tens of thousands of companies, a name filter (?q=) does the real work;
+// the alphabetical pages are for browsing.
 
-// searchParams holds the URL's ?page=N (a Promise in Next.js 15+, like params)
+export const metadata = { title: 'Companies' }
+
+// How many companies per page.
+const PAGE_SIZE = 48
+
 export default async function CompaniesListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>
+  // ?q=name filter, ?page=N. A Promise in Next.js 15+.
+  searchParams: Promise<{ q?: string; page?: string }>
 }) {
-  const { page: pageParam } = await searchParams
-  const page = Math.max(1, Number(pageParam) || 1)
-  const totalCompanies = await prisma.company.count({ where: VETTED_COMPANIES })
-  const lastPage = Math.max(1, Math.ceil(totalCompanies / PAGE_SIZE))
+  const sp = await searchParams
+  const q = sp.q?.trim() || undefined
+  const page = Math.max(1, Number(sp.page) || 1)
 
-  // Ask Prisma for every row in the Company table.
-  // "include" tells it to also fetch related rows from other tables in the same
-  // query, instead of us having to run separate queries for each company's products.
-  const companies = await prisma.company.findMany({
-    // Only reviewed companies are listed. Bulk ingestion will create thousands
-    // of unvetted brand-name companies; browsing is for the reviewed database,
-    // while an unvetted company's page stays reachable by scan/search and
-    // carries a "not yet reviewed" label (see [id]/page.tsx).
-    where: VETTED_COMPANIES,
-    include: {
-      // Only the NUMBER of products — loading every product of every company
-      // would mean hundreds of thousands of rows once companies are vetted
-      // automatically.
-      _count: { select: { products: true } },
-      // Certification statuses, fetched only for products that have one
-      products: {
-        where: { certifications: { some: {} } },
-        select: { certifications: { select: { certificationStatus: true } } },
+  // Name contains the filter (served by the trigram index on legalName), or
+  // the filter is exactly one of its brand names.
+  const where: Prisma.CompanyWhereInput = q
+    ? {
+        ...VETTED_COMPANIES,
+        OR: [{ legalName: { contains: q, mode: 'insensitive' } }, { dbaNames: { has: q } }],
+      }
+    : VETTED_COMPANIES
+
+  const [total, companies] = await Promise.all([
+    prisma.company.count({ where }),
+    prisma.company.findMany({
+      where,
+      select: {
+        id: true,
+        legalName: true,
+        dbaNames: true,
+        businessRole: true,
+        parentCompany: { select: { id: true, legalName: true } },
+        _count: { select: { products: true, subsidiaries: true } },
       },
-    },
-    // Sort results alphabetically by legal name, so the list order is predictable
-    // and doesn't just show whatever order they happen to sit in the database
-    orderBy: {
-      legalName: 'asc',
-    },
-    // This page's slice of the alphabetical list
-    skip: (page - 1) * PAGE_SIZE,
-    take: PAGE_SIZE,
-  })
+      // Alphabetical, with id as a tie-break so pages never overlap.
+      orderBy: [{ legalName: 'asc' }, { id: 'asc' }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+  ])
+  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  // Everything from here down is JSX (HTML-like syntax that becomes real webpage elements).
-  // Curly braces { } let you drop actual JavaScript values/logic into the middle of it.
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>Companies</h1>
+    <>
+      <TopNav />
+      <AisleBar />
+      <Breadcrumb
+        trail={[
+          { label: 'Rootify', href: '/' },
+          q ? { label: 'Companies', href: '/companies' } : { label: 'Companies' },
+          ...(q ? [{ label: `“${q}”` }] : []),
+        ]}
+      />
 
-      {/* This line only renders if companies.length === 0 is true.
-          The && trick: React shows the right-hand side only when the left side is truthy,
-          and shows nothing at all when it's false. */}
-      {companies.length === 0 && <p>No companies in the database yet.</p>}
-
-      {/* .map() runs once per company in the array, and returns a block of JSX
-          for each one — this is how you turn a list of data into a list of
-          on-screen elements without writing a manual loop */}
-      {companies.map((company) => {
-        // .flatMap() here does two things at once:
-        // 1. For each product, grab its certifications
-        // 2. Instead of ending up with a list-of-lists (one list per product),
-        //    flatten it into one single combined list
-        // Net result: every certification status across every product this company has
-        const statuses = company.products.flatMap((product) =>
-          product.certifications.map((cert) => cert.certificationStatus)
-        )
-
-        return (
-          // "key" is required by React whenever you render a list — it's how React
-          // tracks which item is which if the list changes later. Must be unique
-          // per item, so the database id is the natural choice here.
-          <div
-            key={company.id}
+      {/* PAGE HEADER */}
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: `22px ${layout.gutter}px 0`,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 20,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div>
+          <h1
             style={{
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              padding: '1rem',
-              marginBottom: '1rem',
+              margin: 0,
+              fontFamily: font.display,
+              fontSize: 28,
+              fontWeight: 600,
+              letterSpacing: '-0.015em',
             }}
           >
-            {/* href builds the URL dynamically using this company's real id —
-                clicking this text navigates to /companies/<that-uuid>,
-                which is handled by your existing [id]/page.tsx */}
-            <Link href={`/companies/${company.id}`} style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-              {company.legalName}
-            </Link>
-
-            {/* Only show this paragraph at all if there's at least one DBA name.
-                .join(', ') turns an array like ["A", "B"] into the string "A, B" */}
-            {company.dbaNames.length > 0 && (
-              <p style={{ margin: '0.25rem 0', color: '#555' }}>
-                Also known as: {company.dbaNames.join(', ')}
-              </p>
-            )}
-
-            <p style={{ margin: '0.25rem 0', color: '#555' }}>{company.hqLocation}</p>
-
-            <p style={{ margin: '0.25rem 0' }}>
-              {/* Template literal-style logic: show "1 product" (singular) or
-                  "2 products" (plural) depending on the actual count */}
-              {company._count.products} product{company._count.products !== 1 ? 's' : ''}
-              {/* Only add this part of the sentence if there's at least one status to show */}
-              {statuses.length > 0 && ` — Organic status: ${statuses.join(', ')}`}
-            </p>
+            {q ? `Companies matching “${q}”` : 'Companies'}
+          </h1>
+          <div style={{ marginTop: 8, fontSize: 13, color: colors.ink2 }}>
+            <span style={{ fontFamily: font.mono, color: colors.ink }}>{total.toLocaleString()}</span>{' '}
+            {q ? (total === 1 ? 'company' : 'companies') : 'verified companies, A–Z'}
           </div>
-        )
-      })}
+        </div>
 
-      {/* Page links — plain text for now; styling is up to the design work */}
-      {lastPage > 1 && (
-        <p>
-          {page > 1 && <Link href={`/companies?page=${page - 1}`}>Previous</Link>}
-          {` Page ${page} of ${lastPage} `}
-          {page < lastPage && <Link href={`/companies?page=${page + 1}`}>Next</Link>}
-        </p>
-      )}
+        {/* A plain GET form: the filter is a URL that can be bookmarked or
+            shared, and the back button works. */}
+        <form action="/companies" style={{ display: 'flex', width: 420, maxWidth: '100%' }}>
+          <label htmlFor="company-q" className="sr-only">
+            Filter companies by name
+          </label>
+          <input
+            id="company-q"
+            name="q"
+            type="search"
+            defaultValue={q ?? ''}
+            placeholder="Filter by company or brand name"
+            style={{
+              flexGrow: 1,
+              minWidth: 0,
+              height: 40,
+              boxSizing: 'border-box',
+              padding: '0 14px',
+              fontFamily: 'inherit',
+              fontSize: 14,
+              color: colors.ink,
+              background: colors.card,
+              border: `1px solid ${colors.lineStrong}`,
+              borderRight: 0,
+              borderRadius: '6px 0 0 6px',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              height: 40,
+              padding: '0 18px',
+              fontSize: 14,
+              fontWeight: 600,
+              color: '#FFFFFF',
+              background: colors.link,
+              border: `1px solid ${colors.link}`,
+              borderRadius: '0 6px 6px 0',
+              cursor: 'pointer',
+            }}
+          >
+            Filter
+          </button>
+        </form>
+      </div>
+
+      {/* LIST */}
+      <div
+        style={{
+          flexGrow: 1,
+          boxSizing: 'border-box',
+          padding: `20px ${layout.gutter}px 0`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+        }}
+      >
+        {companies.length === 0 ? (
+          <Callout state="nothingOnFile">
+            {q ? (
+              <>
+                No verified company in our records matches <strong>{q}</strong>. That means it is
+                missing from our database, not that the company does not exist.
+              </>
+            ) : (
+              <>No verified companies in our database yet.</>
+            )}
+          </Callout>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: 10,
+            }}
+          >
+            {companies.map((c) => (
+              <CompanyCard key={c.id} company={c} />
+            ))}
+          </div>
+        )}
+
+        <Pagination page={page} lastPage={lastPage} q={q} />
+      </div>
+
+      <SiteFooter />
+    </>
+  )
+}
+
+function CompanyCard({
+  company,
+}: {
+  company: {
+    id: string
+    legalName: string
+    dbaNames: string[]
+    businessRole: string | null
+    parentCompany: { id: string; legalName: string } | null
+    _count: { products: number; subsidiaries: number }
+  }
+}) {
+  const role =
+    company.businessRole === 'retailer' ? 'Retailer' : company.businessRole === 'supply_chain' ? 'Supply chain' : null
+  return (
+    <Link
+      href={`/companies/${company.id}`}
+      style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'flex-start',
+        boxSizing: 'border-box',
+        padding: '13px 15px',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderRadius: layout.radius,
+        textDecoration: 'none',
+        color: 'inherit',
+        minWidth: 0,
+      }}
+    >
+      <Monogram name={company.legalName} size={40} />
+      <div style={{ flexGrow: 1, minWidth: 0 }}>
+        {role && (
+          <div
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              letterSpacing: '0.07em',
+              textTransform: 'uppercase',
+              color: colors.ink3,
+              marginBottom: 3,
+            }}
+          >
+            {role}
+          </div>
+        )}
+        <div
+          style={{
+            fontFamily: font.display,
+            fontSize: 16,
+            fontWeight: 600,
+            lineHeight: 1.25,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {company.legalName}
+        </div>
+        {company.dbaNames.length > 0 && (
+          <div
+            style={{
+              fontSize: 12,
+              color: colors.ink3,
+              marginTop: 2,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Also sold as {company.dbaNames.join(', ')}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 7 }}>
+          <span style={{ fontSize: 12, color: colors.ink2 }}>
+            <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink }}>
+              {company._count.products.toLocaleString()}
+            </span>{' '}
+            {company._count.products === 1 ? 'product' : 'products'}
+          </span>
+          {company._count.subsidiaries > 0 && (
+            <StatusChip state="ownership" bold={false}>
+              Owns {company._count.subsidiaries} {company._count.subsidiaries === 1 ? 'brand' : 'brands'}
+            </StatusChip>
+          )}
+          {company.parentCompany && (
+            <StatusChip state="ownership" bold={false} title={`Owned by ${company.parentCompany.legalName}`}>
+              Owned by {company.parentCompany.legalName}
+            </StatusChip>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function Pagination({ page, lastPage, q }: { page: number; lastPage: number; q?: string }) {
+  if (lastPage <= 1) return null
+  const url = (p: number) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (p > 1) params.set('page', String(p))
+    const s = params.toString()
+    return s ? `/companies?${s}` : '/companies'
+  }
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 14,
+        marginTop: 6,
+        fontSize: 13.5,
+      }}
+    >
+      {page > 1 ? <Link href={url(page - 1)}>&larr; Previous</Link> : <span />}
+      <span style={{ color: colors.ink3, fontFamily: font.mono, fontSize: 12.5 }}>
+        {page} / {lastPage.toLocaleString()}
+      </span>
+      {page < lastPage ? <Link href={url(page + 1)}>Next &rarr;</Link> : <span />}
     </div>
   )
 }
