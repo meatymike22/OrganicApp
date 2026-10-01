@@ -350,8 +350,8 @@ review_backup tables still kept (undo history):
   [ ] Decide where to host the ODbL data export and link it
   [ ] Form the LLC (state with strong anti-SLAPP law)
   [ ] Trademark: confirm Rootify filing class (likely Class 042) with an attorney
-  [ ] AI-drafted SupplyChainDisclosure / IndependentInvestigation records were never
-      reviewed — confirm they're hidden or checked before launch
+  [ ] Legal pages linked from the footer (/sourcing, /corrections, /privacy, /terms)
+      don't exist yet — they 404 until written
   [ ] Barcode-scan feature + "not yet in Rootify's database" live lookup
   [ ] Subscriptions (later): payment, auto-renew disclosures, privacy policy update
 

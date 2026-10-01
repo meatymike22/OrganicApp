@@ -41,7 +41,7 @@ const ROW_FIELDS = {
 
 // Builds the Prisma `where` from the URL. Three independent filters, all
 // optional, all reflected in the URL so a filtered view can be shared.
-function buildWhere(q: string | undefined, aisle: string | undefined): Prisma.ProductWhereInput {
+async function buildWhere(q: string | undefined, aisle: string | undefined): Promise<Prisma.ProductWhereInput> {
   const and: Prisma.ProductWhereInput[] = [
     // A product whose company a reviewer has rejected (junk brand text, a
     // duplicate) is kept in the database only so bulk ingestion does not
@@ -61,11 +61,23 @@ function buildWhere(q: string | undefined, aisle: string | undefined): Prisma.Pr
     if (upc.ok) {
       and.push({ upc: upc.upc })
     } else {
+      // PERFORMANCE: done in two steps rather than one OR across both tables.
+      // "name matches OR the company's name matches" written as one query
+      // makes Postgres read every product (~2 s). Finding the matching
+      // companies first (fast, trigram index on Company) and then asking for
+      // "name matches OR companyId is one of these" lets it use the product
+      // name index and the companyId index together. Same results either way.
+      const companies = await prisma.company.findMany({
+        where: {
+          OR: [{ legalName: { contains: q, mode: 'insensitive' } }, { dbaNames: { has: q } }],
+        },
+        select: { id: true },
+      })
+      const companyIds = companies.map((c) => c.id)
       and.push({
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
-          { company: { legalName: { contains: q, mode: 'insensitive' } } },
-          { company: { dbaNames: { has: q } } },
+          ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
         ],
       })
     }
@@ -87,7 +99,7 @@ export default async function SearchPage({
   const aisle = first(sp.aisle)?.trim() || undefined
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
 
-  const where = buildWhere(q, aisle)
+  const where = await buildWhere(q, aisle)
 
   const [total, rows] = await Promise.all([
     prisma.product.count({ where }),

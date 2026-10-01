@@ -113,6 +113,10 @@ model Company {
 
   // Finds a parent company's brands (the "Owns:" list).
   @@index([parentCompanyId])
+  // Search matches companies by "legalName contains …" (trigram index) and by
+  // an exact brand in dbaNames (array index). Same migration as Product's.
+  @@index([legalName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Company_legalName_trgm_idx")
+  @@index([dbaNames], type: Gin, map: "Company_dbaNames_idx")
 }
 
 model Product {
@@ -232,6 +236,12 @@ model Product {
   @@index([companyId])
   @@index([category])
   @@index([importSource])
+  // Search (src/app/search/page.tsx) matches "name contains …" and the aisle
+  // filter matches "category contains …". A normal index can't serve a
+  // contains-search; these trigram indexes can (pg_trgm extension, enabled in
+  // migration 20261001120000_search_trigram_indexes).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_name_trgm_idx")
+  @@index([category(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_category_trgm_idx")
 }
 
 model NutritionFacts {

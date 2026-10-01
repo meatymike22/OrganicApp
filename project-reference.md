@@ -33,6 +33,7 @@ D:\AppDev\OrganicApp\                  ← git repo root (.git lives here)
     │   │   ├── companies\page.tsx     company list
     │   │   ├── companies\[id]\page.tsx  one company: products, parent/brands, recalls, filings
     │   │   └── products\[id]\page.tsx   one product: ingredients, nutrition, certifications, recalls
+    │   │   └── ingredients\[id]\page.tsx  one ingredient: studies (+ who paid), rules by country, products listing it
     │   ├── components\                shared UI
     │   │   ├── SiteChrome.tsx         header, footer, Open Food Facts licence notice
     │   │   ├── StatusChip.tsx         small status labels (certified, recalled, …)
@@ -233,4 +234,5 @@ by moving the brand into `dbaNames` and making `legalName` the real entity.
 - **USDA Organic Integrity exports** download as `.csv` but are really `.xlsx`.
 - **USDA organic data** is per operation (company), not per product. `ingest-usda.ts` applies a matched certificate to that company's products.
 - **Recalls name legal entities**, which can cover sibling brands. That's why `RegulatoryActionLink` and `productRelevance` exist.
+- **Search speed** depends on the trigram (pg_trgm) indexes from migration `20261001120000_search_trigram_indexes`, and on search looking up matching companies first, then products. One OR across both tables reads every product.
 - **Prisma transactions** time out after 5 seconds by default. Pass `{ maxWait: 30000, timeout: 120000 }` and use smaller batches.
