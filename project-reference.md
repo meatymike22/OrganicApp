@@ -1,206 +1,236 @@
-# Rootify MVP — Project Reference (as of Groups 1–4 build, Step 8 complete)
+# Rootify — Project Reference
 
-## Project structure
+*Updated 2026-10-01. Replaces the first-build version (6 tables, USDA only).*
+
+This file explains **how the code and database are put together**. For
+accounts, commands, maintenance and SQL recipes see `important_info.txt` (same
+folder). For legal/licensing notes see `mcelroys-trust-profile\compliance\`.
+The single source of truth for the database is
+`mcelroys-trust-profile\prisma\schema.prisma` — every field there has a comment
+explaining what it means and why it exists. If this file and the schema ever
+disagree, the schema wins.
+
+---
+
+## 1. Project structure
+
 ```
-mcelroys-trust-profile/
-├── prisma/
-│   ├── schema.prisma
-│   └── migrations/
-├── src/
-│   ├── lib/
-│   │   └── prisma.ts
-│   └── app/
-│       └── companies/
-│           └── [id]/
-│               └── page.tsx
-├── scripts/
-│   ├── dump-db.ts
-│   └── ingest-usda.ts
-├── data/
-│   └── INTEGRITY_Export_2025.xlsx   (renamed from .csv — it's actually xlsx)
-├── prisma.config.ts
-└── .env   (DATABASE_URL — never commit)
+D:\AppDev\OrganicApp\                  ← git repo root (.git lives here)
+├── important_info.txt                 handoff notes: accounts, commands, maintenance, SQL
+├── project-reference.md               this file
+├── powershell-reference.md            PowerShell / git basics
+└── mcelroys-trust-profile\            ← the Next.js app (run all commands from here)
+    ├── .env                           secrets (DATABASE_URL etc.) — never commit
+    ├── prisma.config.ts               tells Prisma 7 where the schema and DATABASE_URL are
+    ├── prisma\
+    │   ├── schema.prisma              all tables + fields, fully commented
+    │   └── migrations\                one folder per schema change (dated)
+    ├── src\
+    │   ├── app\                       pages (Next.js App Router)
+    │   │   ├── layout.tsx             wraps every page (fonts, globals.css)
+    │   │   ├── page.tsx               home page
+    │   │   ├── search\page.tsx        product/company search
+    │   │   ├── companies\page.tsx     company list
+    │   │   ├── companies\[id]\page.tsx  one company: products, parent/brands, recalls, filings
+    │   │   └── products\[id]\page.tsx   one product: ingredients, nutrition, certifications, recalls
+    │   ├── components\                shared UI
+    │   │   ├── SiteChrome.tsx         header, footer, Open Food Facts licence notice
+    │   │   ├── StatusChip.tsx         small status labels (certified, recalled, …)
+    │   │   ├── CategoryGlyph.tsx      category icons
+    │   │   └── DataFreshnessBanner.tsx  "data as of" banner
+    │   └── lib\                       logic shared by pages and scripts
+    │       ├── prisma.ts              the one database client the app uses
+    │       ├── design.ts              colours, spacing (design tokens)
+    │       ├── vetting.ts             VETTED_COMPANIES filter — what counts as visible
+    │       ├── recalls.ts             which recalls show where + their evidence wording
+    │       ├── recallMatching.ts      name/brand matching rules for recalls
+    │       ├── brandMatching.ts       brand ↔ company name comparison
+    │       ├── productTypes.ts        product types and the categories valid for each
+    │       ├── categoryDisplay.ts     how a category is labelled ("(estimated)" etc.)
+    │       ├── usdaCategoryMap.ts     USDA category → Rootify category
+    │       ├── offCategoryMap.ts      Open Food Facts tags → Rootify category
+    │       ├── nameCategoryMap.ts     product-name keywords → Rootify category
+    │       ├── ingredientParsing.ts   splits an ingredient label into ingredients
+    │       ├── ingredientNormalization.ts  cleans/merges ingredient names
+    │       ├── ingredientClassification.ts flags ingredients of interest
+    │       ├── ingredientStore.ts     writes ingredient rows
+    │       ├── offIngredients.ts / offNutrition.ts  read OFF ingredient & nutrition data
+    │       ├── productSignals.ts      the 5 shopper facts (Flagged · Recalls · Organic · Non-GMO · Owner), used by search + product page
+    │       ├── staleness.ts           is a source overdue? (last ingestion run > 45 days)
+    │       ├── upc.ts                 normalizeUpc(): every barcode stored as 13 digits
+    │       └── userAgent.ts           User-Agent sent to SEC / Open Food Facts
+    ├── scripts\                       import, cleanup and matching scripts (see important_info.txt §5)
+    │   └── recall-firms.json          decisions about recall firms used by match-recalls.ts
+    ├── compliance\                    legal/licensing drafts for the lawyer review
+    ├── data\                          downloaded source files (git-ignored, large)
+    └── logs\                          script logs, dry-run plans, undo files (git-ignored)
 ```
 
 ---
 
-## prisma/schema.prisma
+## 2. How data gets in
 
-```prisma
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-}
-
-model Company {
-  id            String    @id @default(dbgenerated("gen_random_uuid()"))
-  legalName     String
-  dbaNames      String[]  @default([])
-  hqLocation    String?
-  createdAt     DateTime  @default(now())
-
-  products               Product[]
-  ownershipCertifications OwnershipCertification[]
-  investorFilings         InvestorFiling[]
-}
-
-model Product {
-  id          String   @id @default(dbgenerated("gen_random_uuid()"))
-  name        String
-  category    String?
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id])
-  createdAt   DateTime @default(now())
-
-  certifications OrganicCertification[]
-}
-
-model OrganicCertification {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()"))
-  productId           String
-  product             Product  @relation(fields: [productId], references: [id])
-  certifyingBody      String
-  certificateNumber   String
-  certificationStatus String
-  certifiedScopes     String[] @default([])
-  effectiveDate       DateTime?
-  lastVerifiedDate    DateTime
-
-  sourceUrl      String
-  sourceType     String   @default("regulatory_filing")
-  dataPulledDate DateTime @default(now())
-  aiDrafted      Boolean  @default(false)
-  reviewerId     String?
-  reviewDate     DateTime?
-}
-
-model OwnershipCertification {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()"))
-  companyId             String
-  company               Company  @relation(fields: [companyId], references: [id])
-  mbeCertified          Boolean  @default(false)
-  wbeCertified          Boolean  @default(false)
-  veteranOwnedCertified Boolean  @default(false)
-  dbeCertified          Boolean  @default(false)
-  certifyingBody        String?
-
-  sourceUrl      String
-  sourceType     String   @default("regulatory_filing")
-  dataPulledDate DateTime @default(now())
-  aiDrafted      Boolean  @default(false)
-  reviewerId     String?
-  reviewDate     DateTime?
-}
-
-model InvestorFiling {
-  id                        String   @id @default(dbgenerated("gen_random_uuid()"))
-  companyId                 String
-  company                   Company  @relation(fields: [companyId], references: [id])
-  ticker                    String?
-  majorShareholders         Json?
-  institutionalOwnershipPct Float?
-  filingDate                DateTime?
-  publicStatus              String   @default("public")
-  parentCompany             String?
-
-  sourceUrl      String
-  sourceType     String   @default("regulatory_filing")
-  dataPulledDate DateTime @default(now())
-  aiDrafted      Boolean  @default(false)
-  reviewerId     String?
-  reviewDate     DateTime?
-}
-
-model IngestionLog {
-  id             String   @id @default(dbgenerated("gen_random_uuid()"))
-  source         String
-  ranAt          DateTime @default(now())
-  recordsMatched Int
-  fileName       String
-}
 ```
+Open Food Facts dump ─ bulk-import-off.ts ─┐
+OFF / OBF APIs ─ ingest-openfoodfacts / ingest-openbeautyfacts / discover-products ─┤
+USDA FoodData Central ─ ingest-fooddata-central / vet-companies / categorize ─┤
+                                                     ▼
+                                     Company + Product (+ ingredients, nutrition)
+                                                     │
+          vet-companies.ts / apply-held-decisions.ts │ decide which companies are real
+                                                     ▼  ("vetted" = visible + matchable)
+USDA Organic Integrity ─ ingest-usda ───────────► OrganicCertification
+Non-GMO Project sheets ─ ingest-nongmo ─────────► ProductCertification
+FDA / FSIS / CPSC recalls ─ match-recalls ──────► RegulatoryAction + RegulatoryActionLink
+FDA warning letters ─ ingest-fda-warning-letters ► RegulatoryAction
+CBP forced labor ─ ingest-cbp-forced-labor ─────► RegulatoryAction
+SEC EDGAR ─ ingest-sec-edgar ───────────────────► InvestorFiling
+```
+
+Key idea: **only vetted companies are matched against outside sources** (recalls,
+certificates, filings all match by name). Matching against unverified brand text
+would attach one company's recall to another that shares a word.
 
 ---
 
-## prisma.config.ts
-```ts
-import "dotenv/config";
-import { defineConfig } from "prisma/config";
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
-  datasource: {
-    url: process.env["DATABASE_URL"],
-  },
-});
-```
+## 3. Database tables (21)
 
-## .env
-```
-DATABASE_URL="postgresql://postgres.[project-ref]:[password]@[region].pooler.supabase.com:5432/postgres"
-```
-Must use the **Session Pooler** connection string (IPv4-compatible), not the direct `db.xxx.supabase.co` host (IPv6-only, usually unreachable).
+**Every fact table carries the same provenance fields:**
+`sourceUrl` (where it came from), `sourceType`, `dataPulledDate` (when it was
+read), `aiDrafted`, `reviewerId` + `reviewDate` (set only when a person reviewed
+it — scripts never set these).
 
----
+### Companies and products
 
-## src/lib/prisma.ts
-```ts
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '@prisma/client'
+| Table | What it holds | Key fields |
+|---|---|---|
+| **Company** | A brand, maker, supplier or retailer | `legalName`, `dbaNames[]` (brand names), `parentCompanyId` (owner), `vettingStatus`, `vettingMethod`, `vettingNotes`, `brandOwner` (manufacturer per USDA), `businessRole` |
+| **Product** | One product (each flavour/size variant is its own row) | `name`, `upc` (unique, 13-digit), `companyId`, `productType`, `category`, `categorySource`, `ingredientDisclosureStatus`, `ingredientSource`, `importSource`, `commodityId` (branded produce only) |
+| **Ingredient** | One normalised ingredient name | `name` (unique), `category`, `flaggedForResearch` |
+| **ProductIngredient** | Ingredient list of a product | `productId`+`ingredientId`, `listPosition`, `isOrganicSourced`, `isTrace` |
+| **NutritionFacts** | Nutrition panel (one per product) | serving size, calories, fat, sugar, carbs, sodium, protein |
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter })
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-```
+Allowed values (kept in code, not enforced by the database):
 
-## src/app/companies/[id]/page.tsx
-Reads one company plus all related products/certifications/filings and renders them (full commented version already delivered in-conversation earlier).
+- `vettingStatus`:
+  - `unvetted` ("held", hidden)
+  - `vetted`
+  - `rejected` (junk; kept so re-imports don't recreate it)
+- `vettingMethod`:
+  - `human`
+  - `automated_usda`
+  - `automated_ai`
+  - `automated_recall`
+- `businessRole`:
+  - null (unclassified, most are brands)
+  - `brand`
+  - `supply_chain` (co-packer, distributor, importer)
+  - `retailer`
+- `categorySource` (strongest first):
+  - `usda_fdc`
+  - `open_food_facts`
+  - `name_estimate`
+  - `ai_estimate`
+  - `manual` (never changed by scripts)
+- `ingredientDisclosureStatus`:
+  - `unchecked` (say nothing)
+  - `disclosed`
+  - `not_disclosed` (checked everywhere, found nothing; show it with the date)
+- `ingredientSource`:
+  - `open_food_facts`
+  - `usda_fooddata_central`
+  - `manufacturer_site`
+  - `retailer_listing`
+  - `label_photo`
+- `importSource`: `open_food_facts_bulk`, or null if added by hand or per-product scripts.
+- `productType` and the categories valid for each type are listed in `src\lib\productTypes.ts`.
 
-## scripts/dump-db.ts
-Prints the entire database (all companies + nested relations) as JSON to the terminal. Usage:
-```
-npx tsx scripts/dump-db.ts
-```
+Note: for an **unvetted** company, `legalName` is the raw brand text from the
+source (e.g. "Kirkland Signature"), not the legal entity. Vetting corrects it
+by moving the brand into `dbaNames` and making `legalName` the real entity.
 
-## scripts/ingest-usda.ts
-Parses the USDA OID "Operations" export sheet, matches against `Company.legalName`/`dbaNames` (handling combined "Name dba Other Name; Another Name" strings), builds `certifiedScopes`, extracts `sourceUrl`, checks for existing records by `certificateNumber` before writing (update vs. create), and logs the run to `IngestionLog`. Usage:
-```
-# Dry run (default, safe, no writes)
-npx tsx scripts/ingest-usda.ts ./data/INTEGRITY_Export_2025.xlsx
+### Certifications, regulatory, investor
 
-# Live run — actually writes to the database
-npx tsx scripts/ingest-usda.ts ./data/INTEGRITY_Export_2025.xlsx --live
-```
+| Table | What it holds | Key fields |
+|---|---|---|
+| **OrganicCertification** | USDA organic certificate for a product | `certifyingAgency`, `certificateNumber`, `certificationStatus`, `certifiedScopes[]`, `lastVerifiedDate` |
+| **ProductCertification** | Other certifications (Non-GMO Project, Non-UPF) | `scheme`, `status` (verified/expired/withdrawn), `lastVerifiedDate` |
+| **OwnershipCertification** | MBE / WBE / veteran / DBE (low priority) | booleans + `certifyingBody` |
+| **RegulatoryAction** | A recall, warning letter or CBP order, owned by the company that **issued/received** it | `sourceAgency`, `actionType`, `referenceNumber`, `classification`, `reason`, `productDescription`, `actionDate`, `productRelevance`, `commodityId` |
+| **RegulatoryActionLink** | Ties an action to the **brand/product** it concerns, with the reason | `actionId`, `companyId`, `productId`, `matchMethod`, `matchedText` |
+| **InvestorFiling** | SEC data for public companies | `ticker`, `filingDate`, `publicStatus`, `majorShareholders` |
 
----
+- `productRelevance`:
+  - `direct`
+  - `supply_chain`
+  - `unrelated_line` (never show on a product page)
+  - `unreviewed`
+- `matchMethod`, i.e. why a recall is linked to a brand/product:
+  - `barcode`: the recall lists the product's barcode
+  - `brand_name`: the brand is named in the notice
+  - `owner_brand`: the recalling firm owns this brand
+  - `firm_is_brand`: the firm's own name is the brand
+  - `named_brand`: a brand named in the product description
+  - The wording shown for each one lives in `src\lib\recalls.ts`.
+- **Recall rule:**
+  - A recall lives on the issuing company's page (`RegulatoryAction.companyId`).
+  - Brand and product pages show it only through a `RegulatoryActionLink`, always with `productDescription` and the evidence note.
 
-## Common commands reference
+### Research records (AI-drafted, not yet reviewed)
 
-| Task | Command |
+| Table | What it holds |
 |---|---|
-| Start dev server | `npm run dev` |
-| Create/update DB tables after schema changes | `npx prisma migrate dev --name <description>` |
-| Regenerate Prisma Client manually | `npx prisma generate` |
-| Open visual DB browser | `npx prisma studio` |
-| Check Prisma version/config | `npx prisma -v` |
-| Dump full DB to terminal | `npx tsx scripts/dump-db.ts` |
-| Run USDA ingestion (dry run) | `npx tsx scripts/ingest-usda.ts ./data/FILE.xlsx` |
-| Run USDA ingestion (live) | `npx tsx scripts/ingest-usda.ts ./data/FILE.xlsx --live` |
-| Fix PowerShell script blocking | `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` (run as Administrator) |
-| Fix folder ownership (Windows) | `takeown /f "PATH" /r /d y` then `icacls "PATH" /grant "USERNAME:F" /t` |
+| **SupplyChainDisclosure** | What a company publishes about its supply chain (`verificationBasis`: self_reported / independently_verified) |
+| **IndependentInvestigation** | NGO/journalist investigations (`allegationSummary`, `companyResponse`, `status`) |
+| **IngredientStudy** | Studies on an ingredient: `evidenceFraming`, `consensusStatus`, `fundingBasis`, `conflictOfInterestNote`, `positionType`; `challengesStudyId` links a dissenting study to the one it contests |
+| **IngredientRegulatoryStatus** | How each country regulates an ingredient (`jurisdiction`, `status`, `limitValue`), e.g. hexane limits US vs EU |
+
+### Loose produce
+
+| Table | What it holds |
+|---|---|
+| **Commodity** | A generic produce item (Strawberries, Romaine Lettuce) |
+| **PluCode** | Store PLU stickers → commodity |
+| **CommodityNutrition** | Nutrition for the commodity |
+| **OriginObservation** | Where a store's produce came from (sticker, sign, user photo), optionally the shipper company |
+| **RegionalSupplyReport** | USDA market reports on which regions are supplying a commodity |
+
+### Housekeeping
+
+- **IngestionLog**: one row per ingestion run (source, file, records matched).
+- **review_backup** schema (not in Prisma): backup and undo tables written by the cleanup scripts. Listed in `important_info.txt` §7.
 
 ---
 
-## Known gotchas hit this session (for future reference)
-- **Prisma 7 breaking changes:** `datasource.url` moved from `schema.prisma` to `prisma.config.ts`; `PrismaClient` requires an explicit driver adapter (`@prisma/adapter-pg`) — plain `new PrismaClient()` fails with "no options" error.
-- **`@default(uuid())` is application-layer only** — only works when Prisma Client itself does the insert. Raw SQL/Studio inserts bypass it entirely. Use `@default(dbgenerated("gen_random_uuid()"))` instead for a true database-level default (requires `CREATE EXTENSION IF NOT EXISTS pgcrypto;`).
-- **Supabase direct connection (`db.xxx.supabase.co`) is IPv6-only** — often unreachable. Use the Session Pooler connection string instead.
-- **Prisma Studio's array-field editor is unreliable** — use Supabase SQL Editor for array updates (`UPDATE ... SET col = ARRAY['a','b']`) and for deletes (Studio's delete also proved unreliable, and doesn't auto-cascade to child rows — delete children before parents).
-- **USDA OID export files download with a `.csv` extension but are actually `.xlsx`** — rename before use.
-- **USDA OID data is at the operation/company level, not per-product** — the ingestion script currently applies a matched cert to every product under that company as a workaround; worth reconsidering if the schema evolves.
+## 4. Conventions in the code
+
+- **Database client:** the app uses `src\lib\prisma.ts`. Scripts create their own client with the `PrismaPg` adapter (Prisma 7 requires it), reading `DATABASE_URL` from `.env` via `dotenv/config`.
+- **New ids** default in the database (`gen_random_uuid()`), so raw SQL inserts work too.
+- **Barcodes:** always pass them through `normalizeUpc()` before saving or comparing.
+- **Scripts:**
+  - They do a dry run by default; `--live` writes.
+  - Each writes a timestamped log to `logs\`.
+  - Bigger ones write an "applied" JSON that `--undo` reads.
+  - Every script starts with a comment explaining WHY, WHAT and USAGE.
+- **Visibility:** pages and matchers filter companies with `VETTED_COMPANIES` (`src\lib\vetting.ts`). Unvetted companies are hidden or labelled "not yet in Rootify's reviewed database".
+- **Next.js 16:** this version has breaking changes. Check `node_modules\next\dist\docs\` before copying older examples.
+- **Schema changes:**
+  1. Edit `schema.prisma`.
+  2. Run `npx prisma migrate dev --name <what>`.
+  3. Run `npx prisma generate`.
+  4. Restart the dev server.
+
+---
+
+## 5. Known gotchas (still true)
+
+- **Prisma 7:**
+  - `datasource.url` is in `prisma.config.ts`, not `schema.prisma`.
+  - `new PrismaClient()` without an adapter fails with a "no options" error.
+- **Id defaults:** `@default(uuid())` only works for inserts made through Prisma. Use `@default(dbgenerated("gen_random_uuid()"))`.
+- **Connection:** the direct Supabase host is IPv6-only. Use the Session Pooler connection string.
+- **Prisma Studio** is unreliable for array edits and deletes. Use the Supabase SQL Editor, deleting child rows before parents.
+- **USDA Organic Integrity exports** download as `.csv` but are really `.xlsx`.
+- **USDA organic data** is per operation (company), not per product. `ingest-usda.ts` applies a matched certificate to that company's products.
+- **Recalls name legal entities**, which can cover sibling brands. That's why `RegulatoryActionLink` and `productRelevance` exist.
+- **Prisma transactions** time out after 5 seconds by default. Pass `{ maxWait: 30000, timeout: 120000 }` and use smaller batches.

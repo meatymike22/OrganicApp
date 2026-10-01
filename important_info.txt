@@ -1,4 +1,35 @@
+ROOTIFY — IMPORTANT INFO / HANDOFF NOTES
+Last updated by Claude: 2026-10-01
+
+Purpose of this file: if Michael has to carry the project on alone (no AI help),
+everything needed to find, run, fix and continue the project is here or is
+pointed to from here. NO PASSWORDS OR API KEYS IN THIS FILE — they live in .env
+and in the account dashboards listed below.
+
+Sections
+  1. Michael's original notes (kept as written)
+  2. What Rootify is + the rules it follows
+  3. Where everything lives (accounts, folders, files)
+  4. Running things day to day
+  5. The scripts, and what each one does
+  6. Recurring maintenance (monthly checklist)
+  7. Safe ways to change data + how to undo
+  8. Current state of the database (2026-10-01)
+  9. Open items before public launch
+ 10. Gotchas that cost time before
+ 11. Useful SQL
+
+
+===============================================================================
+1. MICHAEL'S ORIGINAL NOTES
+===============================================================================
+
 Connection String: postgresql://postgres:[YOUR-PASSWORD]@db.bqtrhokmeflqyuyjtvxd.supabase.co:5432/postgres
+  NOTE: this is the DIRECT connection. It needs IPv6 and usually fails on a home
+  network (error P1001). Use the SESSION POOLER string instead (Supabase
+  dashboard > Connect > Session pooler), format:
+  postgresql://postgres.bqtrhokmeflqyuyjtvxd:[PASSWORD]@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+  This goes in .env as DATABASE_URL.
 
 
 Starting set
@@ -39,6 +70,8 @@ https://www.cbp.gov/document/stats/withhold-release-orders-findings
 -------------------------
 
 // update legalName
+// (Claude's note: this example looks reversed — it sets a company's name to a
+//  town. As a template: SET "legalName" = '<new name>' WHERE "legalName" = '<old name>')
 
 UPDATE "Company" SET "legalName" = 'Honesdale, Pennsylvania' WHERE "legalName" = 'Soma Direct Trade, LLC';
 
@@ -48,8 +81,351 @@ UPDATE "Company" SET "dbaNames" = ARRAY['Brand Name Here'] WHERE id = 'paste-com
 
 // Update Certified Scopes
 
-UPDATE "OrganicCertification" 
-SET "certifiedScopes" = ARRAY['Handling', 'Mexico Compliance Program', 'Korea Equivalence', 'US/Canada Equivalence', 'EU & UK Equivalence'] 
+UPDATE "OrganicCertification"
+SET "certifiedScopes" = ARRAY['Handling', 'Mexico Compliance Program', 'Korea Equivalence', 'US/Canada Equivalence', 'EU & UK Equivalence']
 WHERE id = '15184e84-531e-47c0-aaf7-359deb52e5cf';
 
 -------------------------
+
+
+===============================================================================
+2. WHAT ROOTIFY IS + THE RULES IT FOLLOWS
+===============================================================================
+
+A consumer site/app: search or scan a grocery (or other consumer) product and
+see its ingredients, nutrition, organic and Non-GMO certifications, recalls and
+regulatory actions, who owns the brand, and supply-chain information. Every
+fact links to a primary source with the date it was read.
+
+Rules that shape everything (don't break these without thinking hard):
+  - Every record has a sourceUrl and a dataPulledDate. No source = no record.
+  - NO scores, ratings or verdicts. Report facts, dated and sourced.
+  - "Not found" is a valid answer and is shown as such.
+  - Recalls: always show the recall's product description, never a bare count.
+    A recall lives on the page of the company that issued it. Product pages
+    link to it only when there is evidence it is that product/brand (barcode,
+    brand named in the notice, etc.), and the page says what that evidence is.
+    A recall from a supplier/co-packer/retailer is labelled as such.
+  - Estimates (AI or keyword categories) are labelled "(estimated)".
+  - Voice: state the record and the date, then stop. Written for consumers.
+  - Verification is done by automated AI review + user-reported errors (no
+    human review step, decided Sept 2026). This must be disclosed in the legal
+    pages (see compliance\).
+  - Don't publicly name the family; "small family business" only.
+  - Subscriptions are the only consumer revenue; no ads; recalls free for all.
+
+
+===============================================================================
+3. WHERE EVERYTHING LIVES
+===============================================================================
+
+Code (Windows): D:\AppDev\OrganicApp\mcelroys-trust-profile
+  Git repo root is ONE LEVEL UP: D:\AppDev\OrganicApp  (that's where .git is)
+  Important folders inside the project:
+    src\app\           the pages (Next.js App Router): products\[id], companies\[id],
+                       companies (list), search, home page
+    src\components\    shared UI (SiteChrome.tsx = header/footer + Open Food Facts notice)
+    src\lib\           logic: recall matching, categories, ingredient parsing, brand matching
+    prisma\schema.prisma   the database structure (all tables and fields, with comments)
+    prisma\migrations\     history of schema changes
+    scripts\           every import / cleanup / matching script (section 5)
+    scripts\recall-firms.json   hand/AI decisions about recall firms (who is a
+                       retailer, supplier, parent, which company to pick) — used by match-recalls
+    compliance\        legal/licensing notes for the lawyer review (start with README.md)
+    logs\              script output, dry-run plans, "applied" files for undo (NOT in git)
+    data\              big downloaded source files (NOT in git, many GB)
+    .env               secrets (NOT in git — never commit it)
+
+.env keys (values are secret; get them from the dashboards below):
+    DATABASE_URL         Supabase session-pooler connection string
+    FDC_API_KEY          USDA FoodData Central key (free, api.data.gov signup)
+    FDA_DASHBOARD_USER   email registered with FDA OII Unified Logon
+    FDA_DASHBOARD_KEY    key FDA emailed for the Data Dashboard API (warning letters)
+    CONTACT_EMAIL        sent in the User-Agent to SEC / Open Food Facts (required by SEC)
+
+Accounts:
+    Supabase        database. Project ID bqtrhokmeflqyuyjtvxd, region us-west-1.
+                    Plan: Pro. Compute was downgraded back after the 2026 cleanup.
+                    Dashboard > SQL Editor is the safest place to run SQL by hand.
+    Cloudflare      owns the domain rootify.app (DNS lives here)
+    Google Workspace  business email on rootify.app (michael.mcelroy@rootify.app)
+    Vercel          planned host for the website (not deployed yet)
+    FDA OII Unified Logon   https://www.accessdata.fda.gov/scripts/oul  (warning-letter API key)
+    api.data.gov    FoodData Central API key
+    Non-GMO Project connect.nongmoproject.org — login to download the Verified
+                    and Non-UPF spreadsheets
+    Claude (Max plan)  used for AI review passes; Supabase is connected to it
+
+Claude project memory / docs (claude.ai Project "Health Food Application
+Process") hold the history of decisions; this file is the offline summary.
+
+Other reference files in D:\AppDev\OrganicApp:
+    powershell-reference.md   still accurate: PowerShell basics, fixing "scripts
+                              disabled", folder permission fixes, git basics
+    project-reference.md      how the code and database fit together: folder map,
+                              data flow, every table and its allowed values
+                              (prisma\schema.prisma is still the source of truth)
+    temp_company_list.txt     old scratch list
+
+Keep copies safe off this PC:
+    - The code: push the git repo to a private GitHub repo (git remote add origin
+      <url>; git push -u origin main), or copy the folder to cloud storage.
+    - The .env values: store them in a password manager. Without them nothing
+      connects; they can all be re-issued from the dashboards above if lost
+      (Supabase: reset database password; FDC/FDA: request new keys).
+    - The data\ downloads can always be re-downloaded; logs\ only matter for undo.
+
+
+===============================================================================
+4. RUNNING THINGS DAY TO DAY  (PowerShell, in the project folder)
+===============================================================================
+
+    cd D:\AppDev\OrganicApp\mcelroys-trust-profile
+    npm install                    first time, or after package.json changes
+    npx prisma generate            ALWAYS after a schema change, before scripts
+    npm run dev                    website at http://localhost:3000
+    npx tsc --noEmit               check the code for type errors without running it
+    npm run build                  full production build (what Vercel will run)
+
+Schema change (add/change a field or table):
+    1. edit prisma\schema.prisma
+    2. npx prisma migrate dev --name short_description
+    3. npx prisma generate
+    4. restart npm run dev
+
+Scripts:   npx tsx scripts\<name>.ts [options]
+    Almost every script is a DRY RUN by default (reads, writes a plan/log, changes
+    nothing). Add --live to actually write. ALWAYS dry run first and read the log
+    in logs\ before --live. Many have --undo <applied-file>.
+
+Next.js note: this project uses a new Next.js (16) with breaking changes. Its own
+docs are in node_modules\next\dist\docs\ — check there before following an
+older tutorial.
+
+Git (from D:\AppDev\OrganicApp):
+    git status
+    git add -A                     .gitignore keeps .env, logs\, data\, node_modules out
+    git commit -m "what changed"
+    Check `git status` never lists .env before committing.
+
+
+===============================================================================
+5. THE SCRIPTS (scripts\)
+===============================================================================
+
+Importing products
+  bulk-import-off.ts       Imports the full Open Food Facts dump (US products).
+                           Download https://static.openfoodfacts.org/data/openfoodfacts-products.jsonl.gz
+                           to data\, then: npx tsx scripts\bulk-import-off.ts .\data\openfoodfacts-products.jsonl.gz [--live]
+  ingest-openfoodfacts.ts  Per-barcode lookups via the OFF API (smaller updates)
+  ingest-openbeautyfacts.ts  Non-food products (Beauty/Products/Pet Food Facts)
+  discover-products.ts     Finds more products for companies already in the DB, by brand
+  resolve-upcs.ts          Fills missing barcodes for products
+  ingest-fooddata-central.ts  USDA FoodData Central: brand owners, ingredients (needs FDC_API_KEY)
+
+Cleaning / organising
+  categorize-products.ts   Sets product categories: USDA category by barcode first,
+                           then OFF tags, then name keywords.
+                           npx tsx scripts\categorize-products.ts --usda .\data\<FDC folder> --off .\data\openfoodfacts-products.jsonl.gz
+  apply-ai-categories.ts   Applies AI-picked categories from a TSV (source "ai_estimate")
+  vet-companies.ts         Automated company vetting (is this a real brand?) using USDA data
+  lookup-held-barcodes.ts  Evidence for "held" (unvetted, hidden) companies
+  apply-held-decisions.ts  Applies AI decisions on held companies (move/vet/rename/merge), has --undo
+  normalize-ingredients.ts, repair-ingredients.ts, repair-ingredients-followup.ts
+                           Ingredient list cleanup/parsing fixes
+
+Certifications / regulatory / investor data
+  ingest-usda.ts           USDA Organic Integrity export (monthly manual download, xlsx)
+                           npx tsx scripts\ingest-usda.ts .\data\INTEGRITY_Export_<date>.xlsx [--live]
+  ingest-nongmo.ts         Non-GMO Project + Non-UPF spreadsheets (manual download)
+                           npx tsx scripts\ingest-nongmo.ts .\data\<sheet>.csv [--scheme non-upf] [--live]
+  match-recalls.ts         THE main recall pipeline: downloads FDA, FSIS and CPSC recalls,
+                           matches each to companies/products, writes a plan.
+                             npx tsx scripts\match-recalls.ts                  (dry run → logs\match-recalls-plan-<ts>.json)
+                             npx tsx scripts\match-recalls.ts --live --plan logs\match-recalls-plan-<ts>.json
+                             npx tsx scripts\match-recalls.ts --undo <applied file>
+                           Unmatched recalls go to logs\match-recalls-rejects.tsv.
+                           Decisions about specific firms go in scripts\recall-firms.json.
+  classify-recall-firms.ts Applies recall-firms.json decisions (retailer / supply chain /
+                           parent / owns) to companies; dry run, --live, --undo
+  ingest-fda-recalls.ts, ingest-fsis-recalls.ts, ingest-cpsc-recalls.ts
+                           Older per-source recall importers (match-recalls.ts superseded
+                           these for bulk matching)
+  ingest-fda-warning-letters.ts  FDA warning letters (needs FDA_DASHBOARD_USER/KEY)
+  ingest-cbp-forced-labor.ts     CBP Withhold Release Orders CSV (monthly manual download)
+  ingest-sec-edgar.ts      SEC filings for public companies (needs CONTACT_EMAIL)
+
+Other
+  export-odbl-data.ts      Exports the Open Food Facts–derived data for the ODbL
+                           share-alike requirement → data\odbl-export\<date>\ (read-only)
+  dump-db.ts, diagnose-nutrition.ts, list-usda-columns.ts, search-usda.ts   small helpers
+  _previous\               old versions of scripts, kept for reference
+
+Each script's top comment explains WHY it exists, WHAT it changes, and USAGE.
+Read it before running.
+
+
+===============================================================================
+6. RECURRING MAINTENANCE (monthly)
+===============================================================================
+
+  [ ] USDA Organic Integrity: download the export from
+      https://organic.ams.usda.gov/integrity/ → data\ → ingest-usda.ts (dry run, then --live)
+  [ ] CBP Withhold Release Orders CSV:
+      https://www.cbp.gov/document/stats/withhold-release-orders-findings → data\ → ingest-cbp-forced-labor.ts
+  [ ] Recalls: match-recalls.ts (dry run, read the plan + rejects, then --live)
+  [ ] Non-GMO Project + Non-UPF sheets (login at connect.nongmoproject.org) → ingest-nongmo.ts
+  [ ] SEC EDGAR: ingest-sec-edgar.ts
+  [ ] FDA warning letters: ingest-fda-warning-letters.ts
+  [ ] Every few months: new Open Food Facts dump → bulk-import-off.ts, then categorize-products.ts
+  [ ] After any ingredient parser change or bulk re-import: delete orphaned Ingredient rows
+      (no ProductIngredient link AND no IngredientStudy) — see section 11
+  [ ] Re-run export-odbl-data.ts and re-publish it (once the site is public)
+  [ ] Check Supabase dashboard > Advisors for security/performance warnings
+  [ ] Mistakes reported by users: fix, then note the fix (corrections log)
+
+Products filed in the wrong Open*Facts database can be reported to their
+moderators via NutriPatrol.
+
+
+===============================================================================
+7. SAFE WAYS TO CHANGE DATA + HOW TO UNDO
+===============================================================================
+
+  - Dry run first, read the log, then --live. Keep the logs\ files: the
+    "applied" JSON files are what --undo needs.
+  - Before a big manual change, copy the affected rows into the review_backup
+    schema first, e.g.:
+        CREATE TABLE review_backup.my_change_2026_10_01 AS
+        SELECT * FROM "Company" WHERE ... ;
+  - Deletes: do them in the Supabase SQL Editor, children before parents
+    (ProductIngredient / NutritionFacts / RegulatoryActionLink → Product → Company).
+    Prisma Studio silently fails on deletes and array edits — use SQL.
+  - Scripts that delete-then-recreate must wrap both in prisma.$transaction().
+  - Never set reviewerId from a script (that field means a person reviewed it).
+  - Supabase also keeps daily backups (Pro plan): Dashboard > Database > Backups.
+
+review_backup tables still kept (undo history):
+    category_assignments    every category change (undo categories by run_label)
+    vetting_assignments     every automated vetting change
+    ai_vetting_proposals    AI vetting suggestions
+    merged_companies        which companies were merged into which
+    brand_owner_review      brand-owner decisions
+    deleted_companies / deleted_products / deleted_ingredients /
+    deleted_nutrition / deleted_product_ingredients   copies of deleted rows
+  category_assignments, vetting_assignments and ai_vetting_proposals can be
+  dropped once you trust the categories and vetting. Keep merged_companies and
+  deleted_* longer (they're the only record of what was removed).
+
+
+===============================================================================
+8. STATE OF THE DATABASE (2026-10-01)
+===============================================================================
+
+  Products: 416,382   (1,900 still without a category)
+  Companies: 56,109   (53,632 vetted/visible, 2,477 "held" = unvetted and hidden)
+  Regulatory actions (recalls etc.): 19,950, with ~13,900 recall → company/product links
+  Row Level Security: ON for every public table
+  Categories: ~28,000 are AI estimates ("ai_estimate"), shown as "(estimated)"
+  Tables: Company, Product, ProductIngredient, Ingredient, NutritionFacts,
+    OrganicCertification, ProductCertification, OwnershipCertification,
+    RegulatoryAction, RegulatoryActionLink, InvestorFiling, SupplyChainDisclosure,
+    IndependentInvestigation, IngredientStudy, IngredientRegulatoryStatus,
+    Commodity, CommodityNutrition, PluCode, OriginObservation,
+    RegionalSupplyReport, IngestionLog
+  Data sources and licences: compliance\data-sources-and-licenses.md
+
+
+===============================================================================
+9. OPEN ITEMS BEFORE PUBLIC LAUNCH
+===============================================================================
+
+  [ ] Finish the front-end design work
+  [ ] Deploy to Vercel (set the same .env values in Vercel > Settings > Environment Variables)
+  [ ] Point rootify.app (Cloudflare DNS) at Vercel
+  [ ] Legal pages + one-time lawyer review: see compliance\README.md and
+      compliance\questions-for-lawyer.md (methodology, AI disclosure,
+      corrections, terms, privacy, not-medical-advice, ODbL data export)
+  [ ] Open Food Facts notice on the companies list page (no footer there yet)
+  [ ] Decide where to host the ODbL data export and link it
+  [ ] Form the LLC (state with strong anti-SLAPP law)
+  [ ] Trademark: confirm Rootify filing class (likely Class 042) with an attorney
+  [ ] AI-drafted SupplyChainDisclosure / IndependentInvestigation records were never
+      reviewed — confirm they're hidden or checked before launch
+  [ ] Barcode-scan feature + "not yet in Rootify's database" live lookup
+  [ ] Subscriptions (later): payment, auto-renew disclosures, privacy policy update
+
+
+===============================================================================
+10. GOTCHAS THAT COST TIME BEFORE
+===============================================================================
+
+  - "Unknown argument" / missing fields from Prisma = forgot `npx prisma generate`.
+  - P1001 can't reach database = using the direct connection string; use the
+    session pooler (section 1). If it suddenly fails everywhere, check whether the
+    Supabase project is paused (free tier pauses after ~1 week idle) or over its
+    disk/compute limits in the dashboard.
+  - "Transaction API error ... timeout 5000 ms" = Prisma's default transaction limit;
+    pass { maxWait: 30000, timeout: 120000 } and use smaller batches (see
+    apply-ai-categories.ts).
+  - array_append doesn't de-duplicate: use ARRAY(SELECT DISTINCT unnest(col)).
+  - Recall firms are legal entities (e.g. "Campbell Soup Supply Co."); one recall
+    can mention sibling brands. Don't attach a recall to a whole parent company.
+  - Windows line endings: files are a mix of CRLF and LF; either works.
+  - npx/npm "running scripts is disabled": run PowerShell as Administrator once:
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+  - Prisma 7: the database URL is read in prisma.config.ts (not schema.prisma), and
+    PrismaClient needs the PrismaPg adapter (see src\lib\prisma.ts).
+  - New ids must default in the database: @default(dbgenerated("gen_random_uuid()")),
+    so rows inserted by raw SQL get ids too.
+  - USDA Organic Integrity exports download as .csv but are really .xlsx — rename.
+  - .env must be named exactly .env (not .env.txt), next to package.json.
+  - Open Food Facts brand text is typed by volunteers — expect wrong brands.
+    That's why companies get "held" until there's evidence.
+
+
+===============================================================================
+11. USEFUL SQL  (Supabase > SQL Editor)
+===============================================================================
+
+-- Find a company
+SELECT id, "legalName", "dbaNames", "vettingStatus", "parentCompanyId"
+FROM "Company" WHERE "legalName" ILIKE '%nature''s path%';
+
+-- A company's products
+SELECT id, name, upc, category, "categorySource" FROM "Product"
+WHERE "companyId" = 'paste-company-uuid' ORDER BY name;
+
+-- Find a product by barcode
+SELECT p.id, p.name, c."legalName" FROM "Product" p
+JOIN "Company" c ON c.id = p."companyId" WHERE p.upc = '0123456789012';
+
+-- Move a product to another company
+UPDATE "Product" SET "companyId" = 'new-company-uuid' WHERE id = 'product-uuid';
+
+-- Set a parent company
+UPDATE "Company" SET "parentCompanyId" = 'parent-uuid' WHERE id = 'child-uuid';
+
+-- Add a brand name without duplicates
+UPDATE "Company" SET "dbaNames" = ARRAY(SELECT DISTINCT unnest("dbaNames" || ARRAY['New Brand'])) WHERE id = 'company-uuid';
+
+-- Undo an AI category run (run label is printed by apply-ai-categories.ts)
+UPDATE "Product" p SET category = b.old_category, "categorySource" = b.old_source
+FROM review_backup.category_assignments b
+WHERE b.run_label = '<label>' AND p.id = b.product_id
+  AND p.category IS NOT DISTINCT FROM b.new_category;
+
+-- Delete orphaned ingredients (dry check first: change DELETE to SELECT count(*))
+DELETE FROM "Ingredient" i
+WHERE NOT EXISTS (SELECT 1 FROM "ProductIngredient" pi WHERE pi."ingredientId" = i.id)
+  AND NOT EXISTS (SELECT 1 FROM "IngredientStudy" s WHERE s."ingredientId" = i.id);
+
+-- Recalls/actions a company issued (RegulatoryAction."companyId" = the issuer)
+SELECT id, "sourceAgency", "actionDate", "productDescription" FROM "RegulatoryAction"
+WHERE "companyId" = 'company-uuid' ORDER BY "actionDate" DESC;
+
+-- Recalls linked to a company/brand or product, and why (matchMethod:
+-- barcode, brand_name, owner_brand, firm_is_brand, named_brand)
+SELECT r.id, r."actionDate", r."productDescription", l."productId", l."matchMethod", l."matchedText"
+FROM "RegulatoryActionLink" l JOIN "RegulatoryAction" r ON r.id = l."actionId"
+WHERE l."companyId" = 'company-uuid' ORDER BY r."actionDate" DESC;
