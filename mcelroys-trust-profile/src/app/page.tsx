@@ -75,7 +75,7 @@ const ICON_CSS = `
    animation-timeline shows the rows normally rather than leaving them
    invisible, and the reduced-motion query means anyone who has asked their
    system to stop animations just sees them in place. */
-@keyframes rt-slide-in{from{opacity:0;transform:translateX(56px)}to{opacity:1;transform:translateX(0)}}
+@keyframes rt-slide-in{from{opacity:0;transform:translateX(62vw) scale(.97)}55%{opacity:1}to{opacity:1;transform:translateX(0) scale(1)}}
 
 /* The line sweeping down the second phone's viewfinder. */
 @keyframes rt-sweep-big{0%,100%{transform:translateY(-62px);opacity:.3}50%{transform:translateY(62px);opacity:1}}
@@ -83,7 +83,7 @@ const ICON_CSS = `
 @media (prefers-reduced-motion:reduce){.rt-sweep-big{animation:none}}
 @supports (animation-timeline: view()){
   @media (prefers-reduced-motion: no-preference){
-    .rt-slide{animation:rt-slide-in linear both;animation-timeline:view();animation-range:entry 0% cover 35%}
+    .rt-slide{animation:rt-slide-in cubic-bezier(.17,.86,.27,1) both;animation-timeline:view();animation-range:entry 0% cover 30%;will-change:transform,opacity}
   }
 }
 `
@@ -277,7 +277,7 @@ export default function HomePage() {
         </div>
 
         {/* WHAT A SUBSCRIPTION GIVES YOU */}
-        <div id="included" style={{ ...SHELL, minHeight: "860px", flexShrink: "0", boxSizing: "border-box", padding: "56px 40px 0" }}>
+        <div id="included" style={{ ...SHELL, minHeight: "860px", flexShrink: "0", boxSizing: "border-box", padding: "56px 40px 0", overflowX: "clip" }}>
           <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "36px", fontWeight: "600", letterSpacing: "-0.02em", textAlign: "center" }}>What a subscription gives you</h2>
           <p style={{ margin: "14px auto 0", fontSize: "16px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "620px", textAlign: "center" }}>Five things, and every one of them on the shelf in front of you.</p>
 
@@ -427,8 +427,10 @@ export default function HomePage() {
           <div style={{ flexGrow: "1", minWidth: "0" }}>
             <div style={{ fontSize: "11.5px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#B0502F" }}>Who we are</div>
             <h2 style={{ margin: "14px 0 0", fontFamily: FONT_DISPLAY, fontSize: "34px", lineHeight: "1.12", fontWeight: "600", letterSpacing: "-0.018em" }}>A family business. No investors,<br />no board, no advertisers.</h2>
-            <p style={{ margin: "18px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>We are a mother and a father who wanted to put real food on the table for our family, and kept finding we could not tell what was real. Labels that said organic turned out to cover less than we had assumed. Small brands we had trusted for years were quietly bought by companies we would never have chosen. Recalls reached us months late, or never at all.</p>
-            <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>All of it was on the public record somewhere. Just nowhere a parent standing in an aisle with a toddler could reach in the time they actually have. So we started reading the records ourselves, one product at a time. That is Rootify.</p>
+            <p style={{ margin: "18px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>We are two parents who assumed feeding our family well would be the easy part.</p>
+            <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>It wasn&apos;t. The box said organic, and the certificate behind it turned out to cover less than we had assumed. A small brand we had bought for years was sold to a company we would never have chosen, and nothing on the label changed to tell us. A recall reached us months after the jar was already empty.</p>
+            <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>Every one of those answers already existed, written down, in public. Just nowhere you could reach it standing in the cereal aisle with a toddler in the cart and four minutes to decide. So we started reading the records ourselves &mdash; one product, one filing, one certificate at a time &mdash; and writing down what they actually said.</p>
+            <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>That is Rootify. It is the thing we went looking for and could not find.</p>
             <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>Nobody owns a piece of this but us. There&apos;s no marketing department, no outside money and no advertiser to keep happy — which is the whole reason we can publish what the records actually say.</p>
             <a href="#pricing" style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginTop: "20px", fontSize: "14.5px", fontWeight: "600" }}>How we&apos;re funded <span aria-hidden="true">→</span></a>
           </div>
