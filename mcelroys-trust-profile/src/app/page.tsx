@@ -83,7 +83,7 @@ const ICON_CSS = `
 @media (prefers-reduced-motion:reduce){.rt-sweep-big{animation:none}}
 @supports (animation-timeline: view()){
   @media (prefers-reduced-motion: no-preference){
-    .rt-slide{animation:rt-slide-in linear both;animation-timeline:view();animation-range:entry 10% entry 70%}
+    .rt-slide{animation:rt-slide-in linear both;animation-timeline:view();animation-range:entry 0% cover 35%}
   }
 }
 `
@@ -110,7 +110,7 @@ export default function HomePage() {
         </div>
 
         {/* HERO */}
-        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px 40px 0", display: "flex", gap: "56px", alignItems: "flex-start", flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px 40px 56px", display: "flex", gap: "40px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
           <div style={{ flexGrow: "1", flexBasis: "460px", maxWidth: "620px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11.5px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#1D4D3C" }}>
               <span style={{ width: "22px", height: "2px", background: "#1D4D3C", display: "inline-block" }}></span>
@@ -427,7 +427,8 @@ export default function HomePage() {
           <div style={{ flexGrow: "1", minWidth: "0" }}>
             <div style={{ fontSize: "11.5px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#B0502F" }}>Who we are</div>
             <h2 style={{ margin: "14px 0 0", fontFamily: FONT_DISPLAY, fontSize: "34px", lineHeight: "1.12", fontWeight: "600", letterSpacing: "-0.018em" }}>A family business. No investors,<br />no board, no advertisers.</h2>
-            <p style={{ margin: "18px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>Rootify started with a question about the food we were buying for our own kitchen, and no simple way to answer it. The answers did exist — buried in public records that almost nobody reads. So we started reading them, one product at a time.</p>
+            <p style={{ margin: "18px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>We are a mother and a father who wanted to put real food on the table for our family, and kept finding we could not tell what was real. Labels that said organic turned out to cover less than we had assumed. Small brands we had trusted for years were quietly bought by companies we would never have chosen. Recalls reached us months late, or never at all.</p>
+            <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>All of it was on the public record somewhere. Just nowhere a parent standing in an aisle with a toddler could reach in the time they actually have. So we started reading the records ourselves, one product at a time. That is Rootify.</p>
             <p style={{ margin: "14px 0 0", fontSize: "15.5px", lineHeight: "1.6", color: "#4F5A52", maxWidth: "640px" }}>Nobody owns a piece of this but us. There&apos;s no marketing department, no outside money and no advertiser to keep happy — which is the whole reason we can publish what the records actually say.</p>
             <a href="#pricing" style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginTop: "20px", fontSize: "14.5px", fontWeight: "600" }}>How we&apos;re funded <span aria-hidden="true">→</span></a>
           </div>
@@ -441,19 +442,19 @@ export default function HomePage() {
               <span style={{ fontSize: "13px", color: "#656F67", flexShrink: "0" }}>Public records only · every claim dated</span>
             </div>
             <div style={{ display: "flex", alignItems: "stretch", gap: "0", marginTop: "24px", flexWrap: "wrap", rowGap: "20px" }}>
-              <div style={{ flexGrow: "1", boxSizing: "border-box", paddingRight: "22px" }}>
+              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingRight: "22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>01</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>A public record</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>USDA, FDA, the product-safety commission, SEC filings, and the certifiers&apos; own registers.</p>
               </div>
               <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", boxSizing: "border-box", padding: "0 22px" }}>
+              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>02</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>A machine drafts it</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Software pulls the record and turns it into plain English. Nothing is published at this stage.</p>
               </div>
               <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", boxSizing: "border-box", padding: "0 22px" }}>
+              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#1D4D3C" }}>03</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "7px", marginTop: "6px" }}>
                   <span style={{ fontSize: "14.5px", fontWeight: "700", color: "#1D4D3C" }}>It gets verified</span>
@@ -462,7 +463,7 @@ export default function HomePage() {
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Matched back to the original document. Corrected, or thrown out if it doesn&apos;t hold up. This is the step that matters.</p>
               </div>
               <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", boxSizing: "border-box", paddingLeft: "22px" }}>
+              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingLeft: "22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>04</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>Published with its date</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Every claim is stored with its source and the date we read it, so anyone can check it against the same record.</p>
@@ -518,7 +519,7 @@ export default function HomePage() {
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: "7px", marginTop: "12px" }}>
                 <span style={{ fontFamily: FONT_DISPLAY, fontSize: "46px", fontWeight: "600", lineHeight: "1" }}>$2.99</span>
-                <span style={{ fontSize: "15px", color: "#656F67" }}>a month</span>
+                <span style={{ fontSize: "15px", color: "#656F67" }}>a month, or $29.99 a year</span>
               </div>
               <ul style={{ listStyle: "none", margin: "22px 0 0", padding: "0", display: "flex", flexDirection: "column", gap: "13px", fontSize: "14.5px", lineHeight: "1.55", color: "#4F5A52", flexGrow: 1 }}>
                 <li style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
