@@ -88,6 +88,21 @@ const ICON_CSS = `
 @keyframes rt-sweep-big{0%,100%{transform:translateY(-62px);opacity:.3}50%{transform:translateY(62px);opacity:1}}
 .rt-sweep-big{animation:rt-sweep-big 3s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.rt-sweep-big{animation:none}}
+/* "How a line gets onto a product page" on a phone. The one place clamp()
+   could not help: the fix is a different LAYOUT below a breakpoint, not
+   smaller numbers, and an inline style cannot carry a media query — hence
+   these class hooks. Four columns with arrows between them is the wrong
+   shape for a 390px screen however narrow the columns get, so below 640px
+   the strip stacks and the arrows go away. Reading order carries the
+   sequence, and the steps are numbered 01-04 anyway.
+   !important only where the property is also set inline, since an inline
+   style otherwise beats a stylesheet rule. */
+@media (max-width: 640px){
+  .rt-steps{flex-direction:column;row-gap:18px}
+  .rt-step-arrow{display:none !important}
+  .rt-step{padding:0 !important;min-width:0 !important}
+}
+
 @media (scripting: enabled) and (prefers-reduced-motion: no-preference){
   [data-reveal] .rt-slide{opacity:0;transform:translateX(62vw) scale(.96);will-change:transform,opacity}
   [data-reveal][data-in] .rt-slide{animation:rt-slide-in .75s cubic-bezier(.16,.84,.3,1) both}
@@ -450,26 +465,26 @@ export default function HomePage() {
         </div>
 
         {/* HOW A LINE GETS PUBLISHED */}
-        <div style={{ ...SHELL, minHeight: "340px", flexShrink: "0", boxSizing: "border-box", padding: "clamp(18px, 4vw, 40px) 40px 0" }}>
-          <div style={{ boxSizing: "border-box", padding: "30px 34px 32px", background: "#F0ECE1", border: "1px solid #E0DACB", borderRadius: "12px" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "30px" }}>
-              <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "27px", fontWeight: "600", letterSpacing: "-0.015em" }}>How a line gets onto a product page</h2>
-              <span style={{ fontSize: "13px", color: "#656F67", flexShrink: "0" }}>Public records only · every claim dated</span>
+        <div style={{ ...SHELL, minHeight: "340px", flexShrink: "0", boxSizing: "border-box", padding: "clamp(28px, 5vw, 40px) clamp(18px, 4vw, 40px) 0" }}>
+          <div style={{ boxSizing: "border-box", padding: "clamp(20px, 4vw, 30px) clamp(15px, 3.5vw, 34px) clamp(22px, 4vw, 32px)", background: "#F0ECE1", border: "1px solid #E0DACB", borderRadius: "12px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "14px 30px", flexWrap: "wrap" }}>
+              <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "clamp(21px, 5.2vw, 27px)", fontWeight: "600", letterSpacing: "-0.015em" }}>How a line gets onto a product page</h2>
+              <span style={{ fontSize: "13px", color: "#656F67" }}>Public records only · every claim dated</span>
             </div>
-            <div style={{ display: "flex", alignItems: "stretch", gap: "0", marginTop: "24px", flexWrap: "wrap", rowGap: "20px" }}>
-              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingRight: "22px" }}>
+            <div className="rt-steps" style={{ display: "flex", alignItems: "stretch", gap: "0", marginTop: "24px", flexWrap: "wrap", rowGap: "20px" }}>
+              <div className="rt-step" style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingRight: "22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>01</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>A public record</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>USDA, FDA, the product-safety commission, SEC filings, and the certifiers&apos; own registers.</p>
               </div>
-              <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
+              <span className="rt-step-arrow" style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
+              <div className="rt-step" style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>02</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>A machine drafts it</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Software pulls the record and turns it into plain English. Nothing is published at this stage.</p>
               </div>
-              <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
+              <span className="rt-step-arrow" style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
+              <div className="rt-step" style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", padding: "0 22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#1D4D3C" }}>03</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "7px", marginTop: "6px" }}>
                   <span style={{ fontSize: "14.5px", fontWeight: "700", color: "#1D4D3C" }}>It gets verified</span>
@@ -477,8 +492,8 @@ export default function HomePage() {
                 </div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Matched back to the original document. Corrected, or thrown out if it doesn&apos;t hold up. This is the step that matters.</p>
               </div>
-              <span style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
-              <div style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingLeft: "22px" }}>
+              <span className="rt-step-arrow" style={{ width: "22px", flexShrink: "0", display: "flex", alignItems: "center", justifyContent: "center", color: "#C0B9A6" }} aria-hidden="true">→</span>
+              <div className="rt-step" style={{ flexGrow: "1", flexBasis: "0", minWidth: "170px", boxSizing: "border-box", paddingLeft: "22px" }}>
                 <div style={{ fontFamily: FONT_MONO, fontSize: "12px", color: "#A29A88" }}>04</div>
                 <div style={{ fontSize: "14.5px", fontWeight: "700", marginTop: "6px" }}>Published with its date</div>
                 <p style={{ margin: "6px 0 0", fontSize: "12.5px", lineHeight: "1.5", color: "#4F5A52" }}>Every claim is stored with its source and the date we read it, so anyone can check it against the same record.</p>
