@@ -106,7 +106,7 @@ export default function HomePage() {
       <div style={{ boxSizing: "border-box", background: "#FAF8F3", display: "flex", flexDirection: "column" }}>
 
         {/* NAV */}
-        <div style={{ minHeight: "72px", flexShrink: "0", boxSizing: "border-box", padding: "0 40px", background: "#222d27" }}>
+        <div style={{ minHeight: "72px", flexShrink: "0", boxSizing: "border-box", padding: "0 clamp(18px, 4vw, 40px)", background: "#222d27" }}>
           <div style={{ ...SHELL, minHeight: "72px", display: "flex", alignItems: "center", gap: "32px", flexWrap: "wrap" }}>
             <a href="/" style={{ fontFamily: FONT_DISPLAY, fontSize: "25px", fontWeight: "700", color: "#FAF8F3", letterSpacing: "-0.01em", textDecoration: "none" }}>Rootify</a>
             <div style={{ flexGrow: "1", display: "flex", alignItems: "center", gap: "26px", fontSize: "14px", flexWrap: "wrap" }}>
@@ -121,15 +121,15 @@ export default function HomePage() {
         </div>
 
         {/* HERO */}
-        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px 40px 56px", display: "flex", gap: "40px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px clamp(18px, 4vw, 40px) 56px", display: "flex", gap: "40px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
           <div style={{ flexGrow: "1", flexBasis: "460px", maxWidth: "620px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11.5px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#1D4D3C" }}>
               <span style={{ width: "22px", height: "2px", background: "#1D4D3C", display: "inline-block" }}></span>
               A family business · No ads · No brand money
             </div>
-            <h1 style={{ margin: "18px 0 0", fontFamily: FONT_DISPLAY, fontSize: "60px", lineHeight: "1.04", fontWeight: "600", letterSpacing: "-0.025em" }}>Rootify,<br />&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;before you buy.</h1>
+            <h1 style={{ margin: "18px 0 0", fontFamily: FONT_DISPLAY, fontSize: "clamp(34px, 8.5vw, 60px)", lineHeight: "1.04", fontWeight: "600", letterSpacing: "-0.025em" }}>Rootify,<br /><span aria-hidden="true" style={{ display: "inline-block", width: "clamp(0px, 8vw - 30px, 112px)" }}></span>before you buy.</h1>
             <p style={{ margin: "22px 0 0", fontSize: "17.5px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "570px" }}>Scan any barcode in the store. Rootify shows you the ingredients still under research, the recalls, the certificates, and who really owns the brand — each one with a link to the public record it came from and the date we read it.</p>
-            <div style={{ display: "flex", gap: "12px", marginTop: "30px" }}>
+            <div style={{ display: "flex", gap: "12px", marginTop: "30px", flexWrap: "wrap" }}>
               <span aria-disabled="true" title="The Rootify app is coming soon" style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "9px", height: "52px", padding: "0 22px", boxSizing: "border-box", fontSize: "15.5px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "8px", textDecoration: "none" }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" /><path d="M11 19h2" /></svg>
                 Download for iPhone <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span>
@@ -139,7 +139,7 @@ export default function HomePage() {
                 Download for Android <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span>
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "18px", marginTop: "22px", fontSize: "13.5px", color: "#4F5A52" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "18px", marginTop: "22px", fontSize: "13.5px", color: "#4F5A52", flexWrap: "wrap", rowGap: "8px" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "7px" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1D4D3C" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>Free to search and scan</span>
               <span style={{ color: "#C9C2B2" }} aria-hidden="true">|</span>
               <span><strong style={{ fontWeight: "600", color: "#16201B" }}>$2.99/month</strong> for everything else</span>
@@ -156,7 +156,7 @@ export default function HomePage() {
           <div style={{ display: "flex", gap: "16px", flexShrink: "0", flexWrap: "wrap", justifyContent: "center" }}>
 
           {/* phone 1 — a scan */}
-          <div style={{ width: "296px", flexShrink: "0", height: "540px", boxSizing: "border-box", padding: "11px", background: "#222d27", borderRadius: "40px" }}>
+          <div style={{ width: "min(296px, 100%)", flexShrink: "0", height: "540px", boxSizing: "border-box", padding: "11px", background: "#222d27", borderRadius: "40px" }}>
             <div style={{ width: "100%", height: "100%", boxSizing: "border-box", background: "#FAF8F3", borderRadius: "30px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
               <div style={{ flexShrink: "0", boxSizing: "border-box", padding: "20px 16px 0", display: "flex", gap: "11px" }}>
                 <div style={{ width: "60px", height: "60px", flexShrink: "0", background: "#F3EEE3", border: "1px solid #E6E1D6", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -195,7 +195,7 @@ export default function HomePage() {
           </div>
 
           {/* phone 2 — no barcode, so photograph the panel instead */}
-          <div style={{ width: "296px", flexShrink: "0", height: "540px", boxSizing: "border-box", padding: "11px", background: "#222d27", borderRadius: "40px" }}>
+          <div style={{ width: "min(296px, 100%)", flexShrink: "0", height: "540px", boxSizing: "border-box", padding: "11px", background: "#222d27", borderRadius: "40px" }}>
             <div style={{ width: "100%", height: "100%", boxSizing: "border-box", background: "#FAF8F3", borderRadius: "30px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
               <div style={{ flexShrink: "0", boxSizing: "border-box", padding: "18px 16px 0" }}>
@@ -251,7 +251,7 @@ export default function HomePage() {
         </div>
 
         {/* INDEPENDENCE */}
-        <div style={{ minHeight: "152px", flexShrink: "0", boxSizing: "border-box", padding: "26px 40px", background: "#1D4D3C" }}>
+        <div style={{ minHeight: "152px", flexShrink: "0", boxSizing: "border-box", padding: "26px clamp(18px, 4vw, 40px)", background: "#1D4D3C" }}>
           <div style={{ ...SHELL, display: "flex", alignItems: "center", gap: "0", flexWrap: "wrap", rowGap: "22px" }}>
           <div style={{ flexGrow: "1", flexBasis: "220px", boxSizing: "border-box", paddingRight: "28px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -288,7 +288,7 @@ export default function HomePage() {
         </div>
 
         {/* WHAT A SUBSCRIPTION GIVES YOU */}
-        <div id="included" style={{ ...SHELL, minHeight: "860px", flexShrink: "0", boxSizing: "border-box", padding: "56px 40px 0", overflowX: "clip" }}>
+        <div id="included" style={{ ...SHELL, minHeight: "860px", flexShrink: "0", boxSizing: "border-box", padding: "56px clamp(18px, 4vw, 40px) 0", overflowX: "clip" }}>
           <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "36px", fontWeight: "600", letterSpacing: "-0.02em", textAlign: "center" }}>What a subscription gives you</h2>
           <p style={{ margin: "14px auto 0", fontSize: "16px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "620px", textAlign: "center" }}>Five things, and every one of them on the shelf in front of you.</p>
 
@@ -391,10 +391,10 @@ export default function HomePage() {
         </div>
 
         {/* HOW IT WORKS */}
-        <div id="how" style={{ ...SHELL, minHeight: "440px", flexShrink: "0", boxSizing: "border-box", padding: "54px 40px 0" }}>
+        <div id="how" style={{ ...SHELL, minHeight: "440px", flexShrink: "0", boxSizing: "border-box", padding: "54px clamp(18px, 4vw, 40px) 0" }}>
           <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "34px", fontWeight: "600", letterSpacing: "-0.018em", textAlign: "center" }}>Three steps, in the aisle</h2>
           <p style={{ margin: "12px auto 0", fontSize: "15.5px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "620px", textAlign: "center" }}>It takes about as long as reading the back of the box, and you get everything the box doesn&apos;t say.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "24px", marginTop: "36px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: "24px", marginTop: "36px" }}>
 
             <div style={{ boxSizing: "border-box", padding: "24px 24px 26px", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -424,8 +424,8 @@ export default function HomePage() {
         </div>
 
         {/* WHO WE ARE */}
-        <div id="who" style={{ ...SHELL, minHeight: "400px", flexShrink: "0", boxSizing: "border-box", padding: "44px 40px 0", display: "flex", gap: "48px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-          <div style={{ width: "380px", flexShrink: "0", height: "300px", background: "#F0ECE1", border: "1px solid #E0DACB", borderRadius: "12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
+        <div id="who" style={{ ...SHELL, minHeight: "400px", flexShrink: "0", boxSizing: "border-box", padding: "44px clamp(18px, 4vw, 40px) 0", display: "flex", gap: "48px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ width: "min(380px, 100%)", flexShrink: "0", height: "300px", background: "#F0ECE1", border: "1px solid #E0DACB", borderRadius: "12px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px" }}>
             <svg width="132" height="132" viewBox="0 0 120 120" fill="none" stroke="#1D4D3C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M60 14v44" strokeWidth="3" />
               <path d="M60 30c0-8 6-14 14-15 0 8-6 14-14 15zM60 30c0-8-6-14-14-15 0 8 6 14 14 15z" />
@@ -450,7 +450,7 @@ export default function HomePage() {
         </div>
 
         {/* HOW A LINE GETS PUBLISHED */}
-        <div style={{ ...SHELL, minHeight: "340px", flexShrink: "0", boxSizing: "border-box", padding: "40px 40px 0" }}>
+        <div style={{ ...SHELL, minHeight: "340px", flexShrink: "0", boxSizing: "border-box", padding: "clamp(18px, 4vw, 40px) 40px 0" }}>
           <div style={{ boxSizing: "border-box", padding: "30px 34px 32px", background: "#F0ECE1", border: "1px solid #E0DACB", borderRadius: "12px" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "30px" }}>
               <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "27px", fontWeight: "600", letterSpacing: "-0.015em" }}>How a line gets onto a product page</h2>
@@ -491,10 +491,10 @@ export default function HomePage() {
         </div>
 
         {/* PRICING */}
-        <div id="pricing" style={{ ...SHELL, minHeight: "560px", flexShrink: "0", boxSizing: "border-box", padding: "58px 40px 0" }}>
+        <div id="pricing" style={{ ...SHELL, minHeight: "560px", flexShrink: "0", boxSizing: "border-box", padding: "58px clamp(18px, 4vw, 40px) 0" }}>
           <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "40px", fontWeight: "600", letterSpacing: "-0.02em", textAlign: "center" }}>Subscription</h2>
           <p style={{ margin: "14px auto 0", fontSize: "16.5px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "660px", textAlign: "center" }}>Our money comes from readers, not from the companies we write about. Here is the whole of it, in full, so you never have to go looking for what a tier actually includes.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: "24px", marginTop: "36px", maxWidth: "1100px", marginLeft: "auto", marginRight: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: "24px", marginTop: "36px", maxWidth: "1100px", marginLeft: "auto", marginRight: "auto" }}>
 
             <div style={{ boxSizing: "border-box", padding: "30px 32px 32px", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "14px", display: "flex", flexDirection: "column" }}>
               <div style={{ fontSize: "12.5px", fontWeight: "700", letterSpacing: "0.09em", textTransform: "uppercase", color: "#656F67" }}>Free</div>
@@ -566,10 +566,10 @@ export default function HomePage() {
         </div>
 
         {/* FAQ (teaser — the full list lives at /faq) */}
-        <div style={{ ...SHELL, minHeight: "320px", flexShrink: "0", boxSizing: "border-box", padding: "52px 40px 0" }}>
+        <div style={{ ...SHELL, minHeight: "320px", flexShrink: "0", boxSizing: "border-box", padding: "52px clamp(18px, 4vw, 40px) 0" }}>
           <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "32px", fontWeight: "600", letterSpacing: "-0.018em", textAlign: "center" }}>Questions</h2>
           <p style={{ margin: "12px auto 26px", fontSize: "15.5px", lineHeight: "1.55", color: "#4F5A52", maxWidth: "620px", textAlign: "center" }}>The three we get asked most. <a href="/faq" style={{ fontWeight: "600" }}>The full list is on the FAQ page</a>.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "26px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "26px" }}>
             <div>
               <div style={{ fontSize: "15px", fontWeight: "700", lineHeight: "1.4" }}>Why isn&apos;t there a score?</div>
               <p style={{ margin: "9px 0 0", fontSize: "13.5px", lineHeight: "1.6", color: "#4F5A52" }}>Boiling a product down to one number means making a judgement we can&apos;t put a source against. We&apos;d rather hand you the records and let you weigh them yourself.</p>
@@ -589,13 +589,13 @@ export default function HomePage() {
         </div>
 
         {/* FINAL CTA */}
-        <div style={{ minHeight: "180px", flexShrink: "0", boxSizing: "border-box", padding: "34px 40px", background: "#222d27" }}>
+        <div style={{ minHeight: "180px", flexShrink: "0", boxSizing: "border-box", padding: "34px clamp(18px, 4vw, 40px)", background: "#222d27" }}>
           <div style={{ ...SHELL, display: "flex", alignItems: "center", gap: "40px", flexWrap: "wrap", rowGap: "20px" }}>
           <div style={{ flexGrow: "1", flexBasis: "380px" }}>
             <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "30px", lineHeight: "1.15", fontWeight: "600", color: "#FAF8F3", letterSpacing: "-0.015em" }}>Start with one thing in your cupboard.</h2>
             <p style={{ margin: "10px 0 0", fontSize: "14.5px", lineHeight: "1.5", color: "#A8B0A9", maxWidth: "560px" }}>Scan it tonight. If we haven&apos;t read it yet, we&apos;ll say so, add it to the queue, and tell you when it&apos;s done.</p>
           </div>
-          <div style={{ display: "flex", gap: "12px", flexShrink: "0" }}>
+          <div style={{ display: "flex", gap: "12px", flexShrink: "0", flexWrap: "wrap" }}>
             <span aria-disabled="true" title="The Rootify app is coming soon" style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", height: "50px", padding: "0 22px", boxSizing: "border-box", fontSize: "15px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "8px", textDecoration: "none" }}>Download for iPhone <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span></span>
             <span aria-disabled="true" title="The Rootify app is coming soon" style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", height: "50px", padding: "0 22px", boxSizing: "border-box", fontSize: "15px", fontWeight: "600", color: "#FAF8F3", border: "1px solid #55605A", borderRadius: "8px", textDecoration: "none" }}>Download for Android <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span></span>
           </div>
@@ -603,7 +603,7 @@ export default function HomePage() {
         </div>
 
         {/* FOOTER */}
-        <div style={{ minHeight: "100px", flexShrink: "0", boxSizing: "border-box", padding: "24px 40px", background: "#F0ECE1", borderTop: "1px solid #E0DACB" }}>
+        <div style={{ minHeight: "100px", flexShrink: "0", boxSizing: "border-box", padding: "24px clamp(18px, 4vw, 40px)", background: "#F0ECE1", borderTop: "1px solid #E0DACB" }}>
           <div style={{ ...SHELL, display: "flex", alignItems: "center", gap: "36px", flexWrap: "wrap", rowGap: "16px" }}>
           <div style={{ flexGrow: "1", flexBasis: "320px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>

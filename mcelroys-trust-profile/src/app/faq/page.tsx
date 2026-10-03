@@ -175,7 +175,7 @@ export default function FaqPage() {
     <div style={{ boxSizing: 'border-box', background: colors.paper, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
       {/* The marketing nav, matching the landing page — no search field. */}
-      <div style={{ minHeight: '72px', flexShrink: 0, boxSizing: 'border-box', padding: '0 40px', background: colors.dark }}>
+      <div style={{ minHeight: '72px', flexShrink: 0, boxSizing: 'border-box', padding: '0 clamp(18px, 4vw, 40px)', background: colors.dark }}>
         <div style={{ ...SHELL, minHeight: '72px', display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
           <a href="/" style={{ fontFamily: font.display, fontSize: '25px', fontWeight: 700, color: colors.paper, letterSpacing: '-0.01em', textDecoration: 'none' }}>Rootify</a>
           <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: '26px', fontSize: '14px', flexWrap: 'wrap' }}>
@@ -190,10 +190,10 @@ export default function FaqPage() {
       </div>
 
       {/* HEADER */}
-      <div style={{ ...SHELL, boxSizing: 'border-box', padding: '54px 40px 0' }}>
+      <div style={{ ...SHELL, boxSizing: 'border-box', padding: '54px clamp(18px, 4vw, 40px) 0' }}>
         <div style={{ maxWidth: '720px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: colors.link }}>Questions</div>
-          <h1 style={{ margin: '14px 0 0', fontFamily: font.display, fontSize: '46px', lineHeight: '1.06', fontWeight: 600, letterSpacing: '-0.022em' }}>Everything people ask us.</h1>
+          <h1 style={{ margin: '14px 0 0', fontFamily: font.display, fontSize: 'clamp(30px, 7.5vw, 46px)', lineHeight: '1.06', fontWeight: 600, letterSpacing: '-0.022em' }}>Everything people ask us.</h1>
           <p style={{ margin: '20px 0 0', fontSize: '17px', lineHeight: '1.6', color: colors.ink2 }}>
             Including the awkward ones. If something you want to know is not here,{' '}
             <a href="/contact" style={{ fontWeight: 600 }}>ask us</a> and we will add it.
@@ -227,7 +227,7 @@ export default function FaqPage() {
       </div>
 
       {/* THE QUESTIONS */}
-      <div style={{ ...SHELL, flexGrow: 1, boxSizing: 'border-box', padding: '44px 40px 0', display: 'flex', flexDirection: 'column', gap: '42px' }}>
+      <div style={{ ...SHELL, flexGrow: 1, boxSizing: 'border-box', padding: '44px clamp(18px, 4vw, 40px) 0', display: 'flex', flexDirection: 'column', gap: '42px' }}>
         {GROUPS.map((group) => (
           <section key={group.title} id={slug(group.title)} style={{ scrollMarginTop: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px', borderBottom: `2px solid ${colors.ink}`, paddingBottom: '10px' }}>
@@ -246,7 +246,7 @@ export default function FaqPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))',
                 gap: '16px',
                 marginTop: '20px',
               }}
@@ -272,7 +272,7 @@ export default function FaqPage() {
       </div>
 
       {/* FOOTER */}
-      <div style={{ flexShrink: 0, boxSizing: 'border-box', marginTop: '52px', padding: '24px 40px', background: colors.panel, borderTop: '1px solid #E0DACB' }}>
+      <div style={{ flexShrink: 0, boxSizing: 'border-box', marginTop: '52px', padding: '24px clamp(18px, 4vw, 40px)', background: colors.panel, borderTop: '1px solid #E0DACB' }}>
         <div style={{ ...SHELL, display: 'flex', alignItems: 'center', gap: '36px', flexWrap: 'wrap', rowGap: '16px' }}>
           <div style={{ flexGrow: 1, flexBasis: '320px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
