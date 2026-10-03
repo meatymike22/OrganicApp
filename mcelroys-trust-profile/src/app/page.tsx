@@ -90,12 +90,12 @@ const ICON_CSS = `
 @media (prefers-reduced-motion:reduce){.rt-sweep-big{animation:none}}
 @media (scripting: enabled) and (prefers-reduced-motion: no-preference){
   [data-reveal] .rt-slide{opacity:0;transform:translateX(62vw) scale(.96);will-change:transform,opacity}
-  [data-reveal][data-in] .rt-slide{animation:rt-slide-in 1.15s cubic-bezier(.16,.84,.3,1) both}
-  [data-reveal][data-in] .rt-slide:nth-child(1){animation-delay:2s}
-  [data-reveal][data-in] .rt-slide:nth-child(2){animation-delay:2.4s}
-  [data-reveal][data-in] .rt-slide:nth-child(3){animation-delay:2.8s}
-  [data-reveal][data-in] .rt-slide:nth-child(4){animation-delay:3.2s}
-  [data-reveal][data-in] .rt-slide:nth-child(5){animation-delay:3.6s}
+  [data-reveal][data-in] .rt-slide{animation:rt-slide-in .75s cubic-bezier(.16,.84,.3,1) both}
+  [data-reveal][data-in] .rt-slide:nth-child(1){animation-delay:.35s}
+  [data-reveal][data-in] .rt-slide:nth-child(2){animation-delay:.53s}
+  [data-reveal][data-in] .rt-slide:nth-child(3){animation-delay:.71s}
+  [data-reveal][data-in] .rt-slide:nth-child(4){animation-delay:.89s}
+  [data-reveal][data-in] .rt-slide:nth-child(5){animation-delay:1.07s}
 }
 `
 
@@ -103,7 +103,7 @@ export default function HomePage() {
   return (
     <>
       <style>{ICON_CSS}</style>
-      <div style={{ boxSizing: "border-box", background: "#FAF8F3", display: "flex", flexDirection: "column" }}>
+      <div style={{ boxSizing: "border-box", background: "#FAF8F3", display: "flex", flexDirection: "column", maxWidth: "100%", overflowX: "clip" }}>
 
         {/* NAV */}
         <div style={{ minHeight: "72px", flexShrink: "0", boxSizing: "border-box", padding: "0 clamp(18px, 4vw, 40px)", background: "#222d27" }}>
@@ -153,7 +153,7 @@ export default function HomePage() {
 
           {/* The two phones: what a scan looks like, and what happens when
               there is no barcode to scan. */}
-          <div style={{ display: "flex", gap: "16px", flexShrink: "0", flexWrap: "wrap", justifyContent: "center" }}>
+          <div style={{ display: "flex", gap: "16px", maxWidth: "100%", flexWrap: "wrap", justifyContent: "center" }}>
 
           {/* phone 1 — a scan */}
           <div style={{ width: "min(296px, 100%)", flexShrink: "0", height: "540px", boxSizing: "border-box", padding: "11px", background: "#222d27", borderRadius: "40px" }}>
@@ -595,7 +595,7 @@ export default function HomePage() {
             <h2 style={{ margin: "0", fontFamily: FONT_DISPLAY, fontSize: "30px", lineHeight: "1.15", fontWeight: "600", color: "#FAF8F3", letterSpacing: "-0.015em" }}>Start with one thing in your cupboard.</h2>
             <p style={{ margin: "10px 0 0", fontSize: "14.5px", lineHeight: "1.5", color: "#A8B0A9", maxWidth: "560px" }}>Scan it tonight. If we haven&apos;t read it yet, we&apos;ll say so, add it to the queue, and tell you when it&apos;s done.</p>
           </div>
-          <div style={{ display: "flex", gap: "12px", flexShrink: "0", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "12px", maxWidth: "100%", flexWrap: "wrap" }}>
             <span aria-disabled="true" title="The Rootify app is coming soon" style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", height: "50px", padding: "0 22px", boxSizing: "border-box", fontSize: "15px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "8px", textDecoration: "none" }}>Download for iPhone <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span></span>
             <span aria-disabled="true" title="The Rootify app is coming soon" style={{ whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", height: "50px", padding: "0 22px", boxSizing: "border-box", fontSize: "15px", fontWeight: "600", color: "#FAF8F3", border: "1px solid #55605A", borderRadius: "8px", textDecoration: "none" }}>Download for Android <span style={{ marginLeft: "4px", padding: "2px 7px", borderRadius: "99px", background: "rgba(0,0,0,0.12)", fontSize: "11px", fontWeight: "700", letterSpacing: "0.04em", textTransform: "uppercase" }}>Soon</span></span>
           </div>
