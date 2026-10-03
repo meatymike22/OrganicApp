@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { CSSProperties } from 'react'
 import { font } from '@/lib/design'
+import { ScrollReveal } from '@/components/ScrollReveal'
 
 // THE LANDING PAGE, at /.
 //
@@ -67,24 +68,34 @@ const ICON_CSS = `
 .rt-scan{animation:rt-scanline 2.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.rt-bell,.rt-ping,.rt-sheet,.rt-merid,.rt-path,.rt-scan{animation:none}}
 
-/* THE SUBSCRIPTION ROWS SLIDING IN AS YOU SCROLL TO THEM.
-   This is a scroll-driven CSS animation, which means no JavaScript and no
-   client component — the row's own position in the viewport drives it, so
-   they arrive one after another from the top without any staggered delays
-   to maintain. Guarded twice on purpose: @supports means a browser without
-   animation-timeline shows the rows normally rather than leaving them
-   invisible, and the reduced-motion query means anyone who has asked their
-   system to stop animations just sees them in place. */
-@keyframes rt-slide-in{from{opacity:0;transform:translateX(62vw) scale(.97)}55%{opacity:1}to{opacity:1;transform:translateX(0) scale(1)}}
+/* THE SUBSCRIPTION ROWS SWOOPING IN.
+   This was a scroll-driven animation (animation-timeline: view()), which
+   needed no JavaScript. It had to change: a scroll-driven animation is
+   driven by scroll POSITION, so it cannot have a delay or a duration — it
+   advances only while you scroll and it is pinned to where the row sits on
+   screen. The ask was for the rows to arrive about two seconds after you
+   reach the section, slowly, and not tied to the bottom edge. That is a
+   timed animation with a viewport trigger, so an IntersectionObserver in
+   src/components/ScrollReveal.tsx sets data-in on the wrapper and these
+   rules run off that.
+   The hidden start state is behind @media (scripting: enabled) so the rows
+   are hidden on the first paint rather than being shown and then snatched
+   away; see the comments in ScrollReveal.tsx for why that matters and what
+   happens if the observer never fires. */
+@keyframes rt-slide-in{from{opacity:0;transform:translateX(62vw) scale(.96)}to{opacity:1;transform:translateX(0) scale(1)}}
 
 /* The line sweeping down the second phone's viewfinder. */
 @keyframes rt-sweep-big{0%,100%{transform:translateY(-62px);opacity:.3}50%{transform:translateY(62px);opacity:1}}
 .rt-sweep-big{animation:rt-sweep-big 3s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.rt-sweep-big{animation:none}}
-@supports (animation-timeline: view()){
-  @media (prefers-reduced-motion: no-preference){
-    .rt-slide{animation:rt-slide-in cubic-bezier(.17,.86,.27,1) both;animation-timeline:view();animation-range:entry 0% cover 30%;will-change:transform,opacity}
-  }
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference){
+  [data-reveal] .rt-slide{opacity:0;transform:translateX(62vw) scale(.96);will-change:transform,opacity}
+  [data-reveal][data-in] .rt-slide{animation:rt-slide-in 1.15s cubic-bezier(.16,.84,.3,1) both}
+  [data-reveal][data-in] .rt-slide:nth-child(1){animation-delay:2s}
+  [data-reveal][data-in] .rt-slide:nth-child(2){animation-delay:2.4s}
+  [data-reveal][data-in] .rt-slide:nth-child(3){animation-delay:2.8s}
+  [data-reveal][data-in] .rt-slide:nth-child(4){animation-delay:3.2s}
+  [data-reveal][data-in] .rt-slide:nth-child(5){animation-delay:3.6s}
 }
 `
 
@@ -292,6 +303,7 @@ export default function HomePage() {
               <a href="#pricing" style={{ fontSize: "13.5px", fontWeight: "600", flexShrink: "0" }}>Start Rootify Plus →</a>
             </div>
 
+            <ScrollReveal>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "18px" }}>
 
               <div className="rt-slide" style={{ display: "flex", gap: "20px", alignItems: "center", boxSizing: "border-box", padding: "22px 26px", background: "#FFFFFF", border: "1px solid #C3D8CB", borderRadius: "13px" }}>
@@ -374,6 +386,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+            </ScrollReveal>
           </div>
         </div>
 
