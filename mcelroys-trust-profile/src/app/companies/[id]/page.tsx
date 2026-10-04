@@ -12,6 +12,7 @@ import {
   type RecallItem,
   type RecallList,
 } from '@/lib/recalls'
+import { displayName } from '@/lib/productName'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
@@ -505,7 +506,7 @@ function Products({
                       minWidth: 0,
                     }}
                   >
-                    <CategoryGlyph category={p.category} productType={p.productType} size={40} label={p.name} />
+                    <CategoryGlyph category={p.category} productType={p.productType} size={40} label={displayName(p.name)} />
                     <div style={{ flexGrow: 1, minWidth: 0 }}>
                       <div
                         style={{
@@ -518,7 +519,7 @@ function Products({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {p.name}
+                        {displayName(p.name)}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                         {cat.label && (

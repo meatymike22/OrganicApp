@@ -1,16 +1,28 @@
 import Link from 'next/link'
+import type { CSSProperties } from 'react'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
+import { displayName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalHeader, SignalStrip, StatusLegend } from '@/components/StatusChip'
 
 export const metadata = { title: 'Search' }
+
+// The page content sits inside this, centred, rather than running the whole
+// width of the window. Same value the landing page uses, so a result row and
+// a landing-page section line up at the same edges.
+const SHELL: CSSProperties = {
+  maxWidth: '1320px',
+  marginLeft: 'auto',
+  marginRight: 'auto',
+  width: '100%',
+}
 
 // How many rows one page of results holds.
 const PAGE_SIZE = 25
@@ -26,7 +38,13 @@ const ROW_FIELDS = {
   productType: true,
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
-  productIngredients: { select: { ingredient: { select: { flaggedForResearch: true } } } },
+  ingredientSource: true,
+  productIngredients: {
+    select: {
+      listPosition: true,
+      ingredient: { select: { name: true, flaggedForResearch: true } },
+    },
+  },
   certifications: { select: { certificationStatus: true, lastVerifiedDate: true } },
   productCertifications: { select: { scheme: true, status: true, lastVerifiedDate: true } },
   company: {
@@ -109,7 +127,11 @@ export default async function SearchPage({
       // A stable secondary sort on id matters: without it, two products with
       // the same name can swap places between page 1 and page 2 and a shopper
       // sees one twice and another not at all.
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      // Confirmed companies first. Every record in here came out of bulk
+      // ingestion, and the ones nobody has confirmed yet are the ones with the
+      // dirty names — so sorting by name alone put the worst records on page 1
+      // and buried everything a reviewer had actually checked.
+      orderBy: [{ company: { vettingStatus: 'desc' } }, { name: 'asc' }, { id: 'asc' }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -154,7 +176,7 @@ export default async function SearchPage({
       />
 
       {/* PAGE HEADER */}
-      <div style={{ boxSizing: 'border-box', padding: `22px ${layout.gutter}px 0` }}>
+      <div style={{ ...SHELL, boxSizing: 'border-box', padding: `22px clamp(18px, 4vw, ${layout.gutter}px) 0` }}>
         <h1
           style={{
             margin: 0,
@@ -164,7 +186,7 @@ export default async function SearchPage({
             letterSpacing: '-0.015em',
           }}
         >
-          {q ? `“${q}”` : aisle ? `${aisle} aisle` : 'Everything we have read'}
+          {q ? `“${q}”` : aisle ? `${aisle} aisle` : 'Products'}
         </h1>
         <div style={{ marginTop: 12 }}>
           <StatusLegend />
@@ -176,7 +198,8 @@ export default async function SearchPage({
         style={{
           flexGrow: 1,
           boxSizing: 'border-box',
-          padding: `18px ${layout.gutter}px 0`,
+          ...SHELL,
+          padding: `18px clamp(18px, 4vw, ${layout.gutter}px) 0`,
           display: 'flex',
           gap: 26,
           alignItems: 'flex-start',
@@ -245,7 +268,18 @@ function ResultRow({
   product,
   signals,
 }: {
-  product: { id: string; name: string; upc: string | null; category: string | null; categorySource: string | null; productType: string; company: { legalName: string } }
+  product: {
+    id: string
+    name: string
+    upc: string | null
+    category: string | null
+    categorySource: string | null
+    productType: string
+    ingredientDisclosureStatus: string
+    ingredientSource: string | null
+    productIngredients: { listPosition: number | null; ingredient: { name: string; flaggedForResearch: boolean } }[]
+    company: { legalName: string }
+  }
   signals: ReturnType<typeof productSignals>
 }) {
   // The border colour comes from the first signal that is not just "fine" —
@@ -281,7 +315,7 @@ function ResultRow({
         category={product.category}
         productType={product.productType}
         size={66}
-        label={product.name}
+        label={displayName(product.name)}
       />
 
       <div style={{ flexGrow: 1, minWidth: 0 }}>
@@ -319,8 +353,10 @@ function ResultRow({
             marginTop: 3,
           }}
         >
-          {product.name}
+          {displayName(product.name)}
         </div>
+
+        <IngredientPreview product={product} />
 
         <div style={{ marginTop: 7 }}>
           <SignalStrip signals={signals} />
@@ -331,6 +367,77 @@ function ResultRow({
         &rsaquo;
       </span>
     </Link>
+  )
+}
+
+
+// WHAT A PRODUCT ACTUALLY IS, in one line, without clicking through.
+//
+// Michael asked for "a short description, like Amazon's search results, so
+// they don't have to open the product to decide". Rootify has no description
+// column and should not grow one: a description is marketing copy, and
+// nothing on a product page is allowed to be something we wrote rather than
+// something we read.
+//
+// What we do hold is the ingredient list in label order, which is better than
+// a description anyway — label order is roughly descending by weight, so the
+// first few ingredients tell you what the product mostly IS. Flagged ones are
+// coloured so the amber chip has something to point at.
+function IngredientPreview({
+  product,
+}: {
+  product: {
+    ingredientDisclosureStatus: string
+    ingredientSource: string | null
+    productIngredients: { listPosition: number | null; ingredient: { name: string; flaggedForResearch: boolean } }[]
+  }
+}) {
+  const line: CSSProperties = {
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    color: colors.ink3,
+    marginTop: 5,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  }
+
+  // The two honest non-answers. Worded the way the schema asks: "unchecked"
+  // must say nothing about disclosure, and "not_disclosed" means not found in
+  // the sources we check, not that no list exists anywhere.
+  if (product.ingredientDisclosureStatus === 'unchecked') {
+    return <div style={{ ...line, fontStyle: 'italic' }}>We haven&apos;t looked up what&apos;s in this one yet.</div>
+  }
+  if (product.ingredientDisclosureStatus === 'not_disclosed') {
+    return <div style={{ ...line, fontStyle: 'italic' }}>No ingredient list published in any source we check.</div>
+  }
+
+  const ordered = [...product.productIngredients].sort(
+    (a, b) => (a.listPosition ?? Number.MAX_SAFE_INTEGER) - (b.listPosition ?? Number.MAX_SAFE_INTEGER)
+  )
+  if (ordered.length === 0) return null
+
+  const shown = ordered.slice(0, 5)
+  const rest = ordered.length - shown.length
+
+  return (
+    <div style={line} title={ordered.map((pi) => pi.ingredient.name).join(', ')}>
+      {shown.map((pi, i) => (
+        <span key={pi.ingredient.name}>
+          {i > 0 && ', '}
+          <span
+            style={
+              pi.ingredient.flaggedForResearch
+                ? { color: status.openResearch.fg, fontWeight: 600 }
+                : undefined
+            }
+          >
+            {pi.ingredient.name}
+          </span>
+        </span>
+      ))}
+      {rest > 0 && <span style={{ color: colors.ink4 }}>{` + ${rest} more`}</span>}
+    </div>
   )
 }
 

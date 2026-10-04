@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
+import { displayName } from '@/lib/productName'
 import { evidenceNote, getProductRecalls, getRecallsListingProducts, type RecallItem } from '@/lib/recalls'
 import { CategoryGlyph } from '@/components/CategoryGlyph'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
@@ -84,7 +85,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     select: { name: true, company: { select: { legalName: true } } },
   })
   if (!product) return { title: 'Product not found' }
-  return { title: `${product.name} — ${product.company.legalName}` }
+  return { title: `${displayName(product.name)} — ${product.company.legalName}` }
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -132,7 +133,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           { label: 'Rootify', href: '/' },
           { label: 'Search', href: '/search' },
           { label: product.company.legalName, href: `/companies/${product.company.id}` },
-          { label: product.name },
+          { label: displayName(product.name) },
         ]}
       />
 
@@ -150,7 +151,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           category={product.category}
           productType={product.productType}
           size={92}
-          label={product.name}
+          label={displayName(product.name)}
         />
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <div
@@ -188,7 +189,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               letterSpacing: '-0.015em',
             }}
           >
-            {product.name}
+            {displayName(product.name)}
           </h1>
 
           {product.upc && (

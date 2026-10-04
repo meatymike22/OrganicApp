@@ -101,6 +101,9 @@ export function StatusChip({
     display: 'inline-flex',
     alignItems: 'center',
     gap: 4,
+    // Without this a chip fills its whole grid column — which is why the
+    // owner chip, whose column is 1fr, stretched the width of the row.
+    justifySelf: 'start',
     maxWidth: '100%',
     boxSizing: 'border-box',
     padding: state === 'unchecked' ? '2px 8px' : '3px 8px',
@@ -237,11 +240,10 @@ export function StatusLegend() {
           <span
             aria-hidden
             style={{
-              width: 10,
-              height: 10,
+              width: 12,
+              height: 12,
               borderRadius: 3,
-              background: status[e.state].bg,
-              border: `1px solid ${status[e.state].fg}`,
+              background: status[e.state].fg,
               flexShrink: 0,
             }}
           />
