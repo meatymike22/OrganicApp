@@ -43,7 +43,13 @@ export const status = {
   // Checked, and the record confirms it.
   confirmed: { fg: '#1D4D3C', bg: '#E2EDE7', border: '#C3D8CB' },
   // Checked, and there is nothing on file. NOT a mark against the product.
-  nothingOnFile: { fg: '#656F67', bg: '#F4F2EC', border: '#E6E1D6' },
+  //
+  // This has to be a TRUE NEUTRAL grey — equal red, green and blue. It used
+  // to be #656F67, which has more green in it than red or blue, and as a
+  // solid swatch in the legend it read as a second, paler version of the
+  // confirmed green. A grey that leans green says "sort of confirmed", which
+  // is not what "nothing on file" means.
+  nothingOnFile: { fg: '#6A6A6A', bg: '#F4F2EC', border: '#E6E1D6' },
   // Research is still open, or studies disagree. Worth reading about.
   openResearch: { fg: '#8A5A0B', bg: '#F6EBD6', border: '#EBDBBE' },
   // A recall is on the public record.
@@ -53,9 +59,13 @@ export const status = {
   // Who owns a brand is a fact, not a verdict, so it sits off the scale.
   ownership: { fg: '#6B3F6E', bg: '#EFE5F0', border: '#DED0E0' },
   // The question cannot apply to this kind of product (organic on a baby
-  // bottle). Not grey: grey means "we checked and found nothing", which
-  // would be a different and wrong statement.
-  notApplicable: { fg: '#8A9089', bg: '#F1EEE6', border: '#E6E1D6' },
+  // bottle). Deliberately NOT the same grey as nothingOnFile: grey means
+  // "we checked and found nothing", which is a different and wrong
+  // statement. It is a warm stone instead — no green in it either, for the
+  // same reason as above — and it is set lighter and unbolded in the chip,
+  // so it reads as the quietest mark in the set. The label does the real
+  // work: "Doesn't apply" cannot be mistaken for "Not on file".
+  notApplicable: { fg: '#7A776F', bg: '#F1EEE6', border: '#E6E1D6' },
 } as const
 
 export type StatusKey = keyof typeof status

@@ -216,12 +216,41 @@ export function SignalHeader() {
 // importantly, states that they are not a grade — because a coloured badge
 // looks like a score whether or not one is intended.
 export function StatusLegend() {
-  const entries: { state: StatusKey; text: string }[] = [
-    { state: 'confirmed', text: 'Checked and confirmed' },
-    { state: 'nothingOnFile', text: 'Checked, nothing on file' },
-    { state: 'openResearch', text: 'Worth reading about' },
-    { state: 'recall', text: 'A recall on record' },
-    { state: 'unchecked', text: "We couldn't check" },
+  // ONE WORD EACH, and the same word the column header and the chip use —
+  // "Flagged" here is "Flagged" in the header and "6 flagged" on the chip.
+  // A key that paraphrases the thing it is keying makes the reader translate.
+  //
+  // The full sentence lives in `note` and shows on hover, because the
+  // distinction between the last two is the one Rootify cannot afford to
+  // blur: "Not on file" means we looked and the record is empty, "Unknown"
+  // means we could not look. Collapsing those turns a gap in our data into a
+  // claim about the company.
+  const entries: { state: StatusKey; text: string; note: string }[] = [
+    {
+      state: 'confirmed',
+      text: 'Confirmed',
+      note: 'We checked the public record and it confirms this.',
+    },
+    {
+      state: 'nothingOnFile',
+      text: 'Not on file',
+      note: 'We checked and found no record. Not a mark against the product.',
+    },
+    {
+      state: 'openResearch',
+      text: 'Flagged',
+      note: 'There is open or conflicting research on file. Worth reading, not a verdict.',
+    },
+    {
+      state: 'recall',
+      text: 'Recalls',
+      note: 'A government recall notice is on the public record.',
+    },
+    {
+      state: 'unchecked',
+      text: 'Unknown',
+      note: "We could not check, or nothing was published for us to read. This says nothing about the product.",
+    },
   ]
   return (
     <div
@@ -236,7 +265,11 @@ export function StatusLegend() {
       }}
     >
       {entries.map((e) => (
-        <span key={e.state} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span
+          key={e.state}
+          title={e.note}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
           <span
             aria-hidden
             style={{
