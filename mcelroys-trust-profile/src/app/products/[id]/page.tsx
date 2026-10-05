@@ -4,9 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
-import { displayName } from '@/lib/productName'
+import { productDisplayName } from '@/lib/productName'
 import { evidenceNote, getProductRecalls, getRecallsListingProducts, type RecallItem } from '@/lib/recalls'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalStrip, StatusChip, StatusLegend } from '@/components/StatusChip'
 
@@ -67,10 +67,14 @@ const PRODUCT_FIELDS = {
       reviewDate: true,
     },
   },
+  imageUrl: true,
+  imageSource: true,
+  imageSourceUrl: true,
   company: {
     select: {
       id: true,
       legalName: true,
+      dbaNames: true,
       vettingStatus: true,
       businessRole: true,
       parentCompany: { select: { id: true, legalName: true } },
@@ -82,10 +86,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const product = await prisma.product.findUnique({
     where: { id },
-    select: { name: true, company: { select: { legalName: true } } },
+    select: { name: true, company: { select: { legalName: true, dbaNames: true } } },
   })
   if (!product) return { title: 'Product not found' }
-  return { title: `${displayName(product.name)} — ${product.company.legalName}` }
+  const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
+  return { title: `${title} — ${product.company.legalName}` }
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -97,6 +102,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   // A product whose company a reviewer rejected is kept only so bulk
   // ingestion will not recreate it. Treated the same as not existing.
   if (!product || product.company.vettingStatus === 'rejected') notFound()
+
+  // The company name is printed as its own line and in the breadcrumb, so
+  // the brand comes off the front of the product name. Computed once here so
+  // the breadcrumb, the glyph label and the h1 cannot disagree.
+  const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
 
   const forSignals = product as unknown as ProductForSignals
 
@@ -133,7 +143,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           { label: 'Rootify', href: '/' },
           { label: 'Search', href: '/search' },
           { label: product.company.legalName, href: `/companies/${product.company.id}` },
-          { label: displayName(product.name) },
+          { label: title },
         ]}
       />
 
@@ -147,11 +157,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           alignItems: 'flex-start',
         }}
       >
-        <CategoryGlyph
+        {/* `credit` on: this is the one place a product's photograph is
+            shown large, so the CC-BY-SA attribution goes directly under it
+            and links to the source record. */}
+        <ProductThumb
+          product={product}
           category={product.category}
           productType={product.productType}
           size={92}
-          label={displayName(product.name)}
+          label={title}
+          credit
         />
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <div
@@ -189,7 +204,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               letterSpacing: '-0.015em',
             }}
           >
-            {displayName(product.name)}
+            {title}
           </h1>
 
           {product.upc && (

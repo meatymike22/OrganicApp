@@ -204,7 +204,26 @@ export function organicSignal(p: ProductForSignals): Signal {
       column: 'organic',
       state: 'confirmed',
       label: 'Organic',
-      detail: 'This exact product is listed as certified in the USDA Organic Integrity Database.',
+      // WHAT THIS ROW ACTUALLY IS, and why the wording is careful.
+      //
+      // The USDA Organic Integrity Database is a register of certified
+      // OPERATIONS, not of retail products. A row here was created by
+      // matching this product's company to an operation in the register, and
+      // the certificate is then attached to every product that company has
+      // in our database.
+      //
+      // So this cannot say "this product is certified organic". It said
+      // exactly that until 2026-10-04, and in the live data that produced at
+      // least two false statements: Campbell Soup Supply Co.'s "Chicken
+      // Broth Low Sodium" and Kellanova's "Twisted Fruit Bites" both carry a
+      // green "Organic" chip purely because their makers hold handler
+      // certificates. Neither product is organic.
+      //
+      // The label itself ("Organic", green) is still overstating this and is
+      // waiting on a decision — see the note in the review log. Until then
+      // the detail text at least tells the truth about what the record is.
+      detail:
+        'The USDA Organic Integrity Database lists this product\'s company as a certified organic operation. The register certifies operations, not individual products, so this is not confirmation that this item is organic.',
       asOf: isoDate(current.lastVerifiedDate),
     }
   }

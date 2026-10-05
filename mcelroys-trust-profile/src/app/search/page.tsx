@@ -6,11 +6,11 @@ import { colors, font, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
-import { displayName } from '@/lib/productName'
+import { productDisplayName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { PhotoCredit, ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
-import { SignalHeader, SignalStrip, StatusLegend } from '@/components/StatusChip'
+import { SignalHeader, SignalStrip, StatusKeyPanel } from '@/components/StatusChip'
 
 export const metadata = { title: 'Search' }
 
@@ -39,6 +39,9 @@ const ROW_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
+  imageUrl: true,
+  imageSource: true,
+  imageSourceUrl: true,
   productIngredients: {
     select: {
       listPosition: true,
@@ -51,6 +54,7 @@ const ROW_FIELDS = {
     select: {
       id: true,
       legalName: true,
+      dbaNames: true,
       vettingStatus: true,
       parentCompany: { select: { id: true, legalName: true } },
     },
@@ -59,13 +63,43 @@ const ROW_FIELDS = {
 
 // Builds the Prisma `where` from the URL. Three independent filters, all
 // optional, all reflected in the URL so a filtered view can be shared.
+// How many rejected companies it is still worth naming individually. A
+// reviewer rejects brands by hand, so the real number is dozens; this only
+// guards against a runaway automated rejection producing a giant IN list.
+const MAX_REJECTED_IDS = 2000
+
 async function buildWhere(q: string | undefined, aisle: string | undefined): Promise<Prisma.ProductWhereInput> {
-  const and: Prisma.ProductWhereInput[] = [
-    // A product whose company a reviewer has rejected (junk brand text, a
-    // duplicate) is kept in the database only so bulk ingestion does not
-    // recreate it. It must never appear in results.
-    { company: { vettingStatus: { not: 'rejected' } } },
-  ]
+  const and: Prisma.ProductWhereInput[] = []
+
+  // A product whose company a reviewer has rejected (junk brand text, a
+  // duplicate) is kept in the database only so bulk ingestion does not
+  // recreate it. It must never appear in results.
+  //
+  // PERFORMANCE: written as "not one of these companies" rather than
+  // "company.vettingStatus is not rejected", for the same reason the product
+  // search below is done in two steps. The relation form makes Postgres read
+  // every product and hash-join every company — 1.03 s just to count the
+  // results. Finding the rejected companies first is an index scan on
+  // Company_vettingStatus_idx (0.1 ms, and usually no rows at all), and when
+  // there are none the clause disappears entirely, which lets the count run
+  // as an index-only scan: 104 ms instead of 1030 ms.
+  //
+  // The exclusion itself is NOT taken from Product.sourceRank, even though
+  // the rank knows about vetting. A rank is denormalised and can go stale,
+  // and "this company was rejected" is a visibility rule — getting it wrong
+  // means publishing a record a reviewer threw out. Order of rows can be
+  // stale; what appears at all cannot.
+  const rejected = await prisma.company.findMany({
+    where: { vettingStatus: 'rejected' },
+    select: { id: true },
+    take: MAX_REJECTED_IDS + 1,
+  })
+  if (rejected.length > MAX_REJECTED_IDS) {
+    // Too many to name. Fall back to the slow-but-correct form.
+    and.push({ company: { vettingStatus: { not: 'rejected' } } })
+  } else if (rejected.length > 0) {
+    and.push({ companyId: { notIn: rejected.map((c) => c.id) } })
+  }
 
   if (aisle) {
     and.push({ category: { contains: aisle, mode: 'insensitive' } })
@@ -124,14 +158,20 @@ export default async function SearchPage({
     prisma.product.findMany({
       where,
       select: ROW_FIELDS,
-      // A stable secondary sort on id matters: without it, two products with
-      // the same name can swap places between page 1 and page 2 and a shopper
-      // sees one twice and another not at all.
-      // Confirmed companies first. Every record in here came out of bulk
-      // ingestion, and the ones nobody has confirmed yet are the ones with the
-      // dirty names — so sorting by name alone put the worst records on page 1
-      // and buried everything a reviewer had actually checked.
-      orderBy: [{ company: { vettingStatus: 'desc' } }, { name: 'asc' }, { id: 'asc' }],
+      // Best-sourced products first, then alphabetical, then id.
+      //
+      // sourceRank is a small integer on Product itself (10 = a person
+      // confirmed the company, 20 = USDA barcode records, 40 = automated
+      // review only, 90 = not confirmed). Sorting on it instead of on the
+      // company's vetting columns is the whole point of the column: all three
+      // keys live together in Product_sourceRank_name_id_idx, so this is an
+      // index scan. Ordering across the join was a full sort of 411k rows and
+      // took 2.17 s for page 1; this takes 8 ms.
+      //
+      // The stable id at the end matters on its own: without it, two products
+      // with the same name and rank can swap places between page 1 and page 2,
+      // and a shopper sees one twice and another not at all.
+      orderBy: [{ sourceRank: 'asc' }, { name: 'asc' }, { id: 'asc' }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -188,9 +228,6 @@ export default async function SearchPage({
         >
           {q ? `“${q}”` : aisle ? `${aisle} aisle` : 'Products'}
         </h1>
-        <div style={{ marginTop: 12 }}>
-          <StatusLegend />
-        </div>
       </div>
 
       {/* BODY: filter rail on the left, results on the right */}
@@ -240,6 +277,10 @@ export default async function SearchPage({
                 <ResultRow key={product.id} product={product} signals={signals} />
               ))}
               <Pagination page={page} lastPage={lastPage} q={q} aisle={aisle} />
+              {/* One attribution for every photo on this page. Open Food
+                  Facts images are CC-BY-SA, so the credit is an obligation,
+                  not a courtesy — see ProductThumb.tsx. */}
+              <PhotoCredit products={results.map((r) => r.product)} />
             </>
           )}
         </div>
@@ -278,10 +319,16 @@ function ResultRow({
     ingredientDisclosureStatus: string
     ingredientSource: string | null
     productIngredients: { listPosition: number | null; ingredient: { name: string; flaggedForResearch: boolean } }[]
-    company: { legalName: string }
+    imageUrl: string | null
+    imageSource: string | null
+    imageSourceUrl: string | null
+    company: { legalName: string; dbaNames: string[] }
   }
   signals: ReturnType<typeof productSignals>
 }) {
+  // The company name is printed on the line above, so the brand is stripped
+  // off the front of the product name here rather than said twice.
+  const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
   // The border colour comes from the first signal that is not just "fine" —
   // the same order the page is sorted in.
   const lead =
@@ -305,17 +352,21 @@ function ResultRow({
         padding: '13px 16px',
         background: colors.card,
         border: `1px solid ${colors.line}`,
-        borderLeft: `4px solid ${borderColor}`,
+        // 7px, not the 4px hairline it started as: this bar is the only
+        // thing on the row that is readable before any word is, so it has to
+        // register from across the page.
+        borderLeft: `7px solid ${borderColor}`,
         borderRadius: layout.radius,
         textDecoration: 'none',
         color: 'inherit',
       }}
     >
-      <CategoryGlyph
+      <ProductThumb
+        product={product}
         category={product.category}
         productType={product.productType}
         size={66}
-        label={displayName(product.name)}
+        label={title}
       />
 
       <div style={{ flexGrow: 1, minWidth: 0 }}>
@@ -353,7 +404,7 @@ function ResultRow({
             marginTop: 3,
           }}
         >
-          {displayName(product.name)}
+          {title}
         </div>
 
         <IngredientPreview product={product} />
@@ -476,6 +527,8 @@ function FilterRail({ q, aisle }: { q?: string; aisle?: string }) {
           )}
         </div>
       </div>
+
+      <StatusKeyPanel />
 
       <div
         style={{

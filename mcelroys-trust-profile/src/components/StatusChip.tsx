@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { colors, font, status, type StatusKey } from '@/lib/design'
+import { colors, font, layout, status, type StatusKey } from '@/lib/design'
 import type { Signal } from '@/lib/productSignals'
 
 // The one component that paints a status colour.
@@ -180,9 +180,10 @@ export function SignalHeader() {
         gap: 15,
         alignItems: 'center',
         boxSizing: 'border-box',
-        // Lines the labels up with the chips below: 4px of coloured left
-        // border plus 16px of card padding.
-        padding: '2px 17px 0 20px',
+        // Lines the labels up with the chips below: 7px of coloured left
+        // border plus 16px of card padding on the left, 1px hairline plus
+        // 16px on the right. Change the row's border width and this moves.
+        padding: '2px 17px 0 23px',
       }}
     >
       <div style={{ width: 66, flexShrink: 0 }} />
@@ -212,46 +213,126 @@ export function SignalHeader() {
   )
 }
 
-// The legend. It explains what the five colours mean and, just as
-// importantly, states that they are not a grade — because a coloured badge
-// looks like a score whether or not one is intended.
+// WHAT THE FIVE COLOURS MEAN — written once, used by both the compact inline
+// legend and the full side key, so the two can never say different things.
+//
+// `term` is ONE WORD, and it is the same word the column header and the chip
+// use: "Flagged" here is "Flagged" in the header and "6 flagged" on the chip.
+// A key that paraphrases the thing it is keying makes the reader translate.
+//
+// The distinction between the last two is the one Rootify cannot afford to
+// blur: "Not on file" means we looked and the record is empty, "Unknown"
+// means we could not look. Collapsing those turns a gap in our data into a
+// claim about the company.
+export const STATUS_MEANINGS: { state: StatusKey; term: string; note: string }[] = [
+  {
+    state: 'confirmed',
+    term: 'Confirmed',
+    note: 'We checked the public record and it confirms this.',
+  },
+  {
+    state: 'nothingOnFile',
+    term: 'Not on file',
+    note: 'We checked and found no record. Not a mark against the product.',
+  },
+  {
+    state: 'openResearch',
+    term: 'Flagged',
+    note: 'There is open or conflicting research on file. Worth reading, not a verdict.',
+  },
+  {
+    state: 'recall',
+    term: 'Recalls',
+    note: 'A government recall notice is on the public record.',
+  },
+  {
+    state: 'unchecked',
+    term: 'Unknown',
+    note: 'We could not check, or nothing was published for us to read. This says nothing about the product.',
+  },
+]
+
+// THE SIDE KEY. A standing panel in the rail, so the meanings are on screen
+// the whole time a shopper is scrolling rows rather than scrolled off the top.
+//
+// Both the term and its explanation are set in the status colour, which is
+// what makes the panel readable as a key rather than as five paragraphs. It
+// sits on the white card and not the warm panel on purpose: on `colors.panel`
+// the clay drops to a 4.41 contrast ratio and the grey to 4.58, and on white
+// the worst of the five is 5.21 — all above the 4.5 threshold.
+export function StatusKeyPanel() {
+  return (
+    <div
+      style={{
+        boxSizing: 'border-box',
+        padding: '14px 15px',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderRadius: layout.radius,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: colors.ink2,
+        }}
+      >
+        What the colors mean
+      </div>
+
+      <dl style={{ margin: '11px 0 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
+        {STATUS_MEANINGS.map((e) => (
+          <div key={e.state}>
+            <dt
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                fontSize: 12.5,
+                fontWeight: 700,
+                color: status[e.state].fg,
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 11,
+                  height: 11,
+                  borderRadius: 3,
+                  background: status[e.state].fg,
+                  flexShrink: 0,
+                }}
+              />
+              {e.term}
+            </dt>
+            <dd
+              style={{
+                margin: '3px 0 0 18px',
+                fontSize: 12,
+                lineHeight: 1.45,
+                color: status[e.state].fg,
+              }}
+            >
+              {e.note}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <p style={{ margin: '12px 0 0', fontSize: 11.5, lineHeight: 1.45, color: colors.ink4 }}>
+        Colors are not a grading system. They say what the record says, not
+        whether a product is good.
+      </p>
+    </div>
+  )
+}
+
+// The compact inline legend — one row of swatches, no explanations. Still used
+// at the top of a product page, where there is no rail to put a panel in.
 export function StatusLegend() {
-  // ONE WORD EACH, and the same word the column header and the chip use —
-  // "Flagged" here is "Flagged" in the header and "6 flagged" on the chip.
-  // A key that paraphrases the thing it is keying makes the reader translate.
-  //
-  // The full sentence lives in `note` and shows on hover, because the
-  // distinction between the last two is the one Rootify cannot afford to
-  // blur: "Not on file" means we looked and the record is empty, "Unknown"
-  // means we could not look. Collapsing those turns a gap in our data into a
-  // claim about the company.
-  const entries: { state: StatusKey; text: string; note: string }[] = [
-    {
-      state: 'confirmed',
-      text: 'Confirmed',
-      note: 'We checked the public record and it confirms this.',
-    },
-    {
-      state: 'nothingOnFile',
-      text: 'Not on file',
-      note: 'We checked and found no record. Not a mark against the product.',
-    },
-    {
-      state: 'openResearch',
-      text: 'Flagged',
-      note: 'There is open or conflicting research on file. Worth reading, not a verdict.',
-    },
-    {
-      state: 'recall',
-      text: 'Recalls',
-      note: 'A government recall notice is on the public record.',
-    },
-    {
-      state: 'unchecked',
-      text: 'Unknown',
-      note: "We could not check, or nothing was published for us to read. This says nothing about the product.",
-    },
-  ]
   return (
     <div
       style={{
@@ -264,7 +345,7 @@ export function StatusLegend() {
         color: colors.ink2,
       }}
     >
-      {entries.map((e) => (
+      {STATUS_MEANINGS.map((e) => (
         <span
           key={e.state}
           title={e.note}
@@ -280,7 +361,7 @@ export function StatusLegend() {
               flexShrink: 0,
             }}
           />
-          {e.text}
+          {e.term}
         </span>
       ))}
       <span style={{ color: colors.ink4 }}>Colors are not a grading system.</span>

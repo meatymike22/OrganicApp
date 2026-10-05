@@ -225,6 +225,52 @@ model Product {
   // createdAt alone can't reliably do that once the catalog grows.
   importSource String?
 
+  // THE PRODUCT PHOTOGRAPH, and where it came from.
+  //
+  // Mirrors the ingredientSource / ingredientSourceUrl pair above, for the
+  // same reason: a fact on this site is worth nothing without the record it
+  // came from, and an image is a fact about what the package looks like.
+  //
+  // Open Food Facts photographs are CC-BY-SA 3.0, which is a SEPARATE
+  // licence from the ODbL that covers their data. Credit has to appear with
+  // the image and link back to the source, wherever the image is shown —
+  // which is why imageSourceUrl is stored rather than built at render time.
+  //
+  // imageCheckedAt is the usual three-state rule in column form:
+  //   imageUrl set                      → we have a photo
+  //   imageUrl null, imageCheckedAt set → we looked, there is no photo
+  //   both null                         → nobody has looked yet
+  // Collapsing the last two would turn a gap in our data into a statement
+  // about the product.
+  imageUrl       String?
+  imageSource    String?
+  imageSourceUrl String?
+  imageCheckedAt DateTime?
+
+  // HOW GOOD THE RECORD BEHIND THIS PRODUCT IS, as one small number, so the
+  // database can sort by it.
+  //
+  // Lower sorts first:
+  //    10  company confirmed by a person
+  //    20  company confirmed against USDA barcode records
+  //    30  company confirmed from a recall notice
+  //    40  company confirmed by automated review only
+  //    90  company not confirmed (the default)
+  //
+  // WHY THIS IS DENORMALISED. It duplicates Company.vettingMethod, which is
+  // normally the wrong thing to do. The reason is measured: ordering Search
+  // by the company's vetting columns means Postgres reads and sorts all
+  // 411k products on every page view — 2.17 s for the first page, because
+  // there is no btree index that can serve an ORDER BY across the join. With
+  // the rank on the product itself, the index below answers the query
+  // directly.
+  //
+  // IF THIS GOES STALE the only consequence is row order. It never feeds a
+  // claim about a product or a company, so a product sorted a page too late
+  // is a cosmetic bug, not a false statement. Re-sync with
+  // scripts/sync-source-rank.ts after any run of vet-companies.ts.
+  sourceRank Int @default(90)
+
   // Recalls tied to this product (see RegulatoryActionLink).
   regulatoryActionLinks RegulatoryActionLink[]
 
@@ -236,6 +282,11 @@ model Product {
   @@index([companyId])
   @@index([category])
   @@index([importSource])
+  // The ordering Search uses by default: best-sourced products first, then
+  // alphabetical, with id last so paging is stable. All three columns are in
+  // the index in sort order, so page 1 is an index scan rather than a sort
+  // of the whole table. See the sourceRank comment above.
+  @@index([sourceRank, name, id], map: "Product_sourceRank_name_id_idx")
   // Search (src/app/search/page.tsx) matches "name contains …" and the aisle
   // filter matches "category contains …". A normal index can't serve a
   // contains-search; these trigram indexes can (pg_trgm extension, enabled in

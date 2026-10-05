@@ -1,12 +1,16 @@
 import { colors, thumbTint } from '@/lib/design'
 
-// The product thumbnail.
+// The product thumbnail WHEN THERE IS NO PHOTOGRAPH.
 //
-// Rootify holds no product photographs — licensing one image per product is a
-// separate decision that hasn't been made — so a product is shown as a glyph
-// of its aisle on a tinted square. That is a deliberate stand-in, not a
-// placeholder to be embarrassed about: it tells a shopper at a glance whether
-// they are looking at a cereal or a dish brush.
+// Products with a photo render through ProductThumb.tsx, which falls back to
+// this component. That makes this the empty state, and it is a deliberate
+// one rather than a placeholder to be embarrassed about: an aisle glyph on a
+// tinted square tells a shopper at a glance whether they are looking at a
+// cereal or a dish brush, which a grey box would not.
+//
+// It is also the state for a photo we cannot credit. Open Food Facts images
+// are CC-BY-SA, and ProductThumb refuses to show an image whose source it
+// cannot name — so a missing credit lands here rather than on the page.
 //
 // THE RULE THIS COMPONENT EXISTS TO KEEP
 // Category never takes a status colour. Green means "we checked and the

@@ -12,8 +12,8 @@ import {
   type RecallItem,
   type RecallList,
 } from '@/lib/recalls'
-import { displayName } from '@/lib/productName'
-import { CategoryGlyph } from '@/components/CategoryGlyph'
+import { productDisplayName } from '@/lib/productName'
+import { PhotoCredit, ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 import { Callout, Eyebrow, Monogram, SectionHead, SourceLine } from '@/components/PageParts'
@@ -97,6 +97,9 @@ export default async function CompanyPage({
         category: true,
         categorySource: true,
         productType: true,
+        imageUrl: true,
+        imageSource: true,
+        imageSourceUrl: true,
         certifications: { select: { certificationStatus: true } },
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -319,6 +322,7 @@ export default async function CompanyPage({
           )}
           <Products
             companyName={company.legalName}
+            companyAliases={company.dbaNames}
             products={products}
             total={productCount}
             listed={listedProducts}
@@ -448,17 +452,22 @@ function Brands({
 
 function Products({
   companyName,
+  companyAliases,
   products,
   total,
   listed,
 }: {
   companyName: string
+  companyAliases: string[]
   products: {
     id: string
     name: string
     category: string | null
     categorySource: string | null
     productType: string
+    imageUrl: string | null
+    imageSource: string | null
+    imageSourceUrl: string | null
     certifications: { certificationStatus: string }[]
   }[]
   total: number
@@ -506,7 +515,13 @@ function Products({
                       minWidth: 0,
                     }}
                   >
-                    <CategoryGlyph category={p.category} productType={p.productType} size={40} label={displayName(p.name)} />
+                    <ProductThumb
+                      product={p}
+                      category={p.category}
+                      productType={p.productType}
+                      size={40}
+                      label={productDisplayName(p.name, companyName, companyAliases)}
+                    />
                     <div style={{ flexGrow: 1, minWidth: 0 }}>
                       <div
                         style={{
@@ -519,7 +534,7 @@ function Products({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {displayName(p.name)}
+                        {productDisplayName(p.name, companyName, companyAliases)}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                         {cat.label && (
@@ -551,6 +566,9 @@ function Products({
                 </Link>
               </div>
             )}
+            {/* Attribution for the photographs above — CC-BY-SA, so it is
+                required wherever the images appear. See ProductThumb.tsx. */}
+            <PhotoCredit products={products} />
           </>
         )}
       </div>
