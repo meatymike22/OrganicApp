@@ -43,13 +43,23 @@ export function ProductThumb({
   category,
   productType,
   size = 66,
+  intrinsic = 160,
   label,
   credit = false,
 }: {
   product: ProductImageFields
   category: string | null | undefined
   productType?: string | null
-  size?: number
+  // A number for a fixed square, or a CSS length for one that scales with the
+  // window. The glyph fallback takes the same value, which matters more than
+  // it sounds: well over half our products have no photo, so if the two
+  // disagreed, a list would have thumbnails of two different sizes.
+  size?: number | string
+  // What `next/image` is told to fetch, in pixels. Separate from `size`
+  // because a fluid square has no single pixel width to hand the optimiser,
+  // and because asking for a slightly larger image than the biggest rendered
+  // size is what keeps it sharp on a 2x screen.
+  intrinsic?: number
   label?: string
   // Show the attribution line under the image. Set on the product page; left
   // off in lists, which show one credit for the whole list instead.
@@ -68,8 +78,12 @@ export function ProductThumb({
   const frame = (
     <div
       style={{
-        width: size,
-        height: size,
+        // Sized in em for the same reason as CategoryGlyph: one value drives
+        // the box and the corner radius, and it works whether `size` is a
+        // number or a clamp().
+        fontSize: typeof size === 'number' ? `${size}px` : size,
+        width: '1em',
+        height: '1em',
         flexShrink: 0,
         position: 'relative',
         overflow: 'hidden',
@@ -77,15 +91,15 @@ export function ProductThumb({
         // shot on white, and a tint behind it reads as a coloured card.
         background: '#FFFFFF',
         border: `1px solid ${colors.line}`,
-        borderRadius: Math.max(6, Math.round(size * 0.09)),
+        borderRadius: 'max(6px, 0.09em)',
       }}
     >
       <Image
         src={product.imageUrl}
         alt={label ? `${label} — ${attribution}` : attribution}
         title={attribution}
-        width={size}
-        height={size}
+        width={intrinsic}
+        height={intrinsic}
         // `contain`, never `cover`. A cropped package photo can cut off the
         // very thing a shopper is checking — a certification seal, a flavour,
         // a "no added sugar" claim — and a cropped label is a misleading one.
@@ -93,7 +107,7 @@ export function ProductThumb({
         // These are other people's uploads at unpredictable sizes, and there
         // are 25 of them on a search page. Letting Next optimise them keeps
         // the page weight sane.
-        sizes={`${size}px`}
+        sizes={`${intrinsic}px`}
       />
     </div>
   )
@@ -103,7 +117,7 @@ export function ProductThumb({
   return (
     <div style={{ flexShrink: 0 }}>
       {frame}
-      <div style={{ fontSize: 10.5, lineHeight: 1.35, color: colors.ink4, marginTop: 6, maxWidth: size * 2 }}>
+      <div style={{ fontSize: 10.5, lineHeight: 1.35, color: colors.ink4, marginTop: 6, maxWidth: '18ch' }}>
         Photo:{' '}
         {product.imageSourceUrl ? (
           <a href={product.imageSourceUrl} target="_blank" rel="noopener noreferrer nofollow">

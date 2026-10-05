@@ -164,7 +164,11 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           product={product}
           category={product.category}
           productType={product.productType}
-          size={92}
+          // The one place a product's photograph is shown large, so it gets
+          // the most room — and fluid, so it does not take over a phone.
+          // Same em-based sizing as the search row; see ProductThumb.
+          size="clamp(104px, 12vw, 168px)"
+          intrinsic={256}
           label={title}
           credit
         />

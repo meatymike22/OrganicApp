@@ -187,31 +187,40 @@ export function CategoryGlyph({
 }: {
   category: string | null | undefined
   productType?: string | null
-  size?: number
+  // A number for a fixed square, or any CSS length for one that scales with
+  // the window — "clamp(72px, 8vw, 104px)" and the like.
+  //
+  // WHY THE WHOLE THING IS SIZED IN em. Everything inside scales off the
+  // square's own font-size, so one value sets the box, the icon and the
+  // corner radius together. With a plain pixel number you can multiply; with
+  // clamp() you cannot, and this component has to support both because a
+  // search row wants a fluid thumbnail and a dense list wants a fixed one.
+  size?: number | string
   label?: string
 }) {
   const glyph = pick(category, productType)
-  const icon = Math.round(size * 0.42)
   return (
     <div
       role={label ? 'img' : undefined}
       aria-label={label}
       aria-hidden={label ? undefined : true}
       style={{
-        width: size,
-        height: size,
+        // The square is 1em on a side, so `fontSize` IS the size.
+        fontSize: typeof size === 'number' ? `${size}px` : size,
+        width: '1em',
+        height: '1em',
         flexShrink: 0,
         background: thumbTint[glyph.tint],
         border: `1px solid ${colors.line}`,
-        borderRadius: Math.max(6, Math.round(size * 0.09)),
+        borderRadius: 'max(6px, 0.09em)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       <svg
-        width={icon}
-        height={icon}
+        width="0.42em"
+        height="0.42em"
         viewBox="0 0 24 24"
         fill="none"
         stroke="#B0A894"

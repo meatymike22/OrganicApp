@@ -12,7 +12,10 @@ import { colors, font, layout } from '@/lib/design'
 // (produce, meat, dairy, bakery), then the centre aisles, then the non-food
 // end. Not alphabetical and not the order the database happens to return —
 // a grocery list is a physical route.
-const AISLES: { label: string; q: string; path: React.ReactNode }[] = [
+// Exported so the Search page's start screen can lay the same aisles out as
+// a grid. One list, one order, one set of glyphs — an aisle that reads
+// "Meat & fish" in the bar must not read "Meat" in the grid.
+export const AISLES: { label: string; q: string; path: React.ReactNode }[] = [
   { label: 'Produce', q: 'produce', path: (<><path d="M5 19c0-7.5 5.5-13.5 15-14.5C21 15 14.5 19.5 6.5 19.5H5z" /><path d="M5 19c3.5-3.5 7.5-6.5 11.5-8.5" /></>) },
   { label: 'Meat & fish', q: 'meat', path: (<><path d="M20.5 12c-2.5 3.4-6 5-9 5-4 0-6.5-2.4-8-5 1.5-2.6 4-5 8-5 3 0 6.5 1.6 9 5z" /><path d="M3.5 7.5L6.5 12l-3 4.5" /></>) },
   { label: 'Dairy & eggs', q: 'dairy', path: (<><path d="M7 9.5h10V20a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9.5z" /><path d="M7 9.5L9.5 4h5L17 9.5" /></>) },

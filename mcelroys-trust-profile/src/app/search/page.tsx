@@ -9,7 +9,7 @@ import { getRecallsListingProducts } from '@/lib/recalls'
 import { productDisplayName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
 import { PhotoCredit, ProductThumb } from '@/components/ProductThumb'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AISLES, AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalHeader, SignalStrip, StatusKeyPanel } from '@/components/StatusChip'
 
 export const metadata = { title: 'Search' }
@@ -26,6 +26,19 @@ const SHELL: CSSProperties = {
 
 // How many rows one page of results holds.
 const PAGE_SIZE = 25
+
+// The thumbnail size on a result row.
+//
+// Fluid rather than fixed, for the reason Michael gave: at a flat 66px a
+// package was too small to recognise on a monitor, and anything big enough to
+// read on a monitor is overbearing on a phone, where it would crowd out the
+// name and the chips. clamp() lets the same row serve both — 76px on a phone,
+// growing to 104px once there is room for it.
+//
+// It has to be a CSS string, not a number, which is why ProductThumb and
+// CategoryGlyph both size themselves in em: there is no pixel value here to
+// multiply for the icon or the corner radius.
+const THUMB = 'clamp(76px, 7.5vw, 104px)'
 
 // Everything a result row needs, in one query. Kept as a named constant so
 // the type in productSignals.ts and the query here can't drift apart.
@@ -151,6 +164,32 @@ export default async function SearchPage({
   const aisle = first(sp.aisle)?.trim() || undefined
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
 
+  // NOTHING ASKED FOR YET.
+  //
+  // With no search term and no aisle, the old page answered a question nobody
+  // had asked: here are 416,382 products, alphabetically. That is not a
+  // starting point, it is a data dump — and because it sorts by name, the
+  // first thing anyone saw was the untidiest end of the catalogue.
+  //
+  // So this returns before touching the database. The start screen below is
+  // the whole page, and the default /search is now instant instead of being
+  // the most expensive query on the site.
+  //
+  // Deliberately NOT the same thing as the empty state further down: "you
+  // have not asked yet" and "we looked and found nothing" are different
+  // facts, and this site does not blur those.
+  if (!q && !aisle) {
+    return (
+      <>
+        <TopNav />
+        <AisleBar />
+        <Breadcrumb trail={[{ label: 'Rootify', href: '/' }, { label: 'Products' }]} />
+        <StartHere />
+        <SiteFooter />
+      </>
+    )
+  }
+
   const where = await buildWhere(q, aisle)
 
   const [total, rows] = await Promise.all([
@@ -211,7 +250,7 @@ export default async function SearchPage({
       <Breadcrumb
         trail={[
           { label: 'Rootify', href: '/' },
-          { label: q ? `Search: ${q}` : aisle ? `Aisle: ${aisle}` : 'All products' },
+          { label: q ? `Search: ${q}` : `Aisle: ${aisle}` },
         ]}
       />
 
@@ -226,7 +265,7 @@ export default async function SearchPage({
             letterSpacing: '-0.015em',
           }}
         >
-          {q ? `“${q}”` : aisle ? `${aisle} aisle` : 'Products'}
+          {q ? `“${q}”` : `${aisle} aisle`}
         </h1>
       </div>
 
@@ -272,7 +311,7 @@ export default async function SearchPage({
             <EmptyState q={q} aisle={aisle} />
           ) : (
             <>
-              <SignalHeader />
+              <SignalHeader thumbWidth={THUMB} />
               {results.map(({ product, signals }) => (
                 <ResultRow key={product.id} product={product} signals={signals} />
               ))}
@@ -288,6 +327,180 @@ export default async function SearchPage({
 
       <SiteFooter />
     </>
+  )
+}
+
+// THE START SCREEN — what /search shows before anybody has asked anything.
+//
+// Michael: "Initially there shouldn't be anything showing. The page should be
+// blank with some flair... This is a case ONLY if no filter has been applied."
+//
+// Three real examples and the aisles, because the flair that earns its place
+// on a search page is the kind you can click. Each example is a live query
+// that returns results today — a product type, a brand, and a barcode, which
+// between them show the three different things the bar above accepts.
+const EXAMPLES: { label: string; href: string; note: string }[] = [
+  { label: 'peanut butter', href: '/search?q=peanut+butter', note: 'a kind of food' },
+  { label: 'King Arthur', href: '/search?q=King+Arthur', note: 'a brand' },
+  { label: '0071012075379', href: '/search?q=0071012075379', note: 'a barcode' },
+]
+
+function StartHere() {
+  return (
+    <div
+      style={{
+        ...SHELL,
+        flexGrow: 1,
+        boxSizing: 'border-box',
+        padding: `clamp(28px, 6vw, 64px) clamp(18px, 4vw, ${layout.gutter}px) 48px`,
+      }}
+    >
+      {/* THE ASK. Deliberately a question, not a label: the page's job here is
+          to hand the shopper back the initiative. */}
+      <h1
+        style={{
+          margin: 0,
+          fontFamily: font.display,
+          fontSize: 'clamp(32px, 5.5vw, 54px)',
+          fontWeight: 600,
+          lineHeight: 1.05,
+          letterSpacing: '-0.02em',
+          maxWidth: '16ch',
+        }}
+      >
+        What are you
+        <br />
+        buying?
+        <span style={{ color: colors.link }}>.</span>
+      </h1>
+
+      <p
+        style={{
+          margin: '18px 0 0',
+          fontSize: 'clamp(15px, 1.6vw, 17.5px)',
+          lineHeight: 1.6,
+          color: colors.ink2,
+          maxWidth: '54ch',
+        }}
+      >
+        Type a product, a brand, or a barcode in the bar above. You will get what the public record
+        says — and, just as plainly, what it does not.
+      </p>
+
+      {/* Examples. Real links, real results. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 26 }}>
+        {EXAMPLES.map((e) => (
+          <Link
+            key={e.href}
+            href={e.href}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'baseline',
+              gap: 8,
+              boxSizing: 'border-box',
+              padding: '9px 15px',
+              background: colors.card,
+              border: `1px solid ${colors.line}`,
+              borderRadius: 999,
+              textDecoration: 'none',
+              color: colors.ink,
+              fontSize: 14.5,
+            }}
+          >
+            <span style={{ fontFamily: /^\d+$/.test(e.label) ? font.mono : undefined, fontWeight: 600 }}>
+              {e.label}
+            </span>
+            <span style={{ fontSize: 12, color: colors.ink4 }}>{e.note}</span>
+          </Link>
+        ))}
+      </div>
+
+      <hr
+        style={{
+          border: 0,
+          borderTop: `1px solid ${colors.line}`,
+          margin: 'clamp(30px, 5vw, 52px) 0 0',
+        }}
+      />
+
+      {/* THE AISLES, laid out the way a store is walked — the same list and the
+          same order as the bar at the top of the page, from SiteChrome. */}
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.09em',
+          textTransform: 'uppercase',
+          color: colors.ink3,
+          margin: '26px 0 0',
+        }}
+      >
+        Or walk the aisles
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(146px, 1fr))',
+          gap: 10,
+          marginTop: 14,
+        }}
+      >
+        {AISLES.map((a) => (
+          <Link
+            key={a.q}
+            href={`/search?aisle=${a.q}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 11,
+              boxSizing: 'border-box',
+              padding: '14px 15px',
+              background: colors.card,
+              border: `1px solid ${colors.line}`,
+              borderRadius: layout.radius,
+              textDecoration: 'none',
+              color: colors.ink,
+              fontSize: 14,
+              fontWeight: 600,
+            }}
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#9C9382"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+              aria-hidden
+            >
+              {a.path}
+            </svg>
+            {a.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* One quiet line of method. No counts: a number here would be a boast,
+          and the thing worth saying about Rootify is how a line gets onto a
+          page, not how many there are. */}
+      <p
+        style={{
+          margin: 'clamp(26px, 4vw, 40px) 0 0',
+          fontSize: 13,
+          lineHeight: 1.6,
+          color: colors.ink3,
+          maxWidth: '62ch',
+        }}
+      >
+        Every line on a product page is a public record, shown with the date we read it. Where there
+        is no record, it says so. Where we have not been able to look, it says that instead —{' '}
+        <Link href="/faq">those are different things</Link>.
+      </p>
+    </div>
   )
 }
 
@@ -365,7 +578,7 @@ function ResultRow({
         product={product}
         category={product.category}
         productType={product.productType}
-        size={66}
+        size={THUMB}
         label={title}
       />
 

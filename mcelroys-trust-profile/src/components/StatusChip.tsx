@@ -172,7 +172,7 @@ export function SignalStrip({ signals }: { signals: Signal[] }) {
 // The little column header that sits above a list of rows. Without it, a grey
 // chip in the third slot is only meaningful if you already know the third
 // slot is organic — the header is what makes the column self-describing.
-export function SignalHeader() {
+export function SignalHeader({ thumbWidth = 66 }: { thumbWidth?: number | string }) {
   return (
     <div
       style={{
@@ -186,7 +186,11 @@ export function SignalHeader() {
         padding: '2px 17px 0 23px',
       }}
     >
-      <div style={{ width: 66, flexShrink: 0 }} />
+      {/* A spacer the exact width of the row's thumbnail, so the column
+          labels sit over their chips. It takes the SAME value the thumbnail
+          does — including a clamp() — because a fluid thumbnail with a fixed
+          spacer would drift out of alignment at every window size but one. */}
+      <div style={{ width: thumbWidth, flexShrink: 0 }} />
       <div
         style={{
           flexGrow: 1,

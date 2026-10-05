@@ -67,6 +67,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { StringDecoder } from 'string_decoder'
 import * as zlib from 'zlib'
+import { normalizeUpc } from '@/lib/upc'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 // queryPlanCacheMaxSize: 0 — same reason as bulk-import-off.ts. Every batch
@@ -140,6 +141,7 @@ let matched = 0
 let withImage = 0
 let withoutImage = 0
 let rejectedHost = 0
+let matchedByNormalising = 0
 let batchesWritten = 0
 let batchesFailed = 0
 const fieldUsed = new Map<string, number>()
@@ -367,11 +369,49 @@ function processLine(line: string) {
     if (!code) return
   }
 
-  // Barcodes in our database are normalised (see src/lib/upc.ts). OFF codes
-  // are plain digit strings, so a direct lookup works for the normalised
-  // forms we store; anything that doesn't match simply isn't ours.
-  const id = wanted.get(code) ?? wanted.get(code.replace(/^0+/, '')) ?? wanted.get(code.padStart(13, '0'))
-  if (!id) return
+  // MATCHING A BARCODE TO ONE OF OURS.
+  //
+  // Our Product.upc is not the OFF code — it is the OFF code put through
+  // normalizeUpc (src/lib/upc.ts), which is what bulk-import-off.ts stored.
+  // That function does things no amount of zero-padding will reverse:
+  //
+  //   - an 8-digit UPC-E is EXPANDED to its 12-digit UPC-A and then to 13,
+  //     so OFF's "01234565" is stored as a completely different string;
+  //   - a 14-digit GTIN-14 has its leading zero stripped to 13.
+  //
+  // The first full pass used three hand-rolled variants (exact, strip leading
+  // zeros, pad to 13) instead of the project's own normaliser, and left
+  // 42,053 products unmatched — products that had come FROM this very export.
+  // Reusing normalizeUpc makes the match exact by construction: the same
+  // input through the same function as the import gives the same key.
+  //
+  // The cheap lookups are still tried first, because they catch most rows and
+  // normalizeUpc runs a check-digit loop we would rather not pay 4.8 million
+  // times.
+  let key: string | undefined
+  let id = wanted.get(code)
+  if (id) key = code
+  if (!id) {
+    const padded = code.padStart(13, '0')
+    id = wanted.get(padded)
+    if (id) key = padded
+  }
+  if (!id) {
+    const stripped = code.replace(/^0+/, '')
+    id = wanted.get(stripped)
+    if (id) key = stripped
+  }
+  if (!id) {
+    const n = normalizeUpc(code)
+    if (n.ok) {
+      id = wanted.get(n.upc)
+      if (id) {
+        key = n.upc
+        matchedByNormalising++
+      }
+    }
+  }
+  if (!id || !key) return
 
   if (!p) {
     try {
@@ -431,8 +471,12 @@ function processLine(line: string) {
     sourceUrl: detach(`https://world.openfoodfacts.org/product/${code}`),
   })
 
-  // Found once; never look again in this run.
-  wanted.delete(code)
+  // Found once; never look again in this run. Deleting `key` and not `code`
+  // matters: when the match came from a padded or normalised form, deleting
+  // the raw code removes nothing and the entry sits in the map for the rest
+  // of the run, both wasting work and inflating the "never found" total that
+  // the report ends with.
+  wanted.delete(key)
 }
 
 // Writes the pending batch in ONE statement.
@@ -707,6 +751,7 @@ async function main() {
   log(`  with a usable photo: ${withImage.toLocaleString()}`)
   log(`  no photo on OFF: ${withoutImage.toLocaleString()}`)
   if (rejectedHost > 0) log(`  photo on a host we don't allow (treated as no photo): ${rejectedHost.toLocaleString()}`)
+  log(`Matched only after normalising the barcode (would have been missed before): ${matchedByNormalising.toLocaleString()}`)
   log(`Never found in the export (left as "nobody has looked"): ${wanted.size.toLocaleString()}`)
   log(`Batches ${DRY_RUN ? 'that would be written' : 'written'}: ${batchesWritten}, failed: ${batchesFailed}`)
 
