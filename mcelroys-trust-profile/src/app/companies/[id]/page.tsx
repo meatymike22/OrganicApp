@@ -13,7 +13,7 @@ import {
   type RecallList,
 } from '@/lib/recalls'
 import { productDisplayName } from '@/lib/productName'
-import { PhotoCredit, ProductThumb } from '@/components/ProductThumb'
+import { ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 import { Callout, Eyebrow, Monogram, SectionHead, SourceLine } from '@/components/PageParts'
@@ -566,9 +566,6 @@ function Products({
                 </Link>
               </div>
             )}
-            {/* Attribution for the photographs above — CC-BY-SA, so it is
-                required wherever the images appear. See ProductThumb.tsx. */}
-            <PhotoCredit products={products} />
           </>
         )}
       </div>

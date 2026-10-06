@@ -142,7 +142,10 @@ export function StatusChip({
 // Fixed columns mean the third chip is always the organic answer, whatever it
 // says — which is also why every product gets all five cells even when the
 // answer is "doesn't apply".
-export const SIGNAL_COLUMNS = '118px 118px 118px 118px 1fr'
+// 126px, not 118px: the organic chip now reads "Maker certified" rather than
+// "Organic" (see organicSignal in productSignals.ts), and at 118px that
+// ellipsised. A status chip that truncates is worse than a wide column.
+export const SIGNAL_COLUMNS = '126px 126px 126px 126px 1fr'
 
 export function SignalStrip({ signals }: { signals: Signal[] }) {
   return (

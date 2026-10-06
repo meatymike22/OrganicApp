@@ -4,9 +4,11 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
-import { productDisplayName } from '@/lib/productName'
-import { evidenceNote, getProductRecalls, getRecallsListingProducts, type RecallItem } from '@/lib/recalls'
+import { isShortened, productDisplayName, shortProductName } from '@/lib/productName'
+import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, type RecallGroup } from '@/lib/recalls'
 import { ProductThumb } from '@/components/ProductThumb'
+import { Collapsible } from '@/components/Collapsible'
+import { CopyBarcode } from '@/components/CopyBarcode'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalStrip, StatusChip, StatusLegend } from '@/components/StatusChip'
 
@@ -157,9 +159,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           alignItems: 'flex-start',
         }}
       >
-        {/* `credit` on: this is the one place a product's photograph is
-            shown large, so the CC-BY-SA attribution goes directly under it
-            and links to the source record. */}
+        {/* No `credit` here. The CC-BY-SA attribution moved to this
+            product's sources page (decided 2026-10-06) — a credit under
+            every photo was, in Michael's words, making the layman's eyes
+            sore. The licence is still satisfied: the credit is one click
+            from the image, named and linked, on a page reachable from here.
+            Worth confirming at legal review. */}
         <ProductThumb
           product={product}
           category={product.category}
@@ -170,7 +175,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           size="clamp(104px, 12vw, 168px)"
           intrinsic={256}
           label={title}
-          credit
         />
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <div
@@ -208,28 +212,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               letterSpacing: '-0.015em',
             }}
           >
-            {title}
+            {shortProductName(title)}
           </h1>
 
-          {product.upc && (
-            <div style={{ fontFamily: font.mono, fontSize: 13, color: colors.ink4, marginTop: 6 }}>
-              {product.upc}
+          {/* The stored name in full, whenever the heading is showing less
+              than all of it. This line is what makes shortening safe —
+              nothing is hidden, it is just no longer the first thing you
+              have to read. See shortProductName in productName.ts. */}
+          {isShortened(title) && (
+            <div style={{ fontSize: 13, lineHeight: 1.5, color: colors.ink3, marginTop: 7, maxWidth: '68ch' }}>
+              On the label: {title}
             </div>
           )}
 
-          {/* Open Food Facts' licence asks for a link to the product's own
-              record wherever its data for that product is shown. */}
-          {product.upc && isFromOpenFoodFacts(product) && (
-            <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 4 }}>
-              Product data from{' '}
-              <a
-                href={`https://world.openfoodfacts.org/product/${product.upc}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                this product&apos;s Open Food Facts record
-              </a>{' '}
-              (ODbL)
+          {product.upc && (
+            <div style={{ marginTop: 9 }}>
+              <CopyBarcode value={product.upc} />
             </div>
           )}
 
@@ -239,6 +237,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
           <div style={{ marginTop: 13 }}>
             <StatusLegend />
+          </div>
+
+          {/* WHERE THE SOURCES WENT.
+              Every claim on this page still has a dated primary source and
+              every one is still reachable — they are all on this product's
+              sources page, which is linked from here and from each section.
+              Decided 2026-10-06: a fact checker needs one click, a shopper
+              needs none. What must never happen is a claim about a named
+              company with no route to its record at all. */}
+          <div style={{ fontSize: 13, marginTop: 12 }}>
+            <Link href={`/products/${product.id}/sources`}>Every source and date for this page &rarr;</Link>
           </div>
         </div>
       </div>
@@ -320,10 +329,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           gap: 32,
         }}
       >
+        {/* INGREDIENTS FIRST. Michael: "The ingredients should be shown
+            first before research, recalls, open research, etc." It is also
+            the one section that is about the product itself rather than
+            about its maker's record, and the one a shopper standing in an
+            aisle actually came for. */}
+        <Ingredients ingredients={ingredients} product={product} hasOrder={hasOrder} signal={flagged} />
         <Flagged ingredients={ingredients} signal={flagged} />
         <Recalls recalls={recalls} product={product} />
-        <Certificates product={product} organic={organic} nonGmo={nonGmo} />
-        <Ingredients ingredients={ingredients} product={product} hasOrder={hasOrder} signal={flagged} />
+        <Checks product={product} organic={organic} nonGmo={nonGmo} />
       </div>
 
       <SiteFooter />
@@ -377,36 +391,21 @@ function Callout({ state, children }: { state: keyof typeof status; children: Re
   )
 }
 
-// Every fact on this page carries where it came from and when we read it.
-// This is the component that prints that, so the rule is enforced in one
-// place rather than remembered in twenty.
-function SourceLine({
-  url,
-  label,
-  readAt,
-  reviewedAt,
-}: {
-  url?: string | null
-  label: string
-  readAt?: Date | string | null
-  reviewedAt?: Date | string | null
-}) {
-  const read = isoDate(readAt)
-  const reviewed = isoDate(reviewedAt)
+// Every fact on this page still carries a dated primary source — it is just
+// not printed beside the fact any more. This is the pointer that replaces the
+// old per-line citation: one quiet link per section to the product's sources
+// page, where the URL, the reference number and the date all live.
+//
+// Michael, 2026-10-06: "All of our sources should be somewhere else, where
+// any fact checkers can go look but the layman simply doesn't care."
+//
+// THE LINE THAT CANNOT BE CROSSED: a section may stop PRINTING its sources.
+// It may not stop HAVING them, and it may not be reachable from nowhere. If
+// you add a section to this page, give it one of these.
+function SourceNote({ productId, what }: { productId: string; what: string }) {
   return (
-    <div style={{ fontSize: 11.5, color: colors.ink4, marginTop: 7, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          {label}
-        </a>
-      ) : (
-        <span>{label}</span>
-      )}
-      {read && <span style={{ fontFamily: font.mono }}>read {read}</span>}
-      {/* Whether a person has checked this line against the original
-          document. The absence of a reviewer is itself worth showing — it is
-          the difference between a record and a draft. */}
-      <span>{reviewed ? `checked by a person ${reviewed}` : 'not yet checked by a person'}</span>
+    <div style={{ fontSize: 11.5, color: colors.ink4, marginTop: 10 }}>
+      <Link href={`/products/${productId}/sources`}>{what} &mdash; sources and dates</Link>
     </div>
   )
 }
@@ -496,56 +495,70 @@ function Recalls({
   product,
 }: {
   recalls: Awaited<ReturnType<typeof getProductRecalls>>
-  product: { company: { legalName: string } }
+  product: { id: string; company: { legalName: string } }
 }) {
   if (!recalls) return null
   const { thisProduct, brand, process } = recalls
 
+  // Grouped before counting, so the number in the collapsed header is the
+  // number of recall EVENTS a reader would recognise, not the number of
+  // enforcement records the agency happened to file.
+  const listed = groupRecalls(thisProduct.items)
+  const named = groupRecalls(brand.items)
+  const processed = groupRecalls(process.items)
+  const total = listed.length + named.length + processed.length
+
   return (
-    <section>
-      <SectionHead id="recalls" title="Recalls and government notices" source="FDA, FSIS, CPSC and CBP records" />
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    // Collapsible, and closed by default: Michael asked for it, and on most
+    // products this section is three lines of "nothing on file" that pushes
+    // the ingredients off the screen. The count in the header is what makes
+    // a closed section honest — you can see there is something here without
+    // opening it.
+    <Collapsible
+      id="recalls"
+      title="Recalls and government notices"
+      count={total}
+      note={total === 0 ? 'Nothing on file' : 'FDA, FSIS, CPSC and CBP records'}
+      open={listed.length > 0}
+    >
+      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Group
           heading="Notices that list this product"
           empty="No government notice we hold lists this product."
-          items={thisProduct.items}
-          count={thisProduct.count}
+          groups={listed}
           state="recall"
         />
         <Group
           heading={`Notices naming ${product.company.legalName}, without naming this product`}
           empty={`No notice names ${product.company.legalName} without naming a product.`}
-          items={brand.items}
-          count={brand.count}
+          groups={named}
           state="nothingOnFile"
         />
-        {process.count > 0 && (
+        {processed.length > 0 && (
           <Group
             heading="Notices about how food was made or handled"
             empty=""
-            items={process.items}
-            count={process.count}
+            groups={processed}
             state="unchecked"
             preamble="These name no product, so we cannot tell you whether this one was affected. They are here because they concern the company or its parent."
           />
         )}
       </div>
-    </section>
+      <SourceNote productId={product.id} what="Every notice above" />
+    </Collapsible>
   )
 }
 
 function Group({
   heading,
   empty,
-  items,
-  count,
+  groups,
   state,
   preamble,
 }: {
   heading: string
   empty: string
-  items: RecallItem[]
-  count: number
+  groups: RecallGroup[]
   state: keyof typeof status
   preamble?: string
 }) {
@@ -564,7 +577,7 @@ function Group({
         }}
       >
         <span>{heading}</span>
-        <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink4 }}>{count}</span>
+        <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink4 }}>{groups.length}</span>
         <span style={{ flexGrow: 1, height: 1, background: colors.line }} />
       </div>
 
@@ -574,12 +587,19 @@ function Group({
         </p>
       )}
 
-      {items.length === 0 ? (
+      {groups.length === 0 ? (
         <p style={{ margin: '9px 0 0', fontSize: 13, color: colors.ink3 }}>{empty}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-          {items.map((item) => {
+          {groups.map((g) => {
+            const item = g.lead
             const note = evidenceNote(item)
+            // How many agency records make up this one event. The FDA files
+            // one per affected product line, so a single recall arrives as
+            // sixteen near-identical records (see groupRecalls in
+            // recalls.ts). They are all kept and all citable; they are just
+            // not read out one by one.
+            const extra = g.items.length - 1
             return (
               <div
                 key={item.id}
@@ -597,19 +617,12 @@ function Group({
                     {item.sourceAgency}
                     {item.classification ? ` · ${item.classification}` : ''}
                   </StatusChip>
-                  {item.referenceNumber && (
-                    <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
-                      {item.referenceNumber}
-                    </span>
-                  )}
                   {item.actionDate && (
                     <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
                       {isoDate(item.actionDate)}
                     </span>
                   )}
-                  {item.status && (
-                    <span style={{ fontSize: 12, color: colors.ink3 }}>{item.status}</span>
-                  )}
+                  {item.status && <span style={{ fontSize: 12, color: colors.ink3 }}>{item.status}</span>}
                 </div>
 
                 <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6 }}>{item.reason}</p>
@@ -641,7 +654,14 @@ function Group({
                   </p>
                 )}
 
-                <SourceLine url={item.sourceUrl} label={`${item.sourceAgency} record`} reviewedAt={null} />
+                {/* The one line that replaces fifteen repeated cards. The
+                    reference numbers themselves are on the sources page. */}
+                {extra > 0 && (
+                  <p style={{ margin: '9px 0 0', fontSize: 12.5, color: colors.ink3 }}>
+                    The agency filed {g.items.length} records under this notice, one per affected
+                    product line.
+                  </p>
+                )}
               </div>
             )
           })}
@@ -651,127 +671,116 @@ function Group({
   )
 }
 
-function Certificates({
+// EVERY CHECK WE RUN, AND WHAT IT SAYS — as one table.
+//
+// Replaces a section headed "Verified" that listed only the certificates a
+// product happened to have. Michael: 'Saying simply "Verified" doesn't make
+// sense. It just isn't organic... I think there should simply be a table of
+// all of the potential caveats like "Non-gmo, organic, supply chain
+// disclosed, etc".'
+//
+// He is right, and the table form fixes something the old one got wrong. A
+// list of what we FOUND cannot be read: a product with no rows looks
+// identical whether we checked and found nothing or never looked at all. A
+// table of every check we run, each with its own state, can only be read one
+// way — and it is the three-state rule in its natural shape.
+function Checks({
   product,
   organic,
   nonGmo,
 }: {
   product: {
-    certifications: {
-      id: string
-      certifyingAgency: string
-      certificateNumber: string
-      certificationStatus: string
-      certifiedScopes: string[]
-      lastVerifiedDate: Date | null
-      sourceUrl: string
-      reviewDate: Date | null
-    }[]
-    productCertifications: {
-      id: string
-      scheme: string
-      certifyingBody: string | null
-      certificateNumber: string | null
-      status: string
-      scopeNote: string | null
-      lastVerifiedDate: Date | null
-      sourceUrl: string
-      reviewDate: Date | null
-    }[]
+    id: string
+    ingredientDisclosureStatus: string
+    productCertifications: { id: string; scheme: string; status: string; scopeNote: string | null }[]
   }
   organic: Signal
   nonGmo: Signal
 }) {
-  const nothing = product.certifications.length === 0 && product.productCertifications.length === 0
+  // Any verification scheme we hold that is not the non-GMO one already
+  // shown above — so a scheme nobody anticipated still gets a row rather
+  // than being silently dropped.
+  const otherSchemes = product.productCertifications.filter((c) => !/non-?gmo/i.test(c.scheme))
+
+  // `note` is optional because `Signal.detail` is. Every organic and non-GMO
+  // branch in productSignals.ts does in fact set one today, but the type does
+  // not promise it, and the honest response to a missing note is an empty
+  // column — not a sentence invented here to fill it.
+  const rows: { check: string; state: keyof typeof status; label: string; note?: string }[] = [
+    {
+      check: 'Certified organic',
+      state: organic.state,
+      label: organic.label,
+      note: organic.detail,
+    },
+    {
+      check: 'Non-GMO verified',
+      state: nonGmo.state,
+      label: nonGmo.label,
+      note: nonGmo.detail,
+    },
+    {
+      check: 'Ingredients disclosed',
+      state:
+        product.ingredientDisclosureStatus === 'disclosed'
+          ? 'confirmed'
+          : product.ingredientDisclosureStatus === 'not_disclosed'
+            ? 'nothingOnFile'
+            : 'unchecked',
+      label:
+        product.ingredientDisclosureStatus === 'disclosed'
+          ? 'Published'
+          : product.ingredientDisclosureStatus === 'not_disclosed'
+            ? 'Not on file'
+            : 'Not checked',
+      note:
+        product.ingredientDisclosureStatus === 'disclosed'
+          ? 'A full ingredient list is published and is shown above.'
+          : product.ingredientDisclosureStatus === 'not_disclosed'
+            ? 'No ingredient list was found in any source we check.'
+            : 'We have not looked up an ingredient list for this product yet.',
+    },
+    ...otherSchemes.map((c) => ({
+      check: c.scheme,
+      state: (c.status === 'verified' ? 'confirmed' : 'nothingOnFile') as keyof typeof status,
+      label: c.status === 'verified' ? 'Verified' : 'Not current',
+      note: c.scopeNote ?? `The register for "${c.scheme}" records this product as "${c.status}".`,
+    })),
+  ]
 
   return (
-    <section>
-      <SectionHead id="certificates" title="Verified" source="USDA Organic Integrity Database and the schemes' own registers" />
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {nothing ? (
-          <>
-            <Callout state={organic.state}>{organic.detail}</Callout>
-            {nonGmo.state !== organic.state && <Callout state={nonGmo.state}>{nonGmo.detail}</Callout>}
-          </>
-        ) : (
-          <>
-            {product.certifications.map((c) => (
-              <div key={c.id} style={cardStyle(c.certificationStatus === 'Certified' ? 'confirmed' : 'nothingOnFile')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                  <StatusChip state={c.certificationStatus === 'Certified' ? 'confirmed' : 'nothingOnFile'}>
-                    USDA Organic
-                  </StatusChip>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{c.certificationStatus}</span>
-                  <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
-                    {c.certificateNumber}
-                  </span>
-                </div>
-                <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.6, color: colors.ink2 }}>
-                  Certified by {c.certifyingAgency}.
-                  {/* Scope is the whole point of an organic certificate: it
-                      covers specific products, not a company. */}
-                  {c.certifiedScopes.length > 0 && ` Scope on file: ${c.certifiedScopes.join(', ')}.`}
-                </p>
-                <SourceLine
-                  url={c.sourceUrl}
-                  label="USDA Organic Integrity Database"
-                  readAt={c.lastVerifiedDate}
-                  reviewedAt={c.reviewDate}
-                />
-              </div>
-            ))}
-
-            {product.productCertifications.map((c) => (
-              <div key={c.id} style={cardStyle(c.status === 'verified' ? 'confirmed' : 'nothingOnFile')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-                  <StatusChip state={c.status === 'verified' ? 'confirmed' : 'nothingOnFile'}>
-                    {c.scheme}
-                  </StatusChip>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{c.status}</span>
-                  {c.certificateNumber && (
-                    <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
-                      {c.certificateNumber}
-                    </span>
-                  )}
-                </div>
-                {c.certifyingBody && (
-                  <p style={{ margin: '9px 0 0', fontSize: 13.5, lineHeight: 1.6, color: colors.ink2 }}>
-                    Evaluated by {c.certifyingBody}.
-                  </p>
-                )}
-                {/* The documented limits of the scheme. The schema comment on
-                    scopeNote explains why this matters: a mark can signal far
-                    less than a shopper assumes, and the gap is where people
-                    are most often misled. */}
-                {c.scopeNote && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      boxSizing: 'border-box',
-                      padding: '10px 12px',
-                      background: colors.panel,
-                      borderRadius: 6,
-                      fontSize: 12.5,
-                      lineHeight: 1.55,
-                      color: colors.ink2,
-                    }}
-                  >
-                    <strong style={{ color: colors.ink }}>What this mark covers: </strong>
-                    {c.scopeNote}
-                  </div>
-                )}
-                <SourceLine
-                  url={c.sourceUrl}
-                  label={`${c.scheme} register`}
-                  readAt={c.lastVerifiedDate}
-                  reviewedAt={c.reviewDate}
-                />
-              </div>
-            ))}
-          </>
-        )}
+    <Collapsible
+      id="certificates"
+      title="What we checked"
+      count={rows.length}
+      note="Each row is a check we run, not a score"
+      open
+    >
+      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column' }}>
+        {rows.map((r, i) => (
+          <div
+            key={r.check}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 14,
+              flexWrap: 'wrap',
+              padding: '12px 0',
+              borderTop: i === 0 ? undefined : `1px solid ${colors.line}`,
+            }}
+          >
+            <div style={{ flexBasis: 190, flexShrink: 0, fontSize: 14, fontWeight: 600 }}>{r.check}</div>
+            <div style={{ flexShrink: 0 }}>
+              <StatusChip state={r.state}>{r.label}</StatusChip>
+            </div>
+            <div style={{ flexGrow: 1, flexBasis: 280, minWidth: 0, fontSize: 12.5, lineHeight: 1.55, color: colors.ink3 }}>
+              {r.note ?? ''}
+            </div>
+          </div>
+        ))}
       </div>
-    </section>
+      <SourceNote productId={product.id} what="Every register above" />
+    </Collapsible>
   )
 }
 
@@ -782,7 +791,7 @@ function Ingredients({
   signal,
 }: {
   ingredients: IngredientRows
-  product: { ingredientSource: string | null; ingredientSourceUrl: string | null; ingredientCheckedAt: Date | null; ingredientDisclosureStatus: string }
+  product: { id: string; ingredientSource: string | null; ingredientDisclosureStatus: string }
   hasOrder: boolean
   signal: Signal
 }) {
@@ -839,12 +848,7 @@ function Ingredients({
                 </Link>
               ))}
             </div>
-            <SourceLine
-              url={product.ingredientSourceUrl}
-              label={product.ingredientSource ? `Ingredient list from ${product.ingredientSource}` : 'Ingredient list'}
-              readAt={product.ingredientCheckedAt}
-              reviewedAt={null}
-            />
+            <SourceNote productId={product.id} what="This ingredient list" />
           </>
         )}
       </div>
@@ -852,19 +856,3 @@ function Ingredients({
   )
 }
 
-function cardStyle(state: keyof typeof status): React.CSSProperties {
-  return {
-    boxSizing: 'border-box',
-    padding: '14px 16px',
-    background: colors.card,
-    border: `1px solid ${colors.line}`,
-    borderLeft: `4px solid ${status[state].fg}`,
-    borderRadius: layout.radius,
-  }
-}
-
-// True when any of this product's data came from Open Food Facts: the bulk
-// import, or an ingredient list read from it.
-function isFromOpenFoodFacts(product: { importSource: string | null; ingredientSource: string | null }): boolean {
-  return product.importSource === 'open_food_facts_bulk' || /open[_ ]food[_ ]facts/i.test(product.ingredientSource ?? '')
-}

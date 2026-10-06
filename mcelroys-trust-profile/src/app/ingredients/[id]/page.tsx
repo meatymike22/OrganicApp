@@ -128,7 +128,7 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
         trail={[
           { label: 'Rootify', href: '/' },
           { label: 'Search', href: '/search' },
-          { label: 'Ingredients' },
+          { label: 'Ingredients', href: '/ingredients' },
           { label: capitalize(ingredient.name) },
         ]}
       />

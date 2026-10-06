@@ -2,13 +2,13 @@ import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { colors, font, layout, status } from '@/lib/design'
+import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
 import { productDisplayName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
-import { PhotoCredit, ProductThumb } from '@/components/ProductThumb'
+import { ProductThumb } from '@/components/ProductThumb'
 import { AISLES, AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalHeader, SignalStrip, StatusKeyPanel } from '@/components/StatusChip'
 
@@ -316,10 +316,6 @@ export default async function SearchPage({
                 <ResultRow key={product.id} product={product} signals={signals} />
               ))}
               <Pagination page={page} lastPage={lastPage} q={q} aisle={aisle} />
-              {/* One attribution for every photo on this page. Open Food
-                  Facts images are CC-BY-SA, so the credit is an obligation,
-                  not a courtesy — see ProductThumb.tsx. */}
-              <PhotoCredit products={results.map((r) => r.product)} />
             </>
           )}
         </div>
@@ -335,14 +331,65 @@ export default async function SearchPage({
 // Michael: "Initially there shouldn't be anything showing. The page should be
 // blank with some flair... This is a case ONLY if no filter has been applied."
 //
-// Three real examples and the aisles, because the flair that earns its place
-// on a search page is the kind you can click. Each example is a live query
-// that returns results today — a product type, a brand, and a barcode, which
-// between them show the three different things the bar above accepts.
-const EXAMPLES: { label: string; href: string; note: string }[] = [
-  { label: 'peanut butter', href: '/search?q=peanut+butter', note: 'a kind of food' },
-  { label: 'King Arthur', href: '/search?q=King+Arthur', note: 'a brand' },
-  { label: '0071012075379', href: '/search?q=0071012075379', note: 'a barcode' },
+// Then, on the examples: "make sure to include an image alongside this",
+// "include a barcode picture here as well", and "figure out a way to include
+// this with the brand itself so it looks like a package... put this
+// vertically over or under the brand."
+//
+// So each example is a card with a drawn package above its label. The
+// drawings are inline SVG rather than photographs on purpose: a photograph
+// here would need a licence and a credit, could rot when somebody else's URL
+// moves, and would promise a specific product when the point is the KIND of
+// thing you can type. A jar, a flour sack and a barcode say that with no
+// strings attached — and they speak the same visual language as the aisle
+// glyphs in CategoryGlyph.
+//
+// Each href is a live query that returns results today, and between the three
+// they show the three different things the search bar accepts: a kind of
+// food, a brand, and a barcode.
+const EXAMPLES: { label: string; href: string; note: string; art: React.ReactNode }[] = [
+  {
+    label: 'peanut butter',
+    href: '/search?q=peanut+butter',
+    note: 'a kind of food',
+    // A jar: straight sides, a shoulder, a lid.
+    art: (
+      <>
+        <path d="M17 19h30v26a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V19z" />
+        <path d="M20 15h24v4H20z" />
+        <path d="M26 11h12v4H26z" />
+        <path d="M22 28h20" />
+        <path d="M22 35h13" />
+      </>
+    ),
+  },
+  {
+    label: 'King Arthur',
+    href: '/search?q=King+Arthur',
+    note: 'a brand',
+    // A flour sack: pinched and folded at the top, wider at the base.
+    art: (
+      <>
+        <path d="M21 17c0-2 3-4 11-4s11 2 11 4l3 28a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4l3-28z" />
+        <path d="M21 17c3 2 19 2 22 0" />
+        <path d="M25 29h14" />
+        <path d="M25 36h9" />
+      </>
+    ),
+  },
+  {
+    label: '0071012075379',
+    href: '/search?q=0071012075379',
+    note: 'a barcode',
+    // An actual barcode: varied bar widths, with the quiet margins a real
+    // symbol has.
+    art: (
+      <>
+        <path d="M16 16v26M20 16v26M23 16v22M27 16v26M31 16v22M34 16v26M38 16v26M42 16v22M46 16v26" />
+        <path d="M13 46h38" strokeWidth={1.2} />
+      </>
+    ),
+  },
 ]
 
 function StartHere() {
@@ -387,30 +434,75 @@ function StartHere() {
         says — and, just as plainly, what it does not.
       </p>
 
-      {/* Examples. Real links, real results. */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 26 }}>
+      {/* Examples. Real links, real results, and a drawn package each. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 190px))',
+          gap: 12,
+          marginTop: 26,
+        }}
+      >
         {EXAMPLES.map((e) => (
           <Link
             key={e.href}
             href={e.href}
             style={{
-              display: 'inline-flex',
-              alignItems: 'baseline',
-              gap: 8,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
               boxSizing: 'border-box',
-              padding: '9px 15px',
+              padding: '16px 14px 14px',
               background: colors.card,
               border: `1px solid ${colors.line}`,
-              borderRadius: 999,
+              borderRadius: layout.radius,
               textDecoration: 'none',
               color: colors.ink,
-              fontSize: 14.5,
+              textAlign: 'center',
             }}
           >
-            <span style={{ fontFamily: /^\d+$/.test(e.label) ? font.mono : undefined, fontWeight: 600 }}>
+            {/* The package sits on the same warm tint the thumbnails use, so
+                a card here and a product row later read as one system. */}
+            <span
+              aria-hidden
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 76,
+                height: 76,
+                background: thumbTint.ambient,
+                border: `1px solid ${colors.line}`,
+                borderRadius: 8,
+                marginBottom: 10,
+              }}
+            >
+              <svg
+                width="44"
+                height="44"
+                viewBox="0 0 64 64"
+                fill="none"
+                stroke="#9C9382"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                {e.art}
+              </svg>
+            </span>
+            <span
+              style={{
+                fontFamily: /^\d+$/.test(e.label) ? font.mono : undefined,
+                fontSize: /^\d+$/.test(e.label) ? 12.5 : 14.5,
+                fontWeight: 600,
+                lineHeight: 1.3,
+                wordBreak: /^\d+$/.test(e.label) ? 'break-all' : undefined,
+              }}
+            >
               {e.label}
             </span>
-            <span style={{ fontSize: 12, color: colors.ink4 }}>{e.note}</span>
+            <span style={{ fontSize: 11.5, color: colors.ink4 }}>{e.note}</span>
           </Link>
         ))}
       </div>

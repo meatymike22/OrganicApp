@@ -315,7 +315,11 @@ export function OpenFoodFactsNotice({ style }: { style?: React.CSSProperties }) 
       <a href="https://opendatacommons.org/licenses/dbcl/1-0/" target="_blank" rel="noopener noreferrer">
         Database Contents License
       </a>
-      .
+      . Product photographs come from the same source and are used under{' '}
+      <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener noreferrer">
+        CC BY-SA 3.0
+      </a>
+      ; each product&rsquo;s own sources page names the photograph it uses.
     </p>
   )
 }

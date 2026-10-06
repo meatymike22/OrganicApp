@@ -203,7 +203,21 @@ export function organicSignal(p: ProductForSignals): Signal {
     return {
       column: 'organic',
       state: 'confirmed',
-      label: 'Organic',
+      // NOT "Organic". The USDA Organic Integrity Database is a register of
+      // certified OPERATIONS, not of retail products, and this row was
+      // created by matching the product's COMPANY to an operation in that
+      // register. Calling the product organic on that basis produced at
+      // least two false statements in the live data — Campbell Soup Supply
+      // Co.'s "Chicken Broth Low Sodium" and Kellanova's "Twisted Fruit
+      // Bites" both wore a green "Organic" chip purely because their makers
+      // hold handler certificates.
+      //
+      // "Maker certified" is the most this record supports. Decided
+      // 2026-10-06; the alternative was to drop the row to "Not on file"
+      // entirely, which is stricter but empties the column the organic MVP
+      // was built around. A product-level source (the Non-GMO Project sheet
+      // is per-barcode) is the real answer and is still to come.
+      label: 'Maker certified',
       // WHAT THIS ROW ACTUALLY IS, and why the wording is careful.
       //
       // The USDA Organic Integrity Database is a register of certified

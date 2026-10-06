@@ -155,3 +155,72 @@ export function productDisplayName(
 
   return cleaned
 }
+
+// ------------------------------------------------- a name you can take in
+
+// HOW LONG A NAME HAS TO BE before it is worth shortening, and how far in a
+// cut is allowed to land. Both thresholds exist to stop this firing on names
+// that are already fine: "Milk, 2%" must stay "Milk, 2%", because "Milk" is
+// a worse answer than the thing it replaced.
+const LONG_ENOUGH_TO_SHORTEN = 44
+const EARLIEST_CUT = 12
+
+// Where a product name stops being the name and starts being the spec list.
+// A comma, a semicolon or an opening bracket — the places a label author
+// stopped naming the thing and started enumerating it.
+const SPEC_LIST_STARTS = /[,;(–—]|\s-\s/
+
+// The name for a heading, when the stored one is a paragraph.
+//
+// Michael's case: "50-50 baby spinach, baby lettuce, baby greens, radicchio".
+// All of that is on the package and all of it is worth keeping, but as an
+// <h1> it is a wall. Think like a layman: too much unneeded text and they
+// stop reading. So the heading gets "50-50 baby spinach" and the full name
+// goes on a quieter line underneath.
+//
+// THE RULE THAT MAKES THIS SAFE: this never appears alone. Every caller that
+// shortens a name must also show `name` in full nearby — see the product
+// page header. A cut at the first comma is a decent guess and sometimes a
+// poor one ("divinely decadent, silky & rich brownies baking mix" loses the
+// part that says what it is), and that is tolerable ONLY because nothing is
+// actually hidden. Shorten without showing the full name and this becomes
+// Rootify deciding what a product is called, which is not ours to decide.
+// The longest a heading may be after shortening. A cut at the first comma is
+// not always enough: "Buffalo-style chicken fully cooked breaded spicy
+// chicken breast patty on a corn-dusted bun sandwich, buffalo-style chicken"
+// has its first comma 98 characters in, and a 98-character heading is the
+// wall we were trying to avoid. Names with no comma at all can be just as
+// long. So there is a ceiling as well as a cut.
+const MAX_HEADING = 56
+
+// Trims to at most MAX_HEADING, at a word boundary, never mid-word.
+function toCeiling(text: string): string {
+  if (text.length <= MAX_HEADING) return text
+  const clipped = text.slice(0, MAX_HEADING)
+  const lastSpace = clipped.lastIndexOf(' ')
+  const head = (lastSpace > EARLIEST_CUT ? clipped.slice(0, lastSpace) : clipped).replace(
+    /[\s,;:.\-–—&/]+$/,
+    ''
+  )
+  return head.length >= EARLIEST_CUT ? head : text
+}
+
+export function shortProductName(name: string): string {
+  const full = name.trim()
+  if (full.length <= LONG_ENOUGH_TO_SHORTEN) return full
+
+  const m = SPEC_LIST_STARTS.exec(full)
+  if (m && m.index >= EARLIEST_CUT) {
+    const head = full.slice(0, m.index).replace(/[\s,;:.\-–—]+$/, '').trim()
+    if (head.length >= EARLIEST_CUT) return toCeiling(head)
+  }
+
+  // No usable spec-list break — a long name that is simply long.
+  return toCeiling(full)
+}
+
+// True when the heading is showing less than the stored name, so a caller
+// knows it owes the reader the full version.
+export function isShortened(name: string): boolean {
+  return shortProductName(name) !== name.trim()
+}

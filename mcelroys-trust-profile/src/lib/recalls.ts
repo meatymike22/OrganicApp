@@ -212,3 +212,69 @@ export async function getProductRecalls(productId: string, limit?: number) {
   await Promise.all([attachLinks(thisProduct.items, product.companyId), attachLinks(brand.items, product.companyId)])
   return { thisProduct, brand, process, family }
 }
+
+// ---------------------------------------------- one notice, said once
+
+// GROUPING THE SAME RECALL EVENT.
+//
+// The FDA enforcement database issues ONE RECORD PER AFFECTED PRODUCT LINE.
+// Dole's wash-system recall of 2022-11-28 is sixteen records — F-0229-2023
+// through F-0244-2023 — identical in agency, date, classification and
+// reason, differing only in which product each one lists. The 2024 Listeria
+// recall is five more. Rendered one-per-row, a product page repeats the same
+// sentence sixteen times, which is exactly the overwhelm Michael flagged:
+// "I know the same recall covered multiple products, but this display needs
+// to be better."
+//
+// WHY THIS IS NOT A DATA CLEANUP. Each reference number is a real, separately
+// citable government record. Merging or deleting them in the database would
+// destroy the citation, and the citation is the whole basis on which Rootify
+// says anything about a named company. So every reference number is kept and
+// every one stays reachable — they are listed on the product's sources page.
+// Only the DISPLAY collapses them.
+//
+// The grouping key is deliberately conservative: same agency, same date, same
+// classification, same reason text. Two genuinely different recalls that
+// happen to share all four are indistinguishable to a reader anyway, and a
+// difference in any one of them keeps them apart.
+export type RecallGroup = {
+  // The record shown as the group's representative: the first, which is the
+  // newest since the list arrives sorted.
+  lead: RecallItem
+  // Every record in the group, including the lead. Length 1 is the normal case.
+  items: RecallItem[]
+  // The reference numbers, in the order the records came.
+  references: string[]
+}
+
+function groupKey(a: RecallItem): string {
+  return [
+    a.sourceAgency ?? '',
+    a.actionDate ? a.actionDate.toISOString().slice(0, 10) : '',
+    a.classification ?? '',
+    (a.reason ?? '').trim().toLowerCase(),
+  ].join('\u0000')
+}
+
+export function groupRecalls(items: RecallItem[]): RecallGroup[] {
+  const byKey = new Map<string, RecallGroup>()
+  const order: string[] = []
+
+  for (const item of items) {
+    const key = groupKey(item)
+    const existing = byKey.get(key)
+    if (existing) {
+      existing.items.push(item)
+      if (item.referenceNumber) existing.references.push(item.referenceNumber)
+    } else {
+      byKey.set(key, {
+        lead: item,
+        items: [item],
+        references: item.referenceNumber ? [item.referenceNumber] : [],
+      })
+      order.push(key)
+    }
+  }
+
+  return order.map((k) => byKey.get(k)!)
+}
