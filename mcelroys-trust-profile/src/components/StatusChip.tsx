@@ -231,39 +231,59 @@ export function SignalHeader({ thumbWidth = 66 }: { thumbWidth?: number | string
 // blur: "Not on file" means we looked and the record is empty, "Unknown"
 // means we could not look. Collapsing those turns a gap in our data into a
 // claim about the company.
-export const STATUS_MEANINGS: { state: StatusKey; term: string; note: string }[] = [
+// WHAT EACH COLOUR MEANS, in as few words as will carry it.
+//
+// Michael, 2026-10-07: "The descriptions of each color needs to be much more
+// concise." The notes had grown into sentences, and a key made of sentences
+// is not a key — you read it once and then stop looking at it, which is the
+// opposite of what a standing panel is for.
+//
+// So `note` is now a phrase, and the full sentence moved to `title`, which
+// the panel puts on hover. The precise meaning is one hover away and the
+// scannable version is the one on screen.
+//
+// The wording of `unchecked` is the one to leave alone. It covers two facts —
+// nobody looked, and nothing was published to look at — and any phrasing that
+// picks one of them turns a gap in our data into a claim about a company.
+export const STATUS_MEANINGS: { state: StatusKey; term: string; note: string; title: string }[] = [
   {
     state: 'confirmed',
     term: 'Confirmed',
-    note: 'We checked the public record and it confirms this.',
+    note: 'The record says so',
+    title: 'We checked the public record and it confirms this.',
   },
   {
     state: 'nothingOnFile',
     term: 'Not on file',
-    note: 'We checked and found no record. Not a mark against the product.',
+    note: 'We looked, found nothing',
+    title: 'We checked and found no record. Not a mark against the product.',
   },
   {
     state: 'openResearch',
     term: 'Flagged',
-    note: 'There is open or conflicting research on file. Worth reading, not a verdict.',
+    note: 'Worth reading about',
+    title: 'There is open or conflicting research on file. Worth reading, not a verdict.',
   },
   {
     state: 'recall',
     term: 'Recalls',
-    note: 'A government recall notice is on the public record.',
+    note: 'A notice exists',
+    title: 'A government recall notice is on the public record.',
   },
   {
     state: 'unchecked',
     term: 'Unknown',
-    note: 'We could not check, or nothing was published for us to read. This says nothing about the product.',
+    note: 'We could not check',
+    title:
+      'We could not check, or nothing was published for us to read. This says nothing about the product.',
   },
 ]
 
 // THE SIDE KEY. A standing panel in the rail, so the meanings are on screen
 // the whole time a shopper is scrolling rows rather than scrolled off the top.
 //
-// Both the term and its explanation are set in the status colour, which is
-// what makes the panel readable as a key rather than as five paragraphs. It
+// Both the term and its phrase are set in the status colour, which is what
+// makes the panel readable as a key rather than as five paragraphs. It
 // sits on the white card and not the warm panel on purpose: on `colors.panel`
 // the clay drops to a 4.41 contrast ratio and the grey to 4.58, and on white
 // the worst of the five is 5.21 — all above the 4.5 threshold.
@@ -272,7 +292,7 @@ export function StatusKeyPanel() {
     <div
       style={{
         boxSizing: 'border-box',
-        padding: '14px 15px',
+        padding: '13px 15px',
         background: colors.card,
         border: `1px solid ${colors.line}`,
         borderRadius: layout.radius,
@@ -290,48 +310,50 @@ export function StatusKeyPanel() {
         What the colors mean
       </div>
 
-      <dl style={{ margin: '11px 0 0', display: 'flex', flexDirection: 'column', gap: 11 }}>
+      {/* ONE LINE PER COLOUR: swatch, term, phrase. It used to be a term on
+          one line and a sentence indented under it — five stacked paragraphs,
+          which is a thing you read once and then ignore. A key has to stay
+          scannable at a glance or it stops being consulted at all.
+
+          The full sentence is on `title`, so the precise meaning is a hover
+          away. Nothing was removed; it stopped being in the way. */}
+      <dl style={{ margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 7 }}>
         {STATUS_MEANINGS.map((e) => (
-          <div key={e.state}>
-            <dt
+          <div
+            key={e.state}
+            title={e.title}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 7,
+              flexWrap: 'wrap',
+              fontSize: 12.5,
+              lineHeight: 1.35,
+              color: status[e.state].fg,
+            }}
+          >
+            <span
+              aria-hidden
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 7,
-                fontSize: 12.5,
-                fontWeight: 700,
-                color: status[e.state].fg,
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                background: status[e.state].fg,
+                flexShrink: 0,
+                // Nudged down so a square sits on the text baseline rather
+                // than hanging off the cap height.
+                transform: 'translateY(1px)',
               }}
-            >
-              <span
-                aria-hidden
-                style={{
-                  width: 11,
-                  height: 11,
-                  borderRadius: 3,
-                  background: status[e.state].fg,
-                  flexShrink: 0,
-                }}
-              />
-              {e.term}
-            </dt>
-            <dd
-              style={{
-                margin: '3px 0 0 18px',
-                fontSize: 12,
-                lineHeight: 1.45,
-                color: status[e.state].fg,
-              }}
-            >
-              {e.note}
-            </dd>
+            />
+            <dt style={{ fontWeight: 700 }}>{e.term}</dt>
+            <dd style={{ margin: 0, opacity: 0.85 }}>{e.note}</dd>
           </div>
         ))}
       </dl>
 
-      <p style={{ margin: '12px 0 0', fontSize: 11.5, lineHeight: 1.45, color: colors.ink4 }}>
-        Colors are not a grading system. They say what the record says, not
-        whether a product is good.
+      <p style={{ margin: '11px 0 0', fontSize: 11.5, lineHeight: 1.45, color: colors.ink4 }}>
+        Not a grading system. These say what the record says, not whether a
+        product is good.
       </p>
     </div>
   )
@@ -355,7 +377,7 @@ export function StatusLegend() {
       {STATUS_MEANINGS.map((e) => (
         <span
           key={e.state}
-          title={e.note}
+          title={e.title}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
           <span
@@ -373,5 +395,105 @@ export function StatusLegend() {
       ))}
       <span style={{ color: colors.ink4 }}>Colors are not a grading system.</span>
     </div>
+  )
+}
+
+// WHAT THE RECORD SAYS — the product page's signal table.
+//
+// Michael, 2026-10-07: "how are they supposed to know what isn't on file
+// here? Nothing is labeled. There should be an aesthetic table for the layman
+// so they can understand what all of this is."
+//
+// It replaces two things that used to sit on the product page: a bare
+// `SignalStrip` of chips with no labels, and a row of `SignalTile`s below the
+// hero showing the same five signals again. Two copies of one fact, the
+// unlabelled one first.
+//
+// THREE RULES THIS TABLE EXISTS TO ENFORCE:
+//
+//   1. Every row names its question. A chip reading "Not on file" is unusable
+//      on its own — not on file about WHAT?
+//   2. Every row shows its state in words AND colour, never colour alone. The
+//      colour is the glance; the words are the answer.
+//   3. A row is present even when there is nothing on file. A missing row
+//      would make "we checked and found nothing" indistinguishable from "we
+//      never asked", which is the one distinction this site is built on.
+//
+// Rows link to the section that answers them, so the table is also the page's
+// table of contents and its order has to match the section order.
+export function SignalTable({
+  rows,
+}: {
+  rows: { question: string; signal: Signal; href?: string }[]
+}) {
+  return (
+    <dl
+      style={{
+        margin: 0,
+        boxSizing: 'border-box',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderRadius: layout.radius,
+        overflow: 'hidden',
+        maxWidth: 620,
+      }}
+    >
+      {rows.map((row, i) => {
+        const body = (
+          <>
+            <dt
+              style={{
+                flexBasis: 150,
+                flexShrink: 0,
+                fontSize: 13,
+                fontWeight: 600,
+                color: colors.ink,
+              }}
+            >
+              {row.question}
+            </dt>
+            <dd style={{ margin: 0, flexShrink: 0 }}>
+              <StatusChip state={row.signal.state}>{row.signal.label}</StatusChip>
+            </dd>
+            {/* The one-line reason, which is where "not on file" stops being
+                a verdict and becomes a statement about a register. */}
+            <dd
+              style={{
+                margin: 0,
+                flexGrow: 1,
+                flexBasis: 220,
+                minWidth: 0,
+                fontSize: 12,
+                lineHeight: 1.45,
+                color: colors.ink3,
+              }}
+            >
+              {row.signal.detail ?? ''}
+            </dd>
+          </>
+        )
+
+        const style: React.CSSProperties = {
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 12,
+          flexWrap: 'wrap',
+          padding: '10px 14px',
+          borderTop: i === 0 ? undefined : `1px solid ${colors.line}`,
+          textDecoration: 'none',
+          color: 'inherit',
+        }
+
+        return row.href ? (
+          <Link key={row.question} href={row.href} style={style}>
+            {body}
+          </Link>
+        ) : (
+          <div key={row.question} style={style}>
+            {body}
+          </div>
+        )
+      })}
+    </dl>
   )
 }

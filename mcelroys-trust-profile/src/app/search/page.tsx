@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
-import { mostToReadAbout, productSignals, type ProductForSignals } from '@/lib/productSignals'
+import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
@@ -196,62 +196,31 @@ async function buildWhere(
   return { AND: and }
 }
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  // In Next.js 15+ the query string arrives as a Promise and has to be
-  // awaited before it can be read — same as `params` on the company page.
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const sp = await searchParams
-  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
-  const q = first(sp.q)?.trim() || undefined
-  const aisle = first(sp.aisle)?.trim() || undefined
-  const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
-  const per = resolvePageSize(first(sp.per))
-  const filters = parseIngredientFilters(first(sp.free), first(sp.without))
-
-  // NOTHING ASKED FOR YET.
-  //
-  // With no search term and no aisle, the old page answered a question nobody
-  // had asked: here are 416,382 products, alphabetically. That is not a
-  // starting point, it is a data dump — and because it sorts by name, the
-  // first thing anyone saw was the untidiest end of the catalogue.
-  //
-  // So this returns before touching the database. The start screen below is
-  // the whole page, and the default /search is now instant instead of being
-  // the most expensive query on the site.
-  //
-  // Deliberately NOT the same thing as the empty state further down: "you
-  // have not asked yet" and "we looked and found nothing" are different
-  // facts, and this site does not blur those.
-  // An ingredient filter on its own IS a question, so it does not get the
-  // start screen — "show me anything without seed oils" is a request for
-  // results, not an empty prompt.
-  if (!q && !aisle && !hasAnyFilter(filters)) {
-    return (
-      <>
-        <TopNav />
-        <AisleBar />
-        <Breadcrumb trail={[{ label: 'Rootify', href: '/' }, { label: 'Products' }]} />
-        <StartHere />
-        <SiteFooter />
-      </>
-    )
-  }
-
+// LOADING A PAGE OF RESULTS.
+//
+// Extracted from the page component so the default /search can simply not
+// call it. That is the whole mechanism behind "the landing page does not
+// touch the database": not a flag, not a short-circuit inside the query, just
+// an await that never happens.
+async function loadResults(
+  q: string | undefined,
+  aisle: string | undefined,
+  filters: IngredientFilterState,
+  page: number,
+  per: number
+) {
   const where = await buildWhere(q, aisle, filters)
 
   // THE COUNT IS SKIPPED WHEN AN INGREDIENT FILTER IS ON.
   //
-  // A page of filtered results is cheap because the anti-join stops once
-  // it has enough rows (111 ms with two filters, 852 ms with all six).
-  // An exact COUNT cannot stop: it has to decide all 416,382 products,
-  // which measured at 5.3 s. So a filtered list fetches one row more than
-  // it shows and uses that to know whether there is a next page, and says
-  // nothing about a total. Saying nothing is the only honest cheap option
-  // — an estimate printed as a count would be the first false number on
-  // the site. See needsExactCount in ingredientFilters.ts.
+  // A page of filtered results is cheap because the anti-join stops once it
+  // has enough rows (111 ms with two filters, 852 ms with all six). An exact
+  // COUNT cannot stop: it has to decide all 416,382 products, which measured
+  // at 5.3 s. So a filtered list fetches one row more than it shows and uses
+  // that to know whether there is a next page, and says nothing about a
+  // total. Saying nothing is the only honest cheap option — an estimate
+  // printed as a count would be the first false number on the site. See
+  // needsExactCount in ingredientFilters.ts.
   const exact = needsExactCount(filters)
 
   const [total, rows] = await Promise.all([
@@ -288,9 +257,9 @@ export default async function SearchPage({
   // One query for the whole page rather than one per row.
   const listedRecalls = await getRecallsListingProducts(pageRows.map((r) => r.id))
 
-  // Work out the five signals per row, then order the page by how much there
-  // is to read. The sort happens here rather than in SQL because the states
-  // are derived from several tables at once — see productSignals.ts.
+  // Work out the signals per row, then order the page by how much there is to
+  // read. The sort happens here rather than in SQL because the states are
+  // derived from several tables at once — see productSignals.ts.
   const results = pageRows
     .map((r) => ({
       product: r,
@@ -298,19 +267,74 @@ export default async function SearchPage({
     }))
     .sort((a, b) => mostToReadAbout(a.signals, b.signals))
 
-  // The counts above the list. Derived from the rows on screen, so the
-  // wording says "on this page" and cannot overstate what it covers.
+  return { total, hasMore, results }
+}
+
+type Loaded = Awaited<ReturnType<typeof loadResults>>
+
+// Count rows on this page whose signals match. Zero when nothing was loaded,
+// which keeps the tally code free of null checks at every call site.
+function countWhere(loaded: Loaded | null, pred: (signals: Signal[]) => boolean): number {
+  if (!loaded) return 0
+  return loaded.results.filter((r) => pred(r.signals)).length
+}
+
+export default async function SearchPage({
+  searchParams,
+}: {
+  // In Next.js 15+ the query string arrives as a Promise and has to be
+  // awaited before it can be read — same as `params` on the company page.
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const sp = await searchParams
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
+  const q = first(sp.q)?.trim() || undefined
+  const aisle = first(sp.aisle)?.trim() || undefined
+  const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
+  const per = resolvePageSize(first(sp.per))
+  const filters = parseIngredientFilters(first(sp.free), first(sp.without))
+
+  // HAS ANYTHING BEEN ASKED YET?
+  //
+  // A search term, an aisle, or an ingredient filter all count. "Show me
+  // anything without seed oils" is a question even with no words typed.
+  const asking = Boolean(q || aisle || hasAnyFilter(filters))
+
+  // THE DEFAULT PAGE IS THIS PAGE, not a separate one.
+  //
+  // Michael, 2026-10-07: "we want this page to instead be the product search
+  // page but with no product objects viewable... the search landing page
+  // should look similar to the search page when a filter has been applied."
+  //
+  // It used to be a wholly separate full-bleed layout (`StartHere`) with its
+  // own header and no rail, so arriving at /search and then searching changed
+  // the furniture under you — different heading, filters appearing from
+  // nowhere, colour key appearing from nowhere. Now there is one layout: same
+  // chrome, same rail, same filters, and the prompt sits exactly where the
+  // product rows will be.
+  //
+  // It still does NOT touch the database when nothing has been asked, which
+  // is the thing worth protecting here: the default /search was once the most
+  // expensive query on the site, and `loadResults` is simply not called.
+  const loaded = asking ? await loadResults(q, aisle, filters, page, per) : null
+
+  // Derived from the rows on screen, so the wording cannot overstate what it
+  // covers. Empty when nothing has been asked.
   const tally = {
-    recall: results.filter((r) => r.signals.some((s) => s.state === 'recall')).length,
-    flagged: results.filter((r) => r.signals.some((s) => s.state === 'openResearch')).length,
-    clean: results.filter(
-      (r) => r.signals.filter((s) => s.column !== 'owner').every((s) => s.state === 'confirmed' || s.state === 'notApplicable')
-    ).length,
-    unchecked: results.filter((r) => r.signals.some((s) => s.state === 'unchecked')).length,
+    recall: countWhere(loaded, (s) => s.some((x) => x.state === 'recall')),
+    flagged: countWhere(loaded, (s) => s.some((x) => x.state === 'openResearch')),
+    clean: countWhere(loaded, (s) =>
+      s.filter((x) => x.column !== 'owner').every((x) => x.state === 'confirmed' || x.state === 'notApplicable')
+    ),
+    unchecked: countWhere(loaded, (s) => s.some((x) => x.state === 'unchecked')),
   }
 
   // Null when there is no exact count; the pager then goes by hasMore.
-  const lastPage = total === null ? null : Math.max(1, Math.ceil(total / per))
+  const lastPage =
+    loaded === null || loaded.total === null ? null : Math.max(1, Math.ceil(loaded.total / per))
+
+  // The two example photographs, looked up only on the page that shows them.
+  const photos = loaded === null ? await exampleProducts() : null
 
   return (
     <>
@@ -319,11 +343,12 @@ export default async function SearchPage({
       <Breadcrumb
         trail={[
           { label: 'Rootify', href: '/' },
-          { label: q ? `Search: ${q}` : `Aisle: ${aisleLabel(aisle)}` },
+          { label: q ? `Search: ${q}` : aisle ? `Aisle: ${aisleLabel(aisle)}` : 'Products' },
         ]}
       />
 
-      {/* PAGE HEADER */}
+      {/* PAGE HEADER. Same furniture whether or not anything has been asked,
+          so searching does not rearrange the page under the reader. */}
       <div style={{ ...SHELL, boxSizing: 'border-box', padding: `22px clamp(18px, 4vw, ${layout.gutter}px) 0` }}>
         <h1
           style={{
@@ -334,7 +359,7 @@ export default async function SearchPage({
             letterSpacing: '-0.015em',
           }}
         >
-          {q ? `“${q}”` : `${aisleLabel(aisle)}`}
+          {q ? `“${q}”` : aisle ? aisleLabel(aisle) : 'Products'}
         </h1>
       </div>
 
@@ -353,55 +378,69 @@ export default async function SearchPage({
         <FilterRail q={q} aisle={aisle} per={per} filters={filters} />
 
         <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* The count strip. Each number is a link-free statement of fact
-              about the rows below it. */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '6px 14px',
-              fontSize: 12.5,
-              color: colors.ink2,
-            }}
-          >
-            {/* "of 416,382" only when we actually counted. With an
-                ingredient filter on there is no total (see `exact` above),
-                and the line says what it knows instead of estimating. */}
-            <span>
-              Showing{' '}
-              <strong style={{ color: colors.ink, fontWeight: 600 }}>{results.length}</strong>
-              {total !== null && (
-                <>
-                  {' '}
-                  of <span style={{ fontFamily: font.mono }}>{total.toLocaleString()}</span>
-                </>
-              )}
-            </span>
-            {tally.recall > 0 && <Tally color={status.recall.fg} text={`${tally.recall} with a recall`} />}
-            {tally.flagged > 0 && <Tally color={status.openResearch.fg} text={`${tally.flagged} with flagged ingredients`} />}
-            {tally.clean > 0 && <Tally color={status.confirmed.fg} text={`${tally.clean} confirmed with nothing flagged`} />}
-            {tally.unchecked > 0 && <Tally color={status.unchecked.fg} text={`${tally.unchecked} we couldn't check`} />}
-          </div>
-
-          {results.length === 0 ? (
-            <EmptyState q={q} aisle={aisle} filtered={hasAnyFilter(filters)} />
+          {loaded === null ? (
+            // Nothing asked yet. Sits exactly where the rows go, so the page
+            // does not change shape when the first search happens.
+            <NothingAskedYet photos={photos!} />
           ) : (
             <>
-              <SignalHeader thumbWidth={THUMB} />
-              {results.map(({ product, signals }) => (
-                <ResultRow key={product.id} product={product} signals={signals} />
-              ))}
-              <Pagination
-                page={page}
-                lastPage={lastPage}
-                hasMore={hasMore}
-                q={q}
-                aisle={aisle}
-                per={per}
-                total={total}
-                filters={filters}
-              />
+              {/* The count strip. Each number is a link-free statement of
+                  fact about the rows below it. */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '6px 14px',
+                  fontSize: 12.5,
+                  color: colors.ink2,
+                }}
+              >
+                {/* "of 416,382" only when we actually counted. With an
+                    ingredient filter on there is no total, and the line says
+                    what it knows instead of estimating. */}
+                <span>
+                  Showing{' '}
+                  <strong style={{ color: colors.ink, fontWeight: 600 }}>{loaded.results.length}</strong>
+                  {loaded.total !== null && (
+                    <>
+                      {' '}
+                      of <span style={{ fontFamily: font.mono }}>{loaded.total.toLocaleString()}</span>
+                    </>
+                  )}
+                </span>
+                {tally.recall > 0 && <Tally color={status.recall.fg} text={`${tally.recall} with a recall`} />}
+                {tally.flagged > 0 && (
+                  <Tally color={status.openResearch.fg} text={`${tally.flagged} with flagged ingredients`} />
+                )}
+                {tally.clean > 0 && (
+                  <Tally color={status.confirmed.fg} text={`${tally.clean} confirmed with nothing flagged`} />
+                )}
+                {tally.unchecked > 0 && (
+                  <Tally color={status.unchecked.fg} text={`${tally.unchecked} we couldn't check`} />
+                )}
+              </div>
+
+              {loaded.results.length === 0 ? (
+                <EmptyState q={q} aisle={aisle} filtered={hasAnyFilter(filters)} />
+              ) : (
+                <>
+                  <SignalHeader thumbWidth={THUMB} />
+                  {loaded.results.map(({ product, signals }) => (
+                    <ResultRow key={product.id} product={product} signals={signals} />
+                  ))}
+                  <Pagination
+                    page={page}
+                    lastPage={lastPage}
+                    hasMore={loaded.hasMore}
+                    q={q}
+                    aisle={aisle}
+                    per={per}
+                    total={loaded.total}
+                    filters={filters}
+                  />
+                </>
+              )}
             </>
           )}
         </div>
@@ -523,51 +562,44 @@ type ExampleProduct = {
   imageSourceUrl: string | null
 }
 
-// The start screen. Async only because of the two example photographs; the
-// lookup is two rows on a unique index, which keeps the promise made when
-// this page stopped running the catalogue query by default.
-async function StartHere() {
-  const photos = await exampleProducts()
-
+// NOTHING ASKED YET — what sits where the product rows go, before anybody
+// has searched.
+//
+// This was a separate full-bleed page (`StartHere`) with its own oversized
+// heading and no filter rail. Michael, 2026-10-07: "we want this page to
+// instead be the product search page but with no product objects
+// viewable... the search landing page should look similar to the search page
+// when a filter has been applied."
+//
+// So it is now a block inside the results column. The page furniture — nav,
+// aisle bar, breadcrumb, heading, colour key, filters — is identical before
+// and after the first search, and only this block is replaced by rows. The
+// heading dropped from 54px to a column-sized 30px for the same reason: it is
+// no longer the page, it is the top of one column.
+//
+// The database is still untouched when this renders: the caller does not call
+// `loadResults` at all.
+function NothingAskedYet({ photos }: { photos: Map<string, ExampleProduct> }) {
   return (
-    <div
-      style={{
-        ...SHELL,
-        flexGrow: 1,
-        boxSizing: 'border-box',
-        padding: `clamp(28px, 6vw, 64px) clamp(18px, 4vw, ${layout.gutter}px) 48px`,
-      }}
-    >
-      {/* THE ASK. Deliberately a question, not a label: the page's job here is
-          to hand the shopper back the initiative. */}
-      <h1
+    <div style={{ paddingBottom: 40 }}>
+      {/* THE ASK. Deliberately a question, not a label: the job here is to
+          hand the shopper back the initiative. */}
+      <h2
         style={{
           margin: 0,
           fontFamily: font.display,
-          fontSize: 'clamp(32px, 5.5vw, 54px)',
+          fontSize: 'clamp(24px, 3.2vw, 30px)',
           fontWeight: 600,
-          lineHeight: 1.05,
-          letterSpacing: '-0.02em',
-          maxWidth: '16ch',
+          lineHeight: 1.12,
+          letterSpacing: '-0.015em',
         }}
       >
-        What are you
-        <br />
-        buying?
-        <span style={{ color: colors.link }}>.</span>
-      </h1>
+        What are you buying?<span style={{ color: colors.link }}>.</span>
+      </h2>
 
-      <p
-        style={{
-          margin: '18px 0 0',
-          fontSize: 'clamp(15px, 1.6vw, 17.5px)',
-          lineHeight: 1.6,
-          color: colors.ink2,
-          maxWidth: '54ch',
-        }}
-      >
-        Type a product, a brand, or a barcode in the bar above. You will get what the public record
-        says — and, just as plainly, what it does not.
+      <p style={{ margin: '12px 0 0', fontSize: 15, lineHeight: 1.6, color: colors.ink2, maxWidth: '54ch' }}>
+        Type a product, a brand, or a barcode in the bar above — or narrow the whole catalogue with
+        the filters on the left.
       </p>
 
       {/* Examples. Real links, real results, and a drawn package each. */}
@@ -664,13 +696,7 @@ async function StartHere() {
         })}
       </div>
 
-      <hr
-        style={{
-          border: 0,
-          borderTop: `1px solid ${colors.line}`,
-          margin: 'clamp(30px, 5vw, 52px) 0 0',
-        }}
-      />
+      <hr style={{ border: 0, borderTop: `1px solid ${colors.line}`, margin: '32px 0 0' }} />
 
       {/* THE AISLES, laid out the way a store is walked — the same list and the
           same order as the bar at the top of the page, from SiteChrome. */}
@@ -681,7 +707,7 @@ async function StartHere() {
           letterSpacing: '0.09em',
           textTransform: 'uppercase',
           color: colors.ink3,
-          margin: '26px 0 0',
+          margin: '20px 0 0',
         }}
       >
         Or walk the aisles
@@ -690,7 +716,7 @@ async function StartHere() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(146px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
           gap: 10,
           marginTop: 14,
         }}
@@ -991,6 +1017,15 @@ function FilterRail({
 
   return (
     <aside style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* THE COLOUR KEY COMES FIRST.
+          Michael, 2026-10-07: "make sure the colors are at the very top,
+          vertically above the products." It was third in the rail, below the
+          filters and the aisle box, which put it level with the fourth or
+          fifth result — so the one thing a first-time reader needs in order
+          to read anything else was the last thing they reached.
+          Its descriptions were also cut to phrases; see STATUS_MEANINGS. */}
+      <StatusKeyPanel />
+
       {/* WHAT'S NOT IN IT.
           Michael asked to filter by ingredient, broad categories and typed-in
           names both. These are the broad ones, and every one is an EXCLUSION:
@@ -1155,7 +1190,6 @@ function FilterRail({
         </div>
       </div>
 
-      <StatusKeyPanel />
 
       <div
         style={{
