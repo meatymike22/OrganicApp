@@ -122,3 +122,54 @@ a:hover {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- collapsible
+   Every expandable section on the site is a native <details>, so it works
+   with JavaScript off and costs no hydration. These rules exist because
+   inline styles cannot express either half of what a disclosure needs: the
+   open state (details[open]) or the removal of the browser's own marker.
+
+   The arrow is OUR element, not the native marker, because the native one
+   cannot be positioned or coloured consistently across browsers. Hiding it
+   takes two rules: list-style for standards browsers and the -webkit
+   pseudo-element for Safari. Miss either and you get two arrows. */
+.rt-collapse > summary {
+  list-style: none;
+}
+.rt-collapse > summary::-webkit-details-marker {
+  display: none;
+}
+.rt-chev {
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.rt-collapse[open] > summary .rt-chev {
+  transform: rotate(90deg);
+}
+/* A summary is a click target, so it should say so. */
+.rt-collapse > summary:hover .rt-chev {
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-chev {
+    transition: none;
+  }
+}
+
+/* The section meta ("FDA, FSIS, CPSC and CBP records") sits at the right edge
+   of the summary on a wide screen, which is what was asked for, but at phone
+   width that would squeeze the heading into two or three lines. Below 640px it
+   drops under the heading instead. This is the reason the rule lives here and
+   not in a style prop: a media query cannot be expressed inline. */
+.rt-collapse-meta {
+  margin-left: auto;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .rt-collapse-meta {
+    margin-left: 0;
+    text-align: left;
+    flex-basis: 100%;
+  }
+}

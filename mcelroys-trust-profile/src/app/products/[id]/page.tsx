@@ -277,8 +277,32 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           gap: 12,
         }}
       >
+        {/* THE ORDER OF THESE TILES IS THE ORDER OF THE SECTIONS BELOW.
+            Michael: "Make sure the order of these horizontal headers left to
+            right lines up with the major vertical headers top to bottom
+            below." It did not: Ingredients was the LAST tile and the FIRST
+            section, so the row read as a shuffled version of the page.
+
+            Each tile is a link to its section, which is what makes the
+            ordering load-bearing rather than cosmetic — the row is a table of
+            contents, and a table of contents in the wrong order is worse than
+            none. "Who owns it" is last because it is the one tile with no
+            section: it is a fact about the company, not a part of this page.
+
+            If you add a section, add its tile here, in the same position. */}
         <SignalTile
-          label="Flagged ingredients"
+          label="Ingredients"
+          value={count === null ? '—' : count}
+          note={
+            count === null
+              ? flagged.detail
+              : `${hasOrder ? 'In label order' : 'Label order was not recorded for this product'}${product.ingredientSource ? ` · from ${product.ingredientSource}` : ''}`
+          }
+          href="#ingredients"
+          mono={count !== null}
+        />
+        <SignalTile
+          label="Open research"
           value={flagged.state === 'openResearch' ? flagged.label.replace(' flagged', '') : flagged.label}
           note={flagged.detail}
           accent={status[flagged.state].fg}
@@ -292,10 +316,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           accent={status[recall.state].fg}
           href="#recalls"
         />
+        {/* Was label "Verified" with the value "Yes" when either certificate
+            existed. That is the over-claim Michael caught last round — a
+            company-level organic certificate rendered as a product-level
+            "Yes". It now shows the organic row's own words, and the non-GMO
+            row underneath, which is exactly what the table below says. */}
         <SignalTile
-          label="Verified"
-          value={organic.state === 'confirmed' || nonGmo.state === 'confirmed' ? 'Yes' : organic.label}
-          note={[organic.label, nonGmo.label].join(' · ')}
+          label="What we checked"
+          value={organic.label}
+          note={`Non-GMO: ${nonGmo.label}`}
           accent={status[organic.state].fg}
           href="#certificates"
         />
@@ -305,16 +334,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           note={owner.detail}
           accent={status.ownership.fg}
           href={owner.href}
-        />
-        <SignalTile
-          label="Ingredients"
-          value={count === null ? '—' : count}
-          note={
-            count === null
-              ? flagged.detail
-              : `${hasOrder ? 'In label order' : 'Label order was not recorded for this product'}${product.ingredientSource ? ` · from ${product.ingredientSource}` : ''}`
-          }
-          mono={count !== null}
         />
       </div>
 
@@ -516,8 +535,9 @@ function Recalls({
     // opening it.
     <Collapsible
       id="recalls"
-      title="Recalls and government notices"
+      title="recalls and government notices"
       count={total}
+      countState="recall"
       note={total === 0 ? 'Nothing on file' : 'FDA, FSIS, CPSC and CBP records'}
       open={listed.length > 0}
     >
@@ -751,8 +771,9 @@ function Checks({
   return (
     <Collapsible
       id="certificates"
-      title="What we checked"
-      count={rows.length}
+      // No count: "4 what we checked" reads like nonsense, and the rows are
+      // visible anyway because this section opens by default.
+      title="what we checked"
       note="Each row is a check we run, not a score"
       open
     >

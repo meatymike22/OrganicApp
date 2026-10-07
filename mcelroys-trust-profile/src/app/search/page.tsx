@@ -6,10 +6,23 @@ import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
-import { productDisplayName } from '@/lib/productName'
+import { productDisplayName, shortProductName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
+import {
+  EMPTY_FILTERS,
+  hasAnyFilter,
+  INGREDIENT_FILTERS,
+  ingredientFilterParams,
+  ingredientFilterWhere,
+  needsExactCount,
+  parseIngredientFilters,
+  removeTerm,
+  toggleFilterKey,
+  type IngredientFilterState,
+} from '@/lib/ingredientFilters'
 import { ProductThumb } from '@/components/ProductThumb'
-import { AISLES, AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { IngredientExcludeBox } from '@/components/IngredientExcludeBox'
+import { AISLES, AisleBar, aisleCategories, aisleLabel, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalHeader, SignalStrip, StatusKeyPanel } from '@/components/StatusChip'
 
 export const metadata = { title: 'Search' }
@@ -25,7 +38,17 @@ const SHELL: CSSProperties = {
 }
 
 // How many rows one page of results holds.
-const PAGE_SIZE = 25
+// HOW MANY ROWS PER PAGE. Michael asked for 50 and 100 as options.
+// Anything not in this list falls back to the default rather than being
+// honoured — ?per=100000 would otherwise be a way for a crawler to ask
+// for the whole catalogue in one query.
+const PAGE_SIZES = [25, 50, 100] as const
+const DEFAULT_PAGE_SIZE = 25
+
+function resolvePageSize(raw: string | undefined): number {
+  const n = Number(raw)
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE
+}
 
 // The thumbnail size on a result row.
 //
@@ -81,7 +104,11 @@ const ROW_FIELDS = {
 // guards against a runaway automated rejection producing a giant IN list.
 const MAX_REJECTED_IDS = 2000
 
-async function buildWhere(q: string | undefined, aisle: string | undefined): Promise<Prisma.ProductWhereInput> {
+async function buildWhere(
+  q: string | undefined,
+  aisle: string | undefined,
+  filters: IngredientFilterState
+): Promise<Prisma.ProductWhereInput> {
   const and: Prisma.ProductWhereInput[] = []
 
   // A product whose company a reviewer has rejected (junk brand text, a
@@ -114,8 +141,26 @@ async function buildWhere(q: string | undefined, aisle: string | undefined): Pro
     and.push({ companyId: { notIn: rejected.map((c) => c.id) } })
   }
 
+  // AISLE. Resolved through the explicit aisle -> category map in
+  // SiteChrome.tsx, not by substring. The old form was
+  //     category: { contains: aisle }
+  // which meant ?aisle=drink looked for a category containing "drink".
+  // Ours are called "Beverage", "Juice" and "Coffee & Tea", so the Drinks
+  // tab returned nothing while the database held 40,840 drinks. Pantry was
+  // the same, with ~114,000 products behind a dead tab.
+  //
+  // An UNKNOWN aisle slug returns no products rather than all of them.
+  // `aisleCategories` gives null for a slug it does not recognise, and a
+  // null must not quietly mean "no filter" — a bad link in the wild would
+  // then render the whole catalogue under someone else's heading.
+  // Ingredient exclusions. One NOT EXISTS each — see ingredientFilters.ts
+  // for the measured cost and for why a free-text term matches ingredient
+  // names by substring rather than exactly.
+  and.push(...ingredientFilterWhere(filters))
+
   if (aisle) {
-    and.push({ category: { contains: aisle, mode: 'insensitive' } })
+    const categories = aisleCategories(aisle)
+    and.push(categories ? { category: { in: categories } } : { id: { in: [] } })
   }
 
   if (q) {
@@ -163,6 +208,8 @@ export default async function SearchPage({
   const q = first(sp.q)?.trim() || undefined
   const aisle = first(sp.aisle)?.trim() || undefined
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
+  const per = resolvePageSize(first(sp.per))
+  const filters = parseIngredientFilters(first(sp.free), first(sp.without))
 
   // NOTHING ASKED FOR YET.
   //
@@ -178,7 +225,10 @@ export default async function SearchPage({
   // Deliberately NOT the same thing as the empty state further down: "you
   // have not asked yet" and "we looked and found nothing" are different
   // facts, and this site does not blur those.
-  if (!q && !aisle) {
+  // An ingredient filter on its own IS a question, so it does not get the
+  // start screen — "show me anything without seed oils" is a request for
+  // results, not an empty prompt.
+  if (!q && !aisle && !hasAnyFilter(filters)) {
     return (
       <>
         <TopNav />
@@ -190,10 +240,22 @@ export default async function SearchPage({
     )
   }
 
-  const where = await buildWhere(q, aisle)
+  const where = await buildWhere(q, aisle, filters)
+
+  // THE COUNT IS SKIPPED WHEN AN INGREDIENT FILTER IS ON.
+  //
+  // A page of filtered results is cheap because the anti-join stops once
+  // it has enough rows (111 ms with two filters, 852 ms with all six).
+  // An exact COUNT cannot stop: it has to decide all 416,382 products,
+  // which measured at 5.3 s. So a filtered list fetches one row more than
+  // it shows and uses that to know whether there is a next page, and says
+  // nothing about a total. Saying nothing is the only honest cheap option
+  // — an estimate printed as a count would be the first false number on
+  // the site. See needsExactCount in ingredientFilters.ts.
+  const exact = needsExactCount(filters)
 
   const [total, rows] = await Promise.all([
-    prisma.product.count({ where }),
+    exact ? prisma.product.count({ where }) : Promise.resolve(null),
     prisma.product.findMany({
       where,
       select: ROW_FIELDS,
@@ -211,19 +273,25 @@ export default async function SearchPage({
       // with the same name and rank can swap places between page 1 and page 2,
       // and a shopper sees one twice and another not at all.
       orderBy: [{ sourceRank: 'asc' }, { name: 'asc' }, { id: 'asc' }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * per,
+      // One extra row, only when there is no exact count: its existence is
+      // what tells us a next page exists. Dropped before rendering.
+      take: exact ? per : per + 1,
     }),
   ])
 
+  // The extra probe row is not shown; it only told us a next page exists.
+  const hasMore = exact ? false : rows.length > per
+  const pageRows = hasMore ? rows.slice(0, per) : rows
+
   // Which of these products a government notice actually lists by barcode.
   // One query for the whole page rather than one per row.
-  const listedRecalls = await getRecallsListingProducts(rows.map((r) => r.id))
+  const listedRecalls = await getRecallsListingProducts(pageRows.map((r) => r.id))
 
   // Work out the five signals per row, then order the page by how much there
   // is to read. The sort happens here rather than in SQL because the states
   // are derived from several tables at once — see productSignals.ts.
-  const results = rows
+  const results = pageRows
     .map((r) => ({
       product: r,
       signals: productSignals(r as unknown as ProductForSignals, listedRecalls.get(r.id)),
@@ -241,7 +309,8 @@ export default async function SearchPage({
     unchecked: results.filter((r) => r.signals.some((s) => s.state === 'unchecked')).length,
   }
 
-  const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  // Null when there is no exact count; the pager then goes by hasMore.
+  const lastPage = total === null ? null : Math.max(1, Math.ceil(total / per))
 
   return (
     <>
@@ -250,7 +319,7 @@ export default async function SearchPage({
       <Breadcrumb
         trail={[
           { label: 'Rootify', href: '/' },
-          { label: q ? `Search: ${q}` : `Aisle: ${aisle}` },
+          { label: q ? `Search: ${q}` : `Aisle: ${aisleLabel(aisle)}` },
         ]}
       />
 
@@ -265,7 +334,7 @@ export default async function SearchPage({
             letterSpacing: '-0.015em',
           }}
         >
-          {q ? `“${q}”` : `${aisle} aisle`}
+          {q ? `“${q}”` : `${aisleLabel(aisle)}`}
         </h1>
       </div>
 
@@ -281,7 +350,7 @@ export default async function SearchPage({
           alignItems: 'flex-start',
         }}
       >
-        <FilterRail q={q} aisle={aisle} />
+        <FilterRail q={q} aisle={aisle} per={per} filters={filters} />
 
         <div style={{ flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {/* The count strip. Each number is a link-free statement of fact
@@ -296,10 +365,18 @@ export default async function SearchPage({
               color: colors.ink2,
             }}
           >
+            {/* "of 416,382" only when we actually counted. With an
+                ingredient filter on there is no total (see `exact` above),
+                and the line says what it knows instead of estimating. */}
             <span>
               Showing{' '}
-              <strong style={{ color: colors.ink, fontWeight: 600 }}>{results.length}</strong> of{' '}
-              <span style={{ fontFamily: font.mono }}>{total}</span>
+              <strong style={{ color: colors.ink, fontWeight: 600 }}>{results.length}</strong>
+              {total !== null && (
+                <>
+                  {' '}
+                  of <span style={{ fontFamily: font.mono }}>{total.toLocaleString()}</span>
+                </>
+              )}
             </span>
             {tally.recall > 0 && <Tally color={status.recall.fg} text={`${tally.recall} with a recall`} />}
             {tally.flagged > 0 && <Tally color={status.openResearch.fg} text={`${tally.flagged} with flagged ingredients`} />}
@@ -308,14 +385,23 @@ export default async function SearchPage({
           </div>
 
           {results.length === 0 ? (
-            <EmptyState q={q} aisle={aisle} />
+            <EmptyState q={q} aisle={aisle} filtered={hasAnyFilter(filters)} />
           ) : (
             <>
               <SignalHeader thumbWidth={THUMB} />
               {results.map(({ product, signals }) => (
                 <ResultRow key={product.id} product={product} signals={signals} />
               ))}
-              <Pagination page={page} lastPage={lastPage} q={q} aisle={aisle} />
+              <Pagination
+                page={page}
+                lastPage={lastPage}
+                hasMore={hasMore}
+                q={q}
+                aisle={aisle}
+                per={per}
+                total={total}
+                filters={filters}
+              />
             </>
           )}
         </div>
@@ -347,42 +433,55 @@ export default async function SearchPage({
 // Each href is a live query that returns results today, and between the three
 // they show the three different things the search bar accepts: a kind of
 // food, a brand, and a barcode.
-const EXAMPLES: { label: string; href: string; note: string; art: React.ReactNode }[] = [
+// THE THREE EXAMPLE SEARCHES on the start screen.
+//
+// Michael: "these examples should have actual pictures of the product and
+// brand as an example. pick a different one. Barcode can stay as is."
+//
+// So two of the three are now real products with their real photographs, and
+// the examples changed to products we actually hold photos for — which is why
+// King Arthur is no longer one of them. The barcode keeps its drawing,
+// because there is nothing to photograph: the point of that card is that the
+// search bar accepts a number off a packet.
+//
+// The photos are NOT hardcoded URLs. Each card names a barcode and the page
+// looks the product up, so the image is whatever the database holds today and
+// the CC-BY-SA credit travels with it through ProductThumb — which refuses
+// to render a photo whose source it cannot name. A pasted CDN URL would have
+// skipped that and gone stale the next time OFF bumped a revision.
+//
+// If an example barcode ever stops resolving, the card falls back to the
+// aisle glyph rather than breaking: see ProductThumb's empty state.
+const EXAMPLES: {
+  label: string
+  sub?: string
+  href: string
+  note: string
+  // A product to photograph, by barcode. Omit for a card that is drawn.
+  upc?: string
+  art?: React.ReactNode
+}[] = [
   {
-    label: 'peanut butter',
+    label: 'Peanut butter',
+    sub: 'Skippy',
     href: '/search?q=peanut+butter',
     note: 'a kind of food',
-    // A jar: straight sides, a shoulder, a lid.
-    art: (
-      <>
-        <path d="M17 19h30v26a4 4 0 0 1-4 4H21a4 4 0 0 1-4-4V19z" />
-        <path d="M20 15h24v4H20z" />
-        <path d="M26 11h12v4H26z" />
-        <path d="M22 28h20" />
-        <path d="M22 35h13" />
-      </>
-    ),
+    upc: '0037600106689',
   },
   {
-    label: 'King Arthur',
-    href: '/search?q=King+Arthur',
+    label: 'Chobani',
+    sub: 'a whole brand',
+    href: '/search?q=Chobani',
     note: 'a brand',
-    // A flour sack: pinched and folded at the top, wider at the base.
-    art: (
-      <>
-        <path d="M21 17c0-2 3-4 11-4s11 2 11 4l3 28a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4l3-28z" />
-        <path d="M21 17c3 2 19 2 22 0" />
-        <path d="M25 29h14" />
-        <path d="M25 36h9" />
-      </>
-    ),
+    upc: '0818290442970',
   },
   {
     label: '0071012075379',
     href: '/search?q=0071012075379',
     note: 'a barcode',
     // An actual barcode: varied bar widths, with the quiet margins a real
-    // symbol has.
+    // symbol has. Drawn rather than photographed — there is no package here,
+    // the number itself is the subject.
     art: (
       <>
         <path d="M16 16v26M20 16v26M23 16v22M27 16v26M31 16v22M34 16v26M38 16v26M42 16v22M46 16v26" />
@@ -392,7 +491,44 @@ const EXAMPLES: { label: string; href: string; note: string; art: React.ReactNod
   },
 ]
 
-function StartHere() {
+// The photographs for the example cards, fetched by the barcodes above.
+// Returns a map so a missing product is simply absent rather than throwing —
+// an example whose barcode has been removed from the database must not take
+// the whole start screen down with it.
+async function exampleProducts(): Promise<Map<string, ExampleProduct>> {
+  const upcs = EXAMPLES.map((e) => e.upc).filter((u): u is string => Boolean(u))
+  if (upcs.length === 0) return new Map<string, ExampleProduct>()
+  const rows = await prisma.product.findMany({
+    where: { upc: { in: upcs } },
+    select: {
+      upc: true,
+      name: true,
+      category: true,
+      productType: true,
+      imageUrl: true,
+      imageSource: true,
+      imageSourceUrl: true,
+    },
+  })
+  return new Map(rows.map((r) => [r.upc!, r]))
+}
+
+type ExampleProduct = {
+  upc: string | null
+  name: string
+  category: string | null
+  productType: string
+  imageUrl: string | null
+  imageSource: string | null
+  imageSourceUrl: string | null
+}
+
+// The start screen. Async only because of the two example photographs; the
+// lookup is two rows on a unique index, which keeps the promise made when
+// this page stopped running the catalogue query by default.
+async function StartHere() {
+  const photos = await exampleProducts()
+
   return (
     <div
       style={{
@@ -443,68 +579,89 @@ function StartHere() {
           marginTop: 26,
         }}
       >
-        {EXAMPLES.map((e) => (
-          <Link
-            key={e.href}
-            href={e.href}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 2,
-              boxSizing: 'border-box',
-              padding: '16px 14px 14px',
-              background: colors.card,
-              border: `1px solid ${colors.line}`,
-              borderRadius: layout.radius,
-              textDecoration: 'none',
-              color: colors.ink,
-              textAlign: 'center',
-            }}
-          >
-            {/* The package sits on the same warm tint the thumbnails use, so
-                a card here and a product row later read as one system. */}
-            <span
-              aria-hidden
+        {EXAMPLES.map((e) => {
+          const photo = e.upc ? photos.get(e.upc) : undefined
+          const isBarcode = /^\d+$/.test(e.label)
+          return (
+            <Link
+              key={e.href}
+              href={e.href}
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                width: 76,
-                height: 76,
-                background: thumbTint.ambient,
+                gap: 2,
+                boxSizing: 'border-box',
+                padding: '16px 14px 14px',
+                background: colors.card,
                 border: `1px solid ${colors.line}`,
-                borderRadius: 8,
-                marginBottom: 10,
+                borderRadius: layout.radius,
+                textDecoration: 'none',
+                color: colors.ink,
+                textAlign: 'center',
               }}
             >
-              <svg
-                width="44"
-                height="44"
-                viewBox="0 0 64 64"
-                fill="none"
-                stroke="#9C9382"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <span style={{ marginBottom: 10, display: 'flex' }}>
+                {photo ? (
+                  // The real photograph. ProductThumb carries the licence
+                  // contract and falls back to the aisle glyph if the row has
+                  // no image, so this card cannot end up blank.
+                  <ProductThumb
+                    product={photo}
+                    category={photo.category}
+                    productType={photo.productType}
+                    size={76}
+                    intrinsic={160}
+                    label={e.label}
+                  />
+                ) : (
+                  // Drawn, on the same warm tint the thumbnails use, so a
+                  // card here and a product row later read as one system.
+                  <span
+                    aria-hidden
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 76,
+                      height: 76,
+                      background: thumbTint.ambient,
+                      border: `1px solid ${colors.line}`,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <svg
+                      width="44"
+                      height="44"
+                      viewBox="0 0 64 64"
+                      fill="none"
+                      stroke="#9C9382"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {e.art}
+                    </svg>
+                  </span>
+                )}
+              </span>
+
+              <span
+                style={{
+                  fontFamily: isBarcode ? font.mono : undefined,
+                  fontSize: isBarcode ? 12.5 : 14.5,
+                  fontWeight: 600,
+                  lineHeight: 1.3,
+                  wordBreak: isBarcode ? 'break-all' : undefined,
+                }}
               >
-                {e.art}
-              </svg>
-            </span>
-            <span
-              style={{
-                fontFamily: /^\d+$/.test(e.label) ? font.mono : undefined,
-                fontSize: /^\d+$/.test(e.label) ? 12.5 : 14.5,
-                fontWeight: 600,
-                lineHeight: 1.3,
-                wordBreak: /^\d+$/.test(e.label) ? 'break-all' : undefined,
-              }}
-            >
-              {e.label}
-            </span>
-            <span style={{ fontSize: 11.5, color: colors.ink4 }}>{e.note}</span>
-          </Link>
-        ))}
+                {e.label}
+              </span>
+              {e.sub && <span style={{ fontSize: 12, color: colors.ink3 }}>{e.sub}</span>}
+              <span style={{ fontSize: 11.5, color: colors.ink4 }}>{e.note}</span>
+            </Link>
+          )
+        })}
       </div>
 
       <hr
@@ -576,22 +733,14 @@ function StartHere() {
         ))}
       </div>
 
-      {/* One quiet line of method. No counts: a number here would be a boast,
-          and the thing worth saying about Rootify is how a line gets onto a
-          page, not how many there are. */}
-      <p
-        style={{
-          margin: 'clamp(26px, 4vw, 40px) 0 0',
-          fontSize: 13,
-          lineHeight: 1.6,
-          color: colors.ink3,
-          maxWidth: '62ch',
-        }}
-      >
-        Every line on a product page is a public record, shown with the date we read it. Where there
-        is no record, it says so. Where we have not been able to look, it says that instead —{' '}
-        <Link href="/faq">those are different things</Link>.
-      </p>
+      {/* The method paragraph that used to sit here is gone. Michael:
+          "remove this text, this is something that should go into the about
+          section or a related page, not here". He is right that a start
+          screen is not where someone reads about how we source — but the
+          text itself is the most important thing on the site, so it belongs
+          on /faq and /sourcing rather than deleted. /sourcing is still a 404
+          (features-to-add item 3), which is where this paragraph should land
+          when it is built. */}
     </div>
   )
 }
@@ -709,7 +858,11 @@ function ResultRow({
             marginTop: 3,
           }}
         >
-          {title}
+          {/* Condensed the same way the product page heading is, and for
+              the same reason: a 90-character label name turns a scannable
+              list into a wall. The full name is on the product page, under
+              "On the label". See shortProductName in productName.ts. */}
+          {shortProductName(title)}
         </div>
 
         <IngredientPreview product={product} />
@@ -800,10 +953,179 @@ function IngredientPreview({
 // The filter rail. Plain links, not checkboxes, because every filter is in
 // the URL — which means the back button works and a filtered search can be
 // pasted to somebody else.
-function FilterRail({ q, aisle }: { q?: string; aisle?: string }) {
+function FilterRail({
+  q,
+  aisle,
+  per,
+  filters,
+}: {
+  q?: string
+  aisle?: string
+  per: number
+  filters: IngredientFilterState
+}) {
   const base = q ? `?q=${encodeURIComponent(q)}` : '?'
+
+  // Every filter link is built from the CURRENT state with one thing changed,
+  // so the rail composes: turning on "no seed oils" keeps the search term,
+  // the aisle, the page size and any typed exclusions. Page is deliberately
+  // dropped — a new filter means a new result set, and page 7 of the old one
+  // is meaningless.
+  const linkTo = (next: IngredientFilterState) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (aisle) params.set('aisle', aisle)
+    for (const [k, v] of Object.entries(ingredientFilterParams(next))) params.set(k, v)
+    if (per !== DEFAULT_PAGE_SIZE) params.set('per', String(per))
+    const s = params.toString()
+    return s ? `/search?${s}` : '/search'
+  }
+
+  // What the exclude form has to carry so submitting it keeps everything
+  // else. `without` is the form's own field, so it is not a hidden input.
+  const carry: Record<string, string> = {}
+  if (q) carry.q = q
+  if (aisle) carry.aisle = aisle
+  if (filters.keys.length > 0) carry.free = filters.keys.join(',')
+  if (per !== DEFAULT_PAGE_SIZE) carry.per = String(per)
+
   return (
     <aside style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* WHAT'S NOT IN IT.
+          Michael asked to filter by ingredient, broad categories and typed-in
+          names both. These are the broad ones, and every one is an EXCLUSION:
+          an ingredient list we hold is evidence something IS in a product, so
+          "no seed oils" means no seed oil appears in the list we have. A
+          product with no ingredient list on file therefore passes — it has
+          to, because excluding it would claim we know what is in it.
+
+          Organic and non-GMO are missing on purpose. We hold 40 organic and
+          18 non-GMO records across 416,382 products, so those filters would
+          report our coverage as a fact about food. See ingredientFilters.ts. */}
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: '14px 15px',
+          background: colors.card,
+          border: `1px solid ${colors.line}`,
+          borderRadius: layout.radius,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: colors.ink2,
+          }}
+        >
+          What&apos;s not in it
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
+          {INGREDIENT_FILTERS.map((f) => {
+            const on = filters.keys.includes(f.key)
+            return (
+              <Link
+                key={f.key}
+                href={linkTo(toggleFilterKey(filters, f.key))}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '5px 0',
+                  fontSize: 13,
+                  textDecoration: 'none',
+                  color: on ? colors.ink : colors.ink2,
+                  fontWeight: on ? 600 : 400,
+                }}
+              >
+                {/* A drawn box rather than a real checkbox: these are links,
+                    so they work with JavaScript off and each one is a URL
+                    somebody can paste. A checkbox would need a form and a
+                    submit to do the same job less well. */}
+                <span
+                  aria-hidden
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 14,
+                    height: 14,
+                    flexShrink: 0,
+                    borderRadius: 3,
+                    border: `1.5px solid ${on ? status.confirmed.fg : '#C9C2B2'}`,
+                    background: on ? status.confirmed.fg : colors.paper,
+                    color: colors.paper,
+                    fontSize: 10,
+                    lineHeight: 1,
+                  }}
+                >
+                  {on ? '✓' : ''}
+                </span>
+                {f.label}
+              </Link>
+            )
+          })}
+        </div>
+
+        <div
+          style={{
+            marginTop: 13,
+            paddingTop: 12,
+            borderTop: `1px solid ${colors.line}`,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: colors.ink2,
+          }}
+        >
+          Without a specific ingredient
+        </div>
+
+        {/* Typed exclusions, each removable on its own. The form below edits
+            the whole comma-separated list; these chips are how you drop one
+            without retyping the others. */}
+        {filters.terms.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 9 }}>
+            {filters.terms.map((t) => (
+              <Link
+                key={t}
+                href={linkTo(removeTerm(filters, t))}
+                title={`Stop excluding ${t}`}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '3px 7px',
+                  background: status.openResearch.bg,
+                  border: `1px solid ${status.openResearch.border}`,
+                  borderRadius: 4,
+                  fontSize: 11.5,
+                  color: colors.ink2,
+                  textDecoration: 'none',
+                }}
+              >
+                {t}
+                <span aria-hidden style={{ color: colors.ink4 }}>
+                  &times;
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <IngredientExcludeBox terms={filters.terms} hidden={carry} />
+
+        {hasAnyFilter(filters) && (
+          <div style={{ marginTop: 10, fontSize: 12.5 }}>
+            <Link href={linkTo(EMPTY_FILTERS)}>Clear ingredient filters</Link>
+          </div>
+        )}
+      </div>
+
       <div
         style={{
           boxSizing: 'border-box',
@@ -860,7 +1182,20 @@ function FilterRail({ q, aisle }: { q?: string; aisle?: string }) {
 // What a shopper sees when nothing matched. An empty result is our gap, not
 // a statement that the product does not exist — so the page says which, and
 // offers the one useful next step.
-function EmptyState({ q, aisle }: { q?: string; aisle?: string }) {
+// NOTHING MATCHED. Three different reasons, and they must not be blurred:
+// we have no such product, the aisle is empty, or the filters excluded
+// everything we do have. The third is not a gap in our data at all, and
+// telling someone "we haven't read this one yet" when they filtered out six
+// ingredient categories would be plainly false.
+function EmptyState({
+  q,
+  aisle,
+  filtered,
+}: {
+  q?: string
+  aisle?: string
+  filtered: boolean
+}) {
   return (
     <div
       style={{
@@ -872,35 +1207,71 @@ function EmptyState({ q, aisle }: { q?: string; aisle?: string }) {
       }}
     >
       <div style={{ fontFamily: font.display, fontSize: 20, fontWeight: 600 }}>
-        We haven&apos;t read this one yet
+        {filtered ? 'Nothing left after those filters' : "We haven't read this one yet"}
       </div>
-      <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink2, maxWidth: 560 }}>
-        {q ? (
-          <>
-            Nothing in our records matches <strong>{q}</strong>.
-          </>
-        ) : aisle ? (
-          <>We have not read anything in the {aisle} aisle yet.</>
-        ) : (
-          <>There is nothing in our records yet.</>
-        )}{' '}
-        That means it is missing from our database, not that there is nothing on the public record
-        about it.
-      </p>
+      {filtered ? (
+        <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink2, maxWidth: 560 }}>
+          Every product we hold{q ? <> matching <strong>{q}</strong></> : null}
+          {aisle ? <> in the {aisleLabel(aisle)} aisle</> : null} lists at least one of the
+          ingredients you excluded. Clearing one filter in the panel will widen it.
+        </p>
+      ) : (
+        <p style={{ margin: '9px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink2, maxWidth: 560 }}>
+          {q ? (
+            <>
+              Nothing in our records matches <strong>{q}</strong>.
+            </>
+          ) : aisle ? (
+            <>We have not read anything in the {aisleLabel(aisle)} aisle yet.</>
+          ) : (
+            <>There is nothing in our records yet.</>
+          )}{' '}
+          That means it is missing from our database, not that there is nothing on the public record
+          about it.
+        </p>
+      )}
     </div>
   )
 }
 
-function Pagination({ page, lastPage, q, aisle }: { page: number; lastPage: number; q?: string; aisle?: string }) {
-  if (lastPage <= 1) return null
-  const url = (p: number) => {
+function Pagination({
+  page,
+  lastPage,
+  hasMore,
+  q,
+  aisle,
+  per,
+  total,
+  filters,
+}: {
+  page: number
+  // Null when no exact count was taken, in which case `hasMore` is the only
+  // thing we know about what comes next.
+  lastPage: number | null
+  hasMore: boolean
+  q?: string
+  aisle?: string
+  per: number
+  total: number | null
+  filters: IngredientFilterState
+}) {
+  const url = (p: number, size: number = per) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (aisle) params.set('aisle', aisle)
+    for (const [k, v] of Object.entries(ingredientFilterParams(filters))) params.set(k, v)
     if (p > 1) params.set('page', String(p))
+    if (size !== DEFAULT_PAGE_SIZE) params.set('per', String(size))
     const s = params.toString()
     return s ? `/search?${s}` : '/search'
   }
+
+  const forward = lastPage === null ? hasMore : page < lastPage
+  // The per-page control stays even on a single page of results: on 30 rows
+  // at 25 a page, "show 50" is exactly what someone wants, and hiding the
+  // control then would hide it precisely when it is useful.
+  if (!forward && page === 1 && (total ?? 0) <= PAGE_SIZES[0]) return null
+
   return (
     <div
       style={{
@@ -913,10 +1284,40 @@ function Pagination({ page, lastPage, q, aisle }: { page: number; lastPage: numb
       }}
     >
       {page > 1 ? <Link href={url(page - 1)}>&larr; Previous</Link> : <span />}
-      <span style={{ color: colors.ink3, fontFamily: font.mono, fontSize: 12.5 }}>
-        {page} / {lastPage}
+
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'baseline',
+          gap: 10,
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+        }}
+      >
+        <span style={{ color: colors.ink3, fontFamily: font.mono, fontSize: 12.5 }}>
+          {lastPage === null ? `page ${page}` : `${page} / ${lastPage}`}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 7, fontSize: 12.5, color: colors.ink3 }}>
+          <span>Show</span>
+          {PAGE_SIZES.map((size) => (
+            <span key={size}>
+              {size === per ? (
+                <span style={{ fontFamily: font.mono, fontWeight: 700, color: colors.ink }}>{size}</span>
+              ) : (
+                // Changing the page size goes back to page 1. Staying on page
+                // 4 while tripling the page size would land the reader
+                // somewhere they never scrolled to, and on a short result
+                // set, past the end entirely.
+                <Link href={url(1, size)} style={{ fontFamily: font.mono }}>
+                  {size}
+                </Link>
+              )}
+            </span>
+          ))}
+        </span>
       </span>
-      {page < lastPage ? <Link href={url(page + 1)}>Next &rarr;</Link> : <span />}
+
+      {forward ? <Link href={url(page + 1)}>Next &rarr;</Link> : <span />}
     </div>
   )
 }

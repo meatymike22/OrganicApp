@@ -1,10 +1,15 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { colors, font, isoDate, layout, status } from '@/lib/design'
+import { colors, font, layout, status } from '@/lib/design'
 import { VETTED_COMPANIES } from '@/lib/vetting'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
+// The shared one. This file used to carry its own copy, which drifted: when
+// the "not yet checked by a person" line was removed from PageParts it
+// stayed here, so the ingredient page kept advertising a review process the
+// rest of the site had stopped claiming. One implementation, one wording.
+import { SourceLine } from '@/components/PageParts'
 
 // ONE INGREDIENT: the studies on file about it, how each country regulates
 // it, and which products list it.
@@ -15,9 +20,11 @@ import { StatusChip } from '@/components/StatusChip'
 // to read sensibly both with a full research record and with none.
 //
 // Styling follows the product page exactly: same nav, header, signal tiles,
-// section heads and source lines. The small helpers at the bottom
-// (SectionHead, Callout, SourceLine) are copies of the product page's, kept
-// identical on purpose.
+// section heads and source lines. SourceLine is now IMPORTED from PageParts
+// rather than copied here — the copy drifted, which is what copies do: the
+// "not yet checked by a person" line was removed from the shared component
+// and lived on in this file. SectionHead and Callout below are still local
+// copies and should go the same way.
 
 // How many products to list by name. Some ingredients (natural flavor) are on
 // tens of thousands of labels; the count says how many, the list is a sample.
@@ -373,7 +380,7 @@ function StudyBody({ study, nested }: { study: Study; nested?: boolean }) {
         </div>
       )}
 
-      <SourceLine url={study.sourceUrl} label="Source" readAt={study.dataPulledDate} reviewedAt={study.reviewDate} />
+      <SourceLine url={study.sourceUrl} label="Source" readAt={study.dataPulledDate} />
     </>
   )
 }
@@ -418,7 +425,7 @@ function Rules({ rules }: { rules: Ingredient['regulatoryStatuses'] }) {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   {r.notes && <div style={{ fontSize: 13, lineHeight: 1.55, color: colors.ink2 }}>{r.notes}</div>}
-                  <SourceLine url={r.sourceUrl} label="Source" readAt={r.dataPulledDate} reviewedAt={r.reviewDate} />
+                  <SourceLine url={r.sourceUrl} label="Source" readAt={r.dataPulledDate} />
                 </div>
               </div>
             ))}
@@ -646,33 +653,5 @@ function Tag({ children, nested }: { children: React.ReactNode; nested?: boolean
     >
       {children}
     </span>
-  )
-}
-
-function SourceLine({
-  url,
-  label,
-  readAt,
-  reviewedAt,
-}: {
-  url?: string | null
-  label: string
-  readAt?: Date | string | null
-  reviewedAt?: Date | string | null
-}) {
-  const read = isoDate(readAt)
-  const reviewed = isoDate(reviewedAt)
-  return (
-    <div style={{ fontSize: 11.5, color: colors.ink4, marginTop: 7, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      {url ? (
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          {label}
-        </a>
-      ) : (
-        <span>{label}</span>
-      )}
-      {read && <span style={{ fontFamily: font.mono }}>read {read}</span>}
-      <span>{reviewed ? `checked by a person ${reviewed}` : 'not yet checked by a person'}</span>
-    </div>
   )
 }

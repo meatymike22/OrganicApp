@@ -75,23 +75,32 @@ export function Tag({ children, nested }: { children: React.ReactNode; nested?: 
 
 // Where a fact came from and when we read it. Every fact on a detail page
 // carries one; this is the one place that prints it.
+// WHERE A RECORD CAME FROM, AND WHEN WE READ IT.
+//
+// This used to end with "checked by a person <date>" or, far more often,
+// "not yet checked by a person". Michael, 2026-10-06: "we don't need to have
+// the recall checked by a person, nor do we want to include this text here.
+// Having it pulled from a database is good for now."
+//
+// He is right, and the substance matters more than the clutter: a review
+// field is a promise, and across 416,382 products it was empty. Printing
+// "not yet checked by a person" on every line advertised a review process
+// that does not exist. The honest line is the one that is left — here is the
+// record, here is the date we read it.
+//
+// The reviewDate columns stay in the schema for the day there IS a review
+// step. Nothing reads them, so nothing can imply one already happened. Do
+// not reintroduce a reviewedAt prop here without a real process behind it.
 export function SourceLine({
   url,
   label,
   readAt,
-  reviewedAt,
-  showReview = true,
 }: {
   url?: string | null
   label: string
   readAt?: Date | string | null
-  reviewedAt?: Date | string | null
-  // Whether to say if a person checked it. Off for records that are relayed
-  // straight from an agency (recalls), where there is no review step.
-  showReview?: boolean
 }) {
   const read = isoDate(readAt)
-  const reviewed = isoDate(reviewedAt)
   return (
     <div style={{ fontSize: 11.5, color: colors.ink4, marginTop: 7, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {url ? (
@@ -102,7 +111,6 @@ export function SourceLine({
         <span>{label}</span>
       )}
       {read && <span style={{ fontFamily: font.mono }}>read {read}</span>}
-      {showReview && <span>{reviewed ? `checked by a person ${reviewed}` : 'not yet checked by a person'}</span>}
     </div>
   )
 }

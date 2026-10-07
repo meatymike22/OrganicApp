@@ -9,12 +9,15 @@ import {
   getCompanyRecalls,
   getRecallsListingProducts,
   getUnlinkedProcessRecalls,
+  groupRecalls,
+  type RecallGroup as RecallEventGroup,
   type RecallItem,
   type RecallList,
 } from '@/lib/recalls'
 import { productDisplayName } from '@/lib/productName'
 import { ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 import { Callout, Eyebrow, Monogram, SectionHead, SourceLine } from '@/components/PageParts'
 
@@ -342,18 +345,24 @@ export default async function CompanyPage({
 function MetaLine({
   company,
 }: {
-  company: { dbaNames: string[]; hqLocation: string | null; investorFilings: { ticker: string | null }[] }
+  company: { hqLocation: string | null; investorFilings: { ticker: string | null }[] }
 }) {
   const ticker = company.investorFilings.find((f) => f.ticker)?.ticker
   const parts: React.ReactNode[] = []
-  if (company.dbaNames.length > 0) {
-    parts.push(
-      <span key="dba">
-        Also sold as{' '}
-        <strong style={{ color: colors.ink, fontWeight: 600 }}>{company.dbaNames.join(', ')}</strong>
-      </span>
-    )
-  }
+  // THE "ALSO SOLD AS" LINE IS GONE, DELIBERATELY.
+  //
+  // Michael: "Are these the other dba names? We have a products list below,
+  // why are these here?" They were the dbaNames, and his instinct was right:
+  // for Dole the line read "Also sold as Chopped Kit by Dole, Dole Dried
+  // Fruit And Nut Co., Dole Fresh Vegetables Inc., Dole Good Crunch, Dole
+  // Sunshine" — five names that all begin with the company's own, directly
+  // above a list of its products. It read as repetition because it was.
+  //
+  // dbaNames still do real work; none of it is display work. They are how
+  // productDisplayName() knows which brand prefix to strip off a product
+  // name, and how the recall matcher ties a notice issued under a subsidiary
+  // to this page. Deleting the column would break both. Not printing it in
+  // the header breaks nothing.
   if (ticker) {
     parts.push(
       <span key="ticker">
@@ -573,6 +582,38 @@ function Products({
   )
 }
 
+// The manufacturing-recalls sentence, as one string.
+//
+// Singular and plural differ in four places, which as inline JSX produced a
+// missing space in the shipped build ("linking themto the products"). Built
+// here instead, where the spacing is literal and testable by reading it.
+//
+// The wording itself is load-bearing and was agreed in an earlier round: a
+// notice that names no product cannot be reported as affecting a product. It
+// says there is no evidence linking them, NOT that the products are fine —
+// those are different claims and only the first one is ours to make.
+function processNotice(
+  firmIds: string[],
+  family: { id: string; legalName: string }[],
+  count: number
+): string {
+  const firms = firmIds
+    .map((cid) => family.find((c) => c.id === cid)?.legalName)
+    .filter((n): n is string => Boolean(n))
+    .join(' and ')
+  const one = count === 1
+  return [
+    firms,
+    one ? 'has had 1 recall' : `has had ${count} recalls`,
+    'about how food was made or handled (for example contamination,',
+    'unsanitary conditions or foreign material) that',
+    one ? "doesn't" : "don't",
+    'name a specific product. There is no evidence linking',
+    one ? 'it' : 'them',
+    "to the products on this page, and we can't say whether they were affected.",
+  ].join(' ')
+}
+
 function Recalls({
   companyId,
   companyName,
@@ -591,76 +632,123 @@ function Recalls({
   family: { id: string; legalName: string }[]
 }) {
   const processFirms = processHint ? [...new Set(processHint.items.map((a) => a.company.id))] : []
+
+  // Grouped before counting, so the number in the heading is the number of
+  // recall EVENTS a reader would recognise, not the number of enforcement
+  // records the agency happened to file. For Dole that is 28 rather than 232.
+  const issuedGroups = groupRecalls(issued.items)
+  const namingGroups = groupRecalls(naming.items)
+  const grouped = issuedGroups.length + namingGroups.length
+
   return (
     <section>
-      <SectionHead id="recalls" title="Recalls & notices" source="FDA, FSIS and CPSC records" />
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {issued.count === 0 && naming.count === 0 && (
-          <Callout state="nothingOnFile">No FDA, FSIS or CPSC notice we hold names {companyName}.</Callout>
-        )}
+      {/* GROUPED, AND COLLAPSIBLE.
+          Michael: "these recalls need to be organized and displayed better.
+          this feels like a wall of text and gleaning information from it
+          seems insurmountable." He was looking at Dole, which holds 232
+          enforcement records — and 28 actual recall events. The FDA files
+          one record per affected product line, so the page was repeating the
+          same notice up to sixteen times.
 
-        {/* About how food was made or handled, naming no product. */}
-        {processHint && processHint.count > 0 && (
-          <Callout state="unchecked">
-            <strong>Manufacturing-related recalls.</strong>{' '}
-            {processFirms
-              .map((cid) => family.find((c) => c.id === cid)?.legalName)
-              .filter(Boolean)
-              .join(' and ')}{' '}
-            {processHint.count === 1 ? 'has had 1 recall' : `has had ${processHint.count} recalls`} about how food
-            was made or handled (for example contamination, unsanitary conditions or foreign material) that{' '}
-            {processHint.count === 1 ? "doesn't" : "don't"} name a specific product. There is no evidence linking{' '}
-            {processHint.count === 1 ? 'it' : 'them'} to the products on this page, and we can&apos;t say whether
-            they were affected.{' '}
-            {processFirms.map((cid, i) => (
-              <span key={cid}>
-                {i > 0 && ' · '}
-                <Link href={`/companies/${cid}?recalls=all#recalls`}>
-                  See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
-                </Link>
-              </span>
-            ))}
-          </Callout>
-        )}
+          groupRecalls() is the same display-side grouping the product page
+          uses; it was built last round and simply never applied here. Every
+          reference number is still kept and still shown, inside the notice it
+          belongs to. The database is untouched: each number is a separately
+          citable record and merging them would destroy the citation. */}
+      <Collapsible
+        id="recalls"
+        title="recalls and government notices"
+        count={grouped}
+        countState="recall"
+        note="FDA, FSIS and CPSC records"
+        open={grouped > 0}
+      >
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {issued.count === 0 && naming.count === 0 && (
+            <Callout state="nothingOnFile">No FDA, FSIS or CPSC notice we hold names {companyName}.</Callout>
+          )}
 
-        {issued.count > 0 && (
-          <RecallGroup
-            heading={`Notices naming ${companyName}`}
-            preamble="Each notice covers the product described in it, not every product on this page."
-            list={issued}
-            companyId={companyId}
-            showAll={showAll}
-          />
-        )}
+          {/* About how food was made or handled, naming no product.
 
-        {/* Issued under another firm's name (a parent, or a manufacturer
-            making the product for this brand) and tied to this brand. */}
-        {naming.count > 0 && (
-          <RecallGroup
-            heading="Notices about this brand, issued by other companies"
-            list={naming}
-            companyId={companyId}
-            showAll={showAll}
-          />
-        )}
-      </div>
+              THE SENTENCE IS BUILT AS ONE STRING, ON PURPOSE. This paragraph
+              used to be five JSX fragments with singular/plural ternaries
+              between them, and it shipped reading "...linking themto the
+              products on this page". The space was there in the source and
+              gone in the build: JSX trims whitespace around an expression
+              container in ways that are hard to predict by reading the file,
+              and the identical shape two lines above it kept its space. A
+              sentence with this much branching belongs in a template literal,
+              where a space is just a space. Do not break it back into
+              fragments. See processNotice() above. */}
+          {processHint && processHint.count > 0 && (
+            <Callout state="unchecked">
+              <strong>Manufacturing-related recalls.</strong>{' '}
+              {processNotice(processFirms, family, processHint.count)}{' '}
+              {processFirms.map((cid, i) => (
+                <span key={cid}>
+                  {i > 0 && ' · '}
+                  <Link href={`/companies/${cid}?recalls=all#recalls`}>
+                    See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
+                  </Link>
+                </span>
+              ))}
+            </Callout>
+          )}
+
+          {issuedGroups.length > 0 && (
+            <RecallBlock
+              heading={`Notices naming ${companyName}`}
+              preamble="Each notice covers the product described in it, not every product on this page."
+              groups={issuedGroups}
+              total={issued.count}
+              shown={issued.items.length}
+              companyId={companyId}
+              showAll={showAll}
+            />
+          )}
+
+          {/* Issued under another firm's name (a parent, or a manufacturer
+              making the product for this brand) and tied to this brand. */}
+          {namingGroups.length > 0 && (
+            <RecallBlock
+              heading="Notices about this brand, issued by other companies"
+              groups={namingGroups}
+              total={naming.count}
+              shown={naming.items.length}
+              companyId={companyId}
+              showAll={showAll}
+            />
+          )}
+        </div>
+      </Collapsible>
     </section>
   )
 }
 
-// One list of notices, newest first, with a "Show all" link when capped.
-// Every notice MUST show productDescription: a notice covers the product it
-// describes, which is often only one of a company's products.
-function RecallGroup({
+// One list of notice EVENTS, newest first, with a "Show all" link when the
+// underlying record list was capped.
+//
+// Takes groups rather than raw items: see groupRecalls() in recalls.ts. Every
+// notice MUST still show productDescription somewhere, because a notice
+// covers the product it describes and that is often one line out of
+// hundreds — it now lives one click inside the card rather than beside it.
+function RecallBlock({
   heading,
   preamble,
-  list,
+  groups,
+  total,
+  shown,
   companyId,
   showAll,
 }: {
   heading: string
   preamble?: string
-  list: RecallList
+  groups: RecallEventGroup[]
+  // `total` and `shown` are RECORD counts, from the query. `groups.length` is
+  // the event count. Keeping them apart is what makes "showing the 50 most
+  // recent of 232" honest while the page displays 28 cards.
+  total: number
+  shown: number
   companyId: string
   showAll: boolean
 }) {
@@ -679,7 +767,7 @@ function RecallGroup({
         }}
       >
         <span>{heading}</span>
-        <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink4 }}>{list.count}</span>
+        <span style={{ fontFamily: font.mono, fontWeight: 500, color: colors.ink4 }}>{groups.length}</span>
         <span style={{ flexGrow: 1, height: 1, background: colors.line }} />
       </div>
       {preamble && (
@@ -687,15 +775,15 @@ function RecallGroup({
           {preamble}
         </p>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 11 }}>
-        {list.items.map((action) => (
-          <RecallCard key={action.id} action={action} companyId={companyId} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 11 }}>
+        {groups.map((g) => (
+          <RecallCard key={g.lead.id} group={g} companyId={companyId} />
         ))}
       </div>
-      {!showAll && list.count > list.items.length && (
+      {!showAll && total > shown && (
         <p style={{ margin: '11px 0 0', fontSize: 13 }}>
           <span style={{ color: colors.ink3 }}>
-            Showing the {list.items.length} most recent of {list.count.toLocaleString()}.{' '}
+            Showing the {shown.toLocaleString()} most recent records of {total.toLocaleString()}.{' '}
           </span>
           <Link href={`/companies/${companyId}?recalls=all#recalls`}>Show all</Link>
         </p>
@@ -704,121 +792,157 @@ function RecallGroup({
   )
 }
 
-function RecallCard({ action, companyId }: { action: RecallItem; companyId: string }) {
+
+// ONE RECALL EVENT, compact.
+//
+// This card used to be the whole notice spread across two columns: chip,
+// date, status pill, reference number, reason, issuer, relevance line, source
+// line, and a dashed "What it covered" panel beside it. Twelve lines each,
+// 232 of them on Dole's page.
+//
+// Now the card is three lines you can scan — when, what, how big — and
+// everything else is one click inside it. Nothing was removed: the reference
+// numbers, the product description, the evidence note and the source link are
+// all still here, in the <details>. "Organized better" has to mean reordered,
+// not reduced, because every one of those lines is the citation for a claim
+// about a named company.
+function RecallCard({ group, companyId }: { group: RecallEventGroup; companyId: string }) {
+  const action = group.lead
   const issuedElsewhere = action.company.id !== companyId
   const note = issuedElsewhere ? evidenceNote(action) : null
-  const kind = `${action.sourceAgency} ${action.actionType.replace(/_/g, ' ')}`
+  const extra = group.items.length - 1
+
   return (
     <div
       id={`recall-${action.id}`}
       style={{
         boxSizing: 'border-box',
-        padding: '15px 18px',
+        padding: '12px 15px',
         background: colors.card,
         border: `1px solid ${colors.line}`,
         borderLeft: `3px solid ${status.recall.fg}`,
         borderRadius: 8,
-        display: 'flex',
-        gap: 18,
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
       }}
     >
-      <div style={{ flexGrow: 1, flexBasis: 360, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-          <StatusChip state="recall">
-            {kind}
-            {action.classification ? ` · ${action.classification}` : ''}
-          </StatusChip>
-          {action.actionDate && (
-            <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink3 }}>{isoDate(action.actionDate)}</span>
-          )}
-          {action.status && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                padding: '3px 7px',
-                borderRadius: 4,
-                background: '#F1EEE6',
-                color: colors.ink2,
-              }}
-            >
-              {action.status}
-            </span>
-          )}
-          {action.referenceNumber && (
-            <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>{action.referenceNumber}</span>
-          )}
-        </div>
-
-        <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.45, marginTop: 8 }}>{action.reason}</div>
-
-        {issuedElsewhere && (
-          <div style={{ fontSize: 12.5, color: colors.ink2, marginTop: 5 }}>
-            Issued by <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>
-          </div>
+      {/* LINE 1 — when, and what kind. The date leads because a recall from
+          2016 and one from last month are read completely differently, and
+          the date was previously the third thing on the row. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap', fontSize: 12 }}>
+        {action.actionDate && (
+          <span style={{ fontFamily: font.mono, color: colors.ink2, fontWeight: 600 }}>
+            {isoDate(action.actionDate)}
+          </span>
         )}
-
-        {action.productRelevance === 'supply_chain' && (
-          <div style={{ fontSize: 12.5, color: colors.ink2, marginTop: 5 }}>
-            Relates to a facility or supplier in the supply chain, not to a product itself.
-          </div>
-        )}
-
-        <SourceLine url={action.sourceUrl} label={`${action.sourceAgency} record`} showReview={false} />
+        <StatusChip state="recall">
+          {action.sourceAgency}
+          {action.classification ? ` · ${action.classification}` : ''}
+        </StatusChip>
+        {action.status && <span style={{ color: colors.ink3 }}>{action.status}</span>}
       </div>
 
-      {/* What the notice actually covered, in its own words. This is the box
-          that stops a 2018 notice about one product line reading as a recall
-          of everything the company makes. */}
-      {(action.productDescription || note) && (
-        <div
-          style={{
-            width: 260,
-            flexGrow: 1,
-            maxWidth: 360,
-            boxSizing: 'border-box',
-            padding: '10px 12px',
-            background: '#F7F5EF',
-            border: '1px dashed #C9C2B2',
-            borderRadius: 6,
-          }}
-        >
-          {action.productDescription && (
+      {/* LINE 2 — what happened. */}
+      <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.45, marginTop: 7 }}>{action.reason}</div>
+
+      {/* LINE 3 — how big, and who issued it if not this company. */}
+      {(extra > 0 || issuedElsewhere) && (
+        <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 5 }}>
+          {extra > 0 && (
             <>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: colors.ink2,
-                }}
-              >
-                What it covered
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.5, color: '#3F4A42', marginTop: 5 }}>
-                {action.productDescription}
-              </div>
+              The agency filed {group.items.length} records under this notice, one per affected product
+              line.
             </>
           )}
-          {note && (
-            <div
-              style={{
-                fontSize: 12,
-                lineHeight: 1.5,
-                color: colors.ink3,
-                marginTop: action.productDescription ? 8 : 0,
-                paddingTop: action.productDescription ? 8 : 0,
-                borderTop: action.productDescription ? '1px dashed #E0DACB' : undefined,
-              }}
-            >
-              {note}
-            </div>
+          {extra > 0 && issuedElsewhere && ' '}
+          {issuedElsewhere && (
+            <>
+              Issued by <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>.
+            </>
           )}
         </div>
       )}
+
+      {/* Everything a fact-checker needs, one click in. Native <details>, so
+          no JavaScript and no hydration. */}
+      <details className="rt-collapse" style={{ marginTop: 8 }}>
+        <summary
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            fontSize: 12,
+            color: colors.link,
+          }}
+        >
+          <svg
+            className="rt-chev"
+            aria-hidden
+            width="9"
+            height="9"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 2l5 4-5 4" />
+          </svg>
+          What it covered, and the record
+        </summary>
+
+        <div style={{ paddingTop: 9 }}>
+          {action.productDescription && (
+            <div
+              style={{
+                boxSizing: 'border-box',
+                padding: '10px 12px',
+                background: '#F7F5EF',
+                border: '1px dashed #C9C2B2',
+                borderRadius: 6,
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: '#3F4A42',
+              }}
+            >
+              <strong style={{ color: colors.ink }}>What it covered: </strong>
+              {action.productDescription}
+            </div>
+          )}
+
+          {note && (
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: colors.ink3, marginTop: 8 }}>{note}</div>
+          )}
+
+          {action.productRelevance === 'supply_chain' && (
+            <div style={{ fontSize: 12, lineHeight: 1.5, color: colors.ink3, marginTop: 8 }}>
+              Relates to a facility or supplier in the supply chain, not to a product itself.
+            </div>
+          )}
+
+          {/* Every reference number in the group. These are the citations —
+              one government record each — and they are the reason the display
+              is allowed to collapse the group into one card. */}
+          {group.references.length > 0 && (
+            <div
+              style={{
+                fontFamily: font.mono,
+                fontSize: 11.5,
+                lineHeight: 1.7,
+                color: colors.ink3,
+                marginTop: 8,
+                wordBreak: 'break-word',
+              }}
+            >
+              {group.references.length === 1
+                ? group.references[0]
+                : `${group.references.length} records: ${group.references.join(', ')}`}
+            </div>
+          )}
+
+          <SourceLine url={action.sourceUrl} label={`${action.sourceAgency} record`} />
+        </div>
+      </details>
     </div>
   )
 }
@@ -902,7 +1026,6 @@ function Sidebar({ company }: { company: { investorFilings: Filing[]; supplyChai
                     url={f.sourceUrl}
                     label={f.filingDate ? `SEC filing of ${isoDate(f.filingDate)}` : 'SEC filing'}
                     readAt={f.dataPulledDate}
-                    reviewedAt={f.reviewDate}
                   />
                 </div>
               )
@@ -931,7 +1054,7 @@ function Sidebar({ company }: { company: { investorFilings: Filing[]; supplyChai
                     ? 'Independently verified'
                     : 'As published by the company, not independently verified'}
                 </div>
-                <SourceLine url={d.sourceUrl} label="Source" readAt={d.dataPulledDate} reviewedAt={d.reviewDate} />
+                <SourceLine url={d.sourceUrl} label="Source" readAt={d.dataPulledDate} />
               </div>
             ))}
           </div>
