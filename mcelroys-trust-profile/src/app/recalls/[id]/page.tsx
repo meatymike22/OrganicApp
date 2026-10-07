@@ -5,6 +5,7 @@ import { colors, font, isoDate, layout } from '@/lib/design'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 import { SourceLine } from '@/components/PageParts'
+import { plainReason } from '@/lib/plainRecall'
 
 // ONE GOVERNMENT NOTICE, AS SOMETHING A PERSON CAN READ.
 //
@@ -138,6 +139,11 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
   // citation and a trap.
   const sourceIsJson = /api\.fda\.gov/i.test(action.sourceUrl)
   const linkedProducts = action.links.filter((l) => l.product !== null)
+  // On THIS page the agency's own sentence is the headline — this is the page
+  // for someone who wants the numbers and the acronyms. The plain summary
+  // sits above it as a one-line orientation, which is the reverse of the
+  // product and company cards, where the plain version leads.
+  const plain = plainReason(action.reason)
 
   return (
     <>
@@ -164,6 +170,23 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
           {action.status && <span style={{ fontSize: 13, color: colors.ink3 }}>{action.status}</span>}
         </div>
 
+        {/* IN ONE LINE, FIRST. Michael, 2026-10-07: the technical reader can
+            "review all of the numbers, the acronyms" here, but even they
+            benefit from knowing what the notice is about before reading it. */}
+        {plain && (
+          <p
+            style={{
+              margin: '13px 0 0',
+              fontSize: 16,
+              lineHeight: 1.5,
+              color: colors.ink2,
+              fontWeight: 500,
+            }}
+          >
+            {plain.text}
+          </p>
+        )}
+
         {/* THE REASON IS THE HEADLINE. It is the sentence the agency wrote
             about why the notice exists, and it is the only thing on this page
             a reader is guaranteed to want. */}
@@ -179,6 +202,16 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
         >
           {action.reason}
         </h1>
+        {plain && (
+          <p style={{ margin: '8px 0 0', fontSize: 11.5, color: colors.ink4 }}>
+            Above, in the agency&rsquo;s own words. The line before it is our
+            plain-English summary &mdash;{' '}
+            <Link href="/sourcing" style={{ color: colors.link }}>
+              how we word these
+            </Link>
+            .
+          </p>
+        )}
 
         <p style={{ margin: '13px 0 0', fontSize: 15, lineHeight: 1.6, color: colors.ink2 }}>
           Issued by the {agency ? agency.name : action.sourceAgency}, naming{' '}

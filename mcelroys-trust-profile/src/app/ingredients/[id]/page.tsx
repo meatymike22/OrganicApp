@@ -205,11 +205,42 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           {capitalize(ingredient.name)}
         </h1>
 
-        {ingredient.flaggedForResearch && (
-          <div style={{ marginTop: 14 }}>
-            <StatusChip state="openResearch">Open research</StatusChip>
-          </div>
-        )}
+        {/* THE FLAG CHIP. Two comments from Michael, 2026-10-07, on the
+            soybean oil page, and they are the same comment:
+              "how is it that soybean oil has open research but no authority
+               rulings, studies on file or rules by country?"
+              "a brief hover over description of what open research means"
+
+            He is right and this chip was the round-9 bug surviving on a
+            different page. It said "Open research" for all 6,250 flagged
+            ingredients while meaning only "our classifier marked this an
+            additive or processing ingredient". Soybean oil is on 23,802
+            products and we hold nothing on it at all; canola oil, 18,630
+            products, the same. Amber plus three empty sections looks like a
+            warning and carries no information.
+
+            So the chip now reports WHAT WE HOLD, not what the flag is:
+            amber only when there is something to read, neutral grey when
+            there is not, and in both cases the hover says what the flag
+            actually means. */}
+        {ingredient.flaggedForResearch &&
+          (() => {
+            const onFile = studyCount + rules.length + assessments.length
+            return (
+              <div style={{ marginTop: 14 }}>
+                <StatusChip
+                  state={onFile > 0 ? 'openResearch' : 'nothingOnFile'}
+                  title={
+                    onFile > 0
+                      ? 'This is an additive or processing ingredient rather than a whole food, which is why we research it. The records we hold on it are below.'
+                      : 'This is an additive or processing ingredient rather than a whole food, which is why it is on our research list. It does not mean anything has been found — we hold no studies, authority rulings or country rules on it yet, and that is a gap in our records.'
+                  }
+                >
+                  {onFile > 0 ? 'On our research list' : 'On our research list — nothing on file yet'}
+                </StatusChip>
+              </div>
+            )
+          })()}
       </div>
 
       {/* SIGNAL ROW */}

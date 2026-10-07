@@ -77,6 +77,10 @@ const MIN_INGREDIENTS = 5
 // card, so a reader never has to take the threshold on trust.
 const MIN_OVERLAP = 0.4
 const MAX_RESULTS = 6
+// The second shelf: same kind of thing, shorter ingredient list. A lower bar
+// than MIN_OVERLAP on purpose — the whole point is a product that is
+// recognisably the same food while NOT sharing the long tail.
+const MIN_FOOD_OVERLAP = 0.35
 
 export type RelatedProduct = ProductImageFields & {
   id: string
@@ -92,16 +96,61 @@ export type RelatedProduct = ProductImageFields & {
   shared: number
   distinct: number
   percent: number
+  // How many ingredients this product lists in total. Shown on the shorter-list
+  // shelf beside ours, because the comparison IS the information.
+  theirTotal: number
 }
 
+export type RelatedSet = {
+  // Closest ingredient lists overall.
+  similar: RelatedProduct[]
+  // Same kind of product, fewer ingredients on the label.
+  shorter: RelatedProduct[]
+  // How many ingredients the product being viewed lists, for the comparison.
+  myTotal: number
+}
+
+// WHY THERE IS A SECOND SHELF, AND WHY IT COUNTS INGREDIENTS RATHER THAN
+// ADDITIVES.
+//
+// Michael, 2026-10-07, on an M&M's page: "maybe any products that try to mock
+// M&Ms but use better ingredients should also apply. add that to the
+// algorithm."
+//
+// He is right that the Jaccard shelf structurally excludes them: a
+// short-ingredient competitor shares less of a 32-ingredient list, so it
+// scores low and never appears. The alternatives he wants are exactly the
+// products the first measure hides.
+//
+// I BUILT IT AS "SHORTER LIST", NOT "FEWER ADDITIVES", and the reason is a
+// measurement I ran rather than a principle I am being precious about.
+// Counting additives needs Ingredient.category, and that column has holes:
+// M&M's own list contains propyl gallate (a preservative), soy lecithin (an
+// emulsifier), gum acacia, dextrin and hydrogenated palm kernel oil, ALL
+// uncategorised. So an additive count is 12 for this product and "0" for a
+// Lindt truffle that certainly contains soy lecithin. A comparison that
+// depends on which of two products happens to have had its additives
+// classified is not a fact, it is a scoreboard with a bug — and a scoreboard
+// is the thing this site does not build.
+//
+// Total ingredient count has no such hole: either we hold the whole list or
+// we hold none of it. It is objective, checkable against the packet, and it
+// is what a shopper looking for a simpler version is already scanning for.
+// It is also NOT a verdict — a shorter list is not automatically better, and
+// the heading says only what it is.
+//
+// When the classification gaps are closed (see /sourcing, "What we know we
+// are missing"), a "fewer additives" count becomes honest and this is where
+// it goes.
 export async function getRelatedProducts(product: {
   id: string
   category: string | null
   companyId: string
-}): Promise<RelatedProduct[]> {
+}): Promise<RelatedSet> {
+  const empty: RelatedSet = { similar: [], shorter: [], myTotal: 0 }
   // No category, nothing to be related within. A product whose category we
   // have not worked out is not a product we can put on a shelf.
-  if (!product.category) return []
+  if (!product.category) return empty
 
   const [mineRows, candidates] = await Promise.all([
     prisma.productIngredient.findMany({
@@ -133,7 +182,9 @@ export async function getRelatedProducts(product: {
   ])
 
   const mine = new Set(mineRows.map((r) => r.ingredientId))
-  if (mine.size < MIN_INGREDIENTS || candidates.length === 0) return []
+  if (mine.size < MIN_INGREDIENTS || candidates.length === 0) {
+    return { ...empty, myTotal: mine.size }
+  }
 
   const rows = await prisma.productIngredient.findMany({
     where: { productId: { in: candidates.map((c) => c.id) } },
@@ -147,7 +198,9 @@ export async function getRelatedProducts(product: {
     byProduct.set(r.productId, set)
   }
 
-  const scored: RelatedProduct[] = []
+  const similar: RelatedProduct[] = []
+  const shorter: RelatedProduct[] = []
+
   for (const c of candidates) {
     const theirs = byProduct.get(c.id)
     if (!theirs || theirs.size < MIN_INGREDIENTS) continue
@@ -159,18 +212,38 @@ export async function getRelatedProducts(product: {
     // |A ∪ B| = |A| + |B| − |A ∩ B|
     const distinct = mine.size + theirs.size - shared
     const ratio = shared / distinct
-    if (ratio < MIN_OVERLAP) continue
-
-    scored.push({
+    const row: RelatedProduct = {
       ...c,
       shared,
       distinct,
       percent: Math.round(ratio * 100),
-    })
+      theirTotal: theirs.size,
+    }
+
+    if (ratio >= MIN_OVERLAP) similar.push(row)
+
+    // The shorter shelf. Measured against OUR list rather than the union:
+    // "how much of what is in this product is also in that one" is the
+    // question that makes a 15-ingredient product recognisable as the same
+    // food, and the union measure is what was hiding them.
+    if (theirs.size < mine.size && shared / mine.size >= MIN_FOOD_OVERLAP) {
+      shorter.push(row)
+    }
   }
 
   // Most similar first. Ties broken by name so the shelf is stable between
   // requests rather than following whatever order the rows came back in.
-  scored.sort((a, b) => b.percent - a.percent || a.name.localeCompare(b.name))
-  return scored.slice(0, MAX_RESULTS)
+  similar.sort((a, b) => b.percent - a.percent || a.name.localeCompare(b.name))
+  // Shortest list first — the ordering IS the point of this shelf, and it is
+  // an ordering by a count off the label, not by any judgement of ours.
+  shorter.sort((a, b) => a.theirTotal - b.theirTotal || a.name.localeCompare(b.name))
+
+  const chosen = new Set(similar.slice(0, MAX_RESULTS).map((r) => r.id))
+  return {
+    similar: similar.slice(0, MAX_RESULTS),
+    // No product appears on both shelves; one card per product, on the shelf
+    // that says more about it.
+    shorter: shorter.filter((r) => !chosen.has(r.id)).slice(0, MAX_RESULTS),
+    myTotal: mine.size,
+  }
 }

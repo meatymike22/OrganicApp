@@ -8,6 +8,8 @@ import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } 
 import { getRecallsListingProducts } from '@/lib/recalls'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
+// Only a confirmed company gets a page worth linking an example card to.
+import { VETTED_COMPANIES } from '@/lib/vetting'
 import {
   EMPTY_FILTERS,
   hasAnyFilter,
@@ -334,7 +336,10 @@ export default async function SearchPage({
     loaded === null || loaded.total === null ? null : Math.max(1, Math.ceil(loaded.total / per))
 
   // The two example photographs, looked up only on the page that shows them.
-  const photos = loaded === null ? await exampleProducts() : null
+  const [photos, companies] =
+    loaded === null
+      ? await Promise.all([exampleProducts(), exampleCompanies()])
+      : [null, null]
 
   return (
     <>
@@ -381,7 +386,7 @@ export default async function SearchPage({
           {loaded === null ? (
             // Nothing asked yet. Sits exactly where the rows go, so the page
             // does not change shape when the first search happens.
-            <NothingAskedYet photos={photos!} />
+            <NothingAskedYet photos={photos!} companies={companies!} />
           ) : (
             <>
               {/* The count strip. Each number is a link-free statement of
@@ -498,6 +503,9 @@ const EXAMPLES: {
   note: string
   // A product to photograph, by barcode. Omit for a card that is drawn.
   upc?: string
+  // A company to link to, by legal name. Resolved to an id at render time;
+  // when it resolves, the card goes to that company's page instead of `href`.
+  company?: string
   art?: React.ReactNode
 }[] = [
   {
@@ -510,6 +518,17 @@ const EXAMPLES: {
   {
     label: 'Chobani',
     sub: 'a whole brand',
+    // Michael, 2026-10-07: "this should take you to the chobani page, should
+    // it not?" Yes. A card labelled with a brand and subtitled "a whole
+    // brand" should land on the brand, not on a search for its name — the
+    // search was a list of its products with no company record attached,
+    // which is the thing the card is advertising.
+    //
+    // `company` is resolved to an id at render time rather than hardcoded,
+    // the same way `upc` is resolved to a photo: a pasted id rots silently
+    // when the row is re-ingested, and if the lookup finds nothing the card
+    // falls back to `href` and still works.
+    company: 'Chobani',
     href: '/search?q=Chobani',
     note: 'a brand',
     upc: '0818290442970',
@@ -534,6 +553,20 @@ const EXAMPLES: {
 // Returns a map so a missing product is simply absent rather than throwing —
 // an example whose barcode has been removed from the database must not take
 // the whole start screen down with it.
+// The company ids behind any example that names one, by legal name. Separate
+// from the photo lookup because it answers a different question and a miss is
+// handled differently: no photo means a glyph, no company means the card
+// falls back to its search URL.
+async function exampleCompanies(): Promise<Map<string, string>> {
+  const names = EXAMPLES.map((e) => e.company).filter((n): n is string => Boolean(n))
+  if (names.length === 0) return new Map<string, string>()
+  const rows = await prisma.company.findMany({
+    where: { legalName: { in: names }, ...VETTED_COMPANIES },
+    select: { id: true, legalName: true },
+  })
+  return new Map(rows.map((r) => [r.legalName, r.id]))
+}
+
 async function exampleProducts(): Promise<Map<string, ExampleProduct>> {
   const upcs = EXAMPLES.map((e) => e.upc).filter((u): u is string => Boolean(u))
   if (upcs.length === 0) return new Map<string, ExampleProduct>()
@@ -579,7 +612,13 @@ type ExampleProduct = {
 //
 // The database is still untouched when this renders: the caller does not call
 // `loadResults` at all.
-function NothingAskedYet({ photos }: { photos: Map<string, ExampleProduct> }) {
+function NothingAskedYet({
+  photos,
+  companies,
+}: {
+  photos: Map<string, ExampleProduct>
+  companies: Map<string, string>
+}) {
   return (
     <div style={{ paddingBottom: 40 }}>
       {/* THE ASK. Deliberately a question, not a label: the job here is to
@@ -613,11 +652,15 @@ function NothingAskedYet({ photos }: { photos: Map<string, ExampleProduct> }) {
       >
         {EXAMPLES.map((e) => {
           const photo = e.upc ? photos.get(e.upc) : undefined
+          // A resolved company wins over the search URL; an unresolved one
+          // leaves the card exactly as it was.
+          const companyId = e.company ? companies.get(e.company) : undefined
+          const href = companyId ? `/companies/${companyId}` : e.href
           const isBarcode = /^\d+$/.test(e.label)
           return (
             <Link
               key={e.href}
-              href={e.href}
+              href={href}
               style={{
                 display: 'flex',
                 flexDirection: 'column',

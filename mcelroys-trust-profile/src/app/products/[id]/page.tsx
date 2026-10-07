@@ -6,7 +6,8 @@ import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { isShortened, productDisplayName, shortProductName } from '@/lib/productName'
 import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
-import { getRelatedProducts, type RelatedProduct } from '@/lib/relatedProducts'
+import { plainReason } from '@/lib/plainRecall'
+import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
 import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, type RecallGroup } from '@/lib/recalls'
 import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible } from '@/components/Collapsible'
@@ -389,7 +390,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             certificate records and their dates are still every bit as
             reachable — they are on this product's sources page, which is
             where the two table rows now link. */}
-        <Related products={related} />
+        <Related set={related} />
       </div>
 
       <SiteFooter />
@@ -812,7 +813,14 @@ function Recalls({
             empty=""
             groups={processed}
             state="unchecked"
-            preamble="These name no product, so we cannot tell you whether this one was affected. They are here because they concern the company or its parent."
+            // THIS SENTENCE WAS FALSE. It said "These name no product",
+            // and the notice that prompted Michael's comment names three:
+            // "specific varieties of SKITTLES Gummies, STARBURST Gummies, and
+            // LIFE SAVERS Gummies". The bucket's condition is "has no link to
+            // any product of ours", which is NOT the same as "names no
+            // product" — it also catches notices that name products we failed
+            // to match. So the wording now says what is true of both cases.
+            preamble="These concern how food was made or handled at this company or its parent. None is matched to this product, and some name other products the company makes — so they cannot tell you whether this one was affected."
           />
         )}
       </div>
@@ -891,6 +899,12 @@ function Group({
 function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof status }) {
   const item = g.lead
   const note = evidenceNote(item)
+  // PLAIN WORDS IN THE SUMMARY, THE AGENCY'S IN THE BODY. Michael,
+  // 2026-10-07: "these recalls and notices need to be heavily condensed and
+  // explained to a 5 year old (not in baby talk but in concise simple
+  // terms)". Returns null for a reason we cannot summarise safely, and then
+  // the agency's own sentence is the headline as before — see plainRecall.ts.
+  const plain = plainReason(item.reason)
   // How many agency records make up this one event. The FDA files one per
   // affected product line, so a single recall arrives as sixteen
   // near-identical records (see groupRecalls in recalls.ts). They are all
@@ -898,8 +912,9 @@ function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof stat
   const extra = g.items.length - 1
   // Is there anything behind the chevron? A notice with no description, no
   // evidence note and no sibling records has an empty body, and a control
-  // that opens onto nothing is worse than no control.
-  const hasBody = Boolean(item.productDescription) || Boolean(note) || extra > 0
+  // that opens onto nothing is worse than no control. When we summarised the
+  // reason, the agency's wording is itself body content.
+  const hasBody = Boolean(plain) || Boolean(item.productDescription) || Boolean(note) || extra > 0
 
   const head = (
     <>
@@ -932,13 +947,23 @@ function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof stat
         {item.status && <span style={{ fontSize: 12, color: colors.ink3 }}>{item.status}</span>}
       </div>
       <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink }}>
-        {item.reason}
+        {plain ? plain.text : item.reason}
       </p>
     </>
   )
 
   const body = (
     <>
+      {/* THE AGENCY'S OWN SENTENCE, whenever the summary above is ours. This
+          is what makes the paraphrase defensible: a reader can always check
+          it against the original without leaving the page. */}
+      {plain && (
+        <p style={{ margin: '11px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3 }}>
+          <strong style={{ color: colors.ink2 }}>The notice says: </strong>
+          {item.reason}
+        </p>
+      )}
+
       {/* What the notice actually covered, in its own words. This is the box
           that stops a 2018 notice about one product line reading as a recall
           of everything the company makes. */}
@@ -1033,17 +1058,18 @@ function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof stat
 // the heading says that, and nothing here implies the neighbour is better or
 // worse than what you are looking at. See relatedProducts.ts for the measure
 // and why it is Jaccard rather than share-of-their-list.
-function Related({ products }: { products: RelatedProduct[] }) {
+function Related({ set }: { set: RelatedSet }) {
+  const total = set.similar.length + set.shorter.length
   return (
     <Collapsible
       id="related"
       title="similar products"
-      count={products.length}
-      note={products.length === 0 ? 'None found' : 'By shared ingredients'}
-      open={products.length > 0}
+      count={total}
+      note={total === 0 ? 'None found' : 'By shared ingredients'}
+      open={total > 0}
     >
       <div style={{ marginTop: 4 }}>
-        {products.length === 0 ? (
+        {total === 0 ? (
           <Callout state="nothingOnFile">
             We did not find another product with a similar ingredient list. That usually means we
             hold no ingredient list for this product, or none of the products we checked in this
@@ -1057,6 +1083,46 @@ function Related({ products }: { products: RelatedProduct[] }) {
               it is a measure of similarity, not of quality, and the order says nothing about which
               is better.
             </p>
+            <Shelf products={set.similar} />
+
+            {/* THE SECOND SHELF. Michael, 2026-10-07: "maybe any products
+                that try to mock M&Ms but use better ingredients should also
+                apply. add that to the algorithm."
+                Ordered by how many ingredients are on the label, which is a
+                count off the packet rather than a judgement — see the long
+                note in relatedProducts.ts for why it is not "fewer
+                additives" yet. */}
+            {set.shorter.length > 0 && (
+              <div style={{ marginTop: set.similar.length > 0 ? 20 : 0 }}>
+                <p
+                  style={{
+                    margin: '0 0 11px',
+                    fontSize: 13.5,
+                    lineHeight: 1.6,
+                    color: colors.ink2,
+                    maxWidth: 760,
+                  }}
+                >
+                  <strong style={{ color: colors.ink }}>
+                    Same kind of product, shorter ingredient list.
+                  </strong>{' '}
+                  These share much of what is in this one but list fewer
+                  ingredients overall &mdash; this product lists {set.myTotal}. A shorter list is
+                  not automatically better, and we are not saying it is; it is simply a different
+                  label to read.
+                </p>
+                <Shelf products={set.shorter} myTotal={set.myTotal} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Collapsible>
+  )
+}
+
+function Shelf({ products, myTotal }: { products: RelatedProduct[]; myTotal?: number }) {
+  return (
             <div
               style={{
                 display: 'grid',
@@ -1108,16 +1174,14 @@ function Related({ products }: { products: RelatedProduct[] }) {
                         can be checked against the two ingredient lists;
                         "28%" on its own cannot. */}
                     <span style={{ display: 'block', fontSize: 11, color: colors.ink4, marginTop: 3 }}>
-                      {`${p.percent}% overlap · ${p.shared} of ${p.distinct} ingredients shared`}
+                      {myTotal === undefined
+                        ? `${p.percent}% overlap · ${p.shared} of ${p.distinct} ingredients shared`
+                        : `${p.theirTotal} ingredients vs ${myTotal} here · ${p.shared} shared`}
                     </span>
                   </span>
                 </Link>
               ))}
             </div>
-          </>
-        )}
-      </div>
-    </Collapsible>
   )
 }
 

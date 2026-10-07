@@ -46,8 +46,11 @@ const NEWEST_FIRST = [{ actionDate: { sort: 'desc', nulls: 'last' } }, { id: 'as
 
 export type RecallItem = Prisma.RegulatoryActionGetPayload<{ select: typeof ACTION_FIELDS }> & {
   // How this recall is tied to the company/product being viewed, when it is
-  // (see evidenceNote()).
-  link?: { matchMethod: string; productId: string | null }
+  // (see evidenceNote()). `matchedText` is the string in the notice that
+  // produced the match — a barcode, or a brand name. It is shown to the
+  // reader for brand-level links, because "this notice named LIFE SAVERS"
+  // is the difference between a useful row and a misleading one.
+  link?: { matchMethod: string; productId: string | null; matchedText: string | null }
 }
 export type RecallList = { count: number; items: RecallItem[] }
 
@@ -80,7 +83,7 @@ async function attachLinks(items: RecallItem[], companyId: string) {
   if (!items.length) return
   const links = await prisma.regulatoryActionLink.findMany({
     where: { companyId, actionId: { in: items.map((i) => i.id) } },
-    select: { actionId: true, matchMethod: true, productId: true },
+    select: { actionId: true, matchMethod: true, productId: true, matchedText: true },
   })
   for (const item of items) {
     const mine = links.filter((l) => l.actionId === item.id)
@@ -101,17 +104,31 @@ export function evidenceNote(item: RecallItem): string | null {
       : item.company.businessRole === 'retailer'
         ? ` ${issuer} is a retailer.`
         : ''
+  // NAME THE BRAND THE NOTICE ACTUALLY NAMED. Michael, 2026-10-07: "should
+  // a skittles recall be included under M&Ms? this is too broad of a recall
+  // to apply here."
+  //
+  // He is right that it reads as being about this product. The link already
+  // records what matched — for that notice, "LIFE SAVERS" — so the row can
+  // say which brand it was about instead of leaving the reader to assume it
+  // was this one. Nothing is hidden; the notice is named more precisely.
+  //
+  // Skipped when the matched text is a barcode or other digits, where
+  // repeating it back tells a reader nothing.
+  const matched = item.link?.matchedText?.trim()
+  const named = matched && /[A-Za-z]{2}/.test(matched) ? ` The notice named “${matched}”.` : ''
+
   switch (item.link?.matchMethod) {
     case 'barcode':
       return `The notice from ${issuer} lists this product's barcode.${middleman}`
     case 'owner_brand':
-      return `Issued by ${issuer}, the company behind this brand. The notice names the brand; it covers the product described, not necessarily every product of the brand.`
+      return `Issued by ${issuer}, the company behind this brand.${named} It covers the product described, not necessarily every product of the brand.`
     case 'named_brand':
-      return `Issued by ${issuer}, not by the owner of this brand.${middleman} The notice names this brand as the product's label, but on its own it does not show which of this brand's products, if any on this page, were affected.`
+      return `Issued by ${issuer}, not by the owner of this brand.${middleman}${named} On its own it does not show which of this brand's products, if any on this page, were affected.`
     case undefined:
       return null
     default:
-      return `Issued by ${issuer}. The notice covers the product described, not necessarily every product of this brand.`
+      return `Issued by ${issuer}.${named} It covers the product described, not necessarily every product of this brand.`
   }
 }
 
@@ -147,13 +164,36 @@ export function isProcessRelated(reason: string | null | undefined): boolean {
   return !!reason && PROCESS_REASON.test(reason)
 }
 
-// Food recalls only: FSIS, and FDA's food enforcement reports (recall numbers
-// F-… and, from 2025, H-…). FDA drug (D-…) and device (Z-…) recalls and CPSC
+// WHAT COUNTS AS A FOOD RECALL, declared ONCE.
+//
+// FSIS, and FDA's food enforcement reports (recall numbers F-… and, from
+// 2025, H-…). FDA drug (D-…) and device (Z-…) recalls and CPSC
 // consumer-product recalls say nothing about how FOOD was made.
+//
+// Declared as data rather than written twice, because the rule is now needed
+// both as a predicate (below) and as a Prisma where-clause. Writing the same
+// rule in two places is exactly how the barcode-normalisation bug of round 6
+// happened: a second implementation that quietly disagreed with the first.
+const FSIS = 'FSIS'
+const FDA_FOOD_PREFIXES = ['F-', 'H-'] as const
+
 export function isFoodRecall(a: { sourceAgency: string; referenceNumber: string | null }): boolean {
-  if (a.sourceAgency === 'FSIS') return true
-  return a.sourceAgency === 'FDA' && /^[FH]-/i.test(a.referenceNumber ?? '')
+  if (a.sourceAgency === FSIS) return true
+  if (a.sourceAgency !== 'FDA') return false
+  const ref = (a.referenceNumber ?? '').toUpperCase()
+  return FDA_FOOD_PREFIXES.some((prefix) => ref.startsWith(prefix))
 }
+
+// The same rule as a query filter, built from the same two constants.
+export const FOOD_RECALL_WHERE = {
+  OR: [
+    { sourceAgency: FSIS },
+    ...FDA_FOOD_PREFIXES.map((prefix) => ({
+      sourceAgency: 'FDA',
+      referenceNumber: { startsWith: prefix, mode: 'insensitive' as const },
+    })),
+  ],
+} satisfies Prisma.RegulatoryActionWhereInput
 
 // Process-related FOOD recalls issued by these companies (typically a brand and
 // its parents) that name no brand or product of ours. Shown as a hint, never
@@ -194,14 +234,55 @@ export async function companyAndParents(companyId: string): Promise<{ id: string
 //   process:     the hint — process-related recalls by the brand or its
 //                parents that name no product (see getUnlinkedProcessRecalls).
 export async function getProductRecalls(productId: string, limit?: number) {
-  const product = await prisma.product.findUnique({ where: { id: productId }, select: { companyId: true } })
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { companyId: true, productType: true },
+  })
   if (!product) return null
   const family = await companyAndParents(product.companyId)
+
+  // THE AGENCY FILTER, AND WHY IT APPLIES TO ONLY SOME OF THESE BUCKETS.
+  //
+  // Michael, 2026-10-07, on an M&M’s page: "what does jewelry have to do
+  // with the actual M&Ms? We need to check the database for recalls that may
+  // be attached to a product that doesnt make sense like this."
+  //
+  // He was right, and the audit was worse than the comment. 607 non-food
+  // notices reach product pages through company-level links, across 139
+  // companies and 26,372 product pages: Roman blinds on every Meijer
+  // product, a space-heater recall on Amazon’s, "Letters to Santa Mailbox"
+  // on Target’s, Hot Wheels on Kellogg’s.
+  //
+  // BUT A BLANKET AGENCY FILTER WOULD BE WORSE. Read this before changing
+  // it. The links split cleanly by strength, verified 2026-10-07:
+  //
+  //   product-level links: 2,969 — EVERY ONE matched by barcode
+  //   company-level links: 10,918 — every one matched on a brand or firm name
+  //
+  // A barcode-matched notice printed THIS PRODUCT'S OWN BARCODE. That is the
+  // strongest evidence we ever have, and filtering it by agency would hide 13
+  // genuinely correct recalls of the exact product being viewed — including
+  // an Advil recall on the Advil page and an Orajel recall on the Orajel
+  // page. (Those are products our classifier wrongly calls food_beverage,
+  // which is a separate problem; the recall match itself is right.)
+  //
+  // So `thisProduct` is never filtered. The brand bucket, which rests on a
+  // name match, is food-only when the product is food. A CPSC recall still
+  // belongs on a baby bottle, so the filter is keyed to the product’s own
+  // type rather than applied unconditionally.
+  //
+  // Nothing is deleted and nothing becomes unreachable: every one of these
+  // notices still appears in full on the issuing company’s own page, which
+  // is the record of that firm’s recalls whatever the product category.
+  const agencyFilter = product.productType === 'food_beverage' ? FOOD_RECALL_WHERE : {}
+
   const [thisProduct, brand, process] = await Promise.all([
+    // Barcode links only. Deliberately unfiltered — see above.
     list({ ...SHOWN_ACTIONS, links: { some: { productId } } }, limit),
     list(
       {
         ...SHOWN_ACTIONS,
+        ...agencyFilter,
         links: { some: { companyId: product.companyId, productId: null } },
         NOT: { links: { some: { productId } } },
       },

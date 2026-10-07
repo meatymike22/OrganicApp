@@ -14,6 +14,7 @@ import {
   type RecallItem,
   type RecallList,
 } from '@/lib/recalls'
+import { plainReason } from '@/lib/plainRecall'
 import { productDisplayName } from '@/lib/productName'
 import { ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
@@ -811,6 +812,7 @@ function RecallCard({ group, companyId }: { group: RecallEventGroup; companyId: 
   const issuedElsewhere = action.company.id !== companyId
   const note = issuedElsewhere ? evidenceNote(action) : null
   const extra = group.items.length - 1
+  const plain = plainReason(action.reason)
 
   return (
     <div
@@ -840,8 +842,16 @@ function RecallCard({ group, companyId }: { group: RecallEventGroup; companyId: 
         {action.status && <span style={{ color: colors.ink3 }}>{action.status}</span>}
       </div>
 
-      {/* LINE 2 — what happened. */}
-      <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.45, marginTop: 7 }}>{action.reason}</div>
+      {/* LINE 2 — what happened, in plain words. Michael, 2026-10-07:
+          "for the layman, these recalls and notices need to be heavily
+          condensed and explained to a 5 year old (not in baby talk but in
+          concise simple terms)."
+          The agency's own sentence moves into the collapsible below, so
+          nothing is lost and the paraphrase stays checkable. A reason we
+          cannot summarise safely prints unchanged — see plainRecall.ts. */}
+      <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.45, marginTop: 7 }}>
+        {plain ? plain.text : action.reason}
+      </div>
 
       {/* LINE 3 — how big, and who issued it if not this company. */}
       {(extra > 0 || issuedElsewhere) && (
@@ -892,6 +902,13 @@ function RecallCard({ group, companyId }: { group: RecallEventGroup; companyId: 
         </summary>
 
         <div style={{ paddingTop: 9 }}>
+          {/* The verbatim sentence, whenever the headline above is ours. */}
+          {plain && (
+            <div style={{ fontSize: 12, lineHeight: 1.55, color: colors.ink3, marginBottom: 8 }}>
+              <strong style={{ color: colors.ink2 }}>The notice says: </strong>
+              {action.reason}
+            </div>
+          )}
           {action.productDescription && (
             <div
               style={{

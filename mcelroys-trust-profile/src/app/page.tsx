@@ -16,7 +16,13 @@ import { ScrollReveal } from '@/components/ScrollReveal'
 //    against the original record. (The method is disclosed on the legal pages.)
 //  - No "we archive the page" claim: archiving isn't built yet.
 //  - The app and Rootify Plus don't exist yet, so those buttons show "Soon"
-//    instead of linking anywhere; "Browse the database" goes to /search.
+//    instead of linking anywhere; "Search products" goes to /search.
+//
+//    WORDING, 2026-10-07. Michael, on the nav button: 'instead make this say
+//    "Search Products", "Get Started", or some phrase that isn't corny or too
+//    jargon related that will get them excited to search'. It said "Browse
+//    the database" — "database" is our word for it, not a shopper's, and it
+//    describes our plumbing rather than what they get to do.
 //  - No "Log in" (there are no accounts yet).
 //  - Fixed section heights became minimum heights, so text never clips.
 //
@@ -131,7 +137,7 @@ export default function HomePage() {
               <a href="#pricing" style={{ color: "#D3D9D4", textDecoration: "none" }}>Pricing</a>
               <a href="/faq" style={{ color: "#D3D9D4", textDecoration: "none" }}>FAQ</a>
             </div>
-            <a href="/search" style={{ display: "inline-flex", alignItems: "center", height: "40px", padding: "0 18px", boxSizing: "border-box", fontSize: "14px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "6px", textDecoration: "none" }}>Browse the database</a>
+            <a href="/search" style={{ display: "inline-flex", alignItems: "center", height: "40px", padding: "0 18px", boxSizing: "border-box", fontSize: "14px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "6px", textDecoration: "none" }}>Search products</a>
           </div>
         </div>
 
@@ -162,7 +168,7 @@ export default function HomePage() {
               <span>Cancel in two taps</span>
             </div>
             <div style={{ marginTop: "14px", fontSize: "14px" }}>
-              <a href="/search" style={{ fontWeight: "600" }}>The apps are on their way. Browse the database now →</a>
+              <a href="/search" style={{ fontWeight: "600" }}>The apps are on their way. Search products now →</a>
             </div>
           </div>
 
@@ -539,7 +545,7 @@ export default function HomePage() {
                   <span>Every line linked to the record it came from, with the date we read it</span>
                 </li>
               </ul>
-              <a href="/search" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "50px", marginTop: "26px", fontSize: "15px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #C9C2B2", borderRadius: "8px", textDecoration: "none" }}>Browse free</a>
+              <a href="/search" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "50px", marginTop: "26px", fontSize: "15px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #C9C2B2", borderRadius: "8px", textDecoration: "none" }}>Start free</a>
             </div>
 
             <div style={{ boxSizing: "border-box", padding: "30px 32px 32px", background: "#FFFFFF", border: "2px solid #1D4D3C", borderRadius: "14px", display: "flex", flexDirection: "column" }}>

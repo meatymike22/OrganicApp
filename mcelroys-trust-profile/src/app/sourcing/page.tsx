@@ -392,6 +392,67 @@ export default function SourcingPage() {
           ))}
         </div>
 
+        {/* --- HOW WE WORD A RECALL ---
+            Linked from /recalls/[id], which says "the line before it is our
+            plain-English summary — how we word these". That link has to land
+            on something, and the rule is worth stating in public anyway: it
+            is the only place on the site where we paraphrase an agency. */}
+        <h2
+          id="recall-wording"
+          style={{
+            margin: '40px 0 0',
+            fontFamily: font.display,
+            fontSize: 23,
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            scrollMarginTop: 16,
+          }}
+        >
+          How we word a recall
+        </h2>
+        <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.65, color: colors.ink2, maxWidth: '62ch' }}>
+          A recall notice is written for regulators. &ldquo;Product may be contaminated with
+          Listeria monocytogenes&rdquo; is precise and most people should not have to decode it. So
+          a recall card leads with one plain sentence of ours &mdash; &ldquo;May contain listeria, a
+          germ that can cause serious illness&rdquo; &mdash; and three rules govern it:
+        </p>
+        <ul
+          style={{
+            margin: '12px 0 0',
+            paddingLeft: 20,
+            fontSize: 14,
+            lineHeight: 1.7,
+            color: colors.ink2,
+            maxWidth: '62ch',
+          }}
+        >
+          <li>
+            <strong style={{ color: colors.ink }}>
+              The agency&rsquo;s own sentence is always still there.
+            </strong>{' '}
+            Our summary is shown beside it, never instead of it. You can check the paraphrase
+            against the original without leaving the page, which is the only thing that makes
+            paraphrasing defensible.
+          </li>
+          <li>
+            <strong style={{ color: colors.ink }}>It restates, it never adds or softens.</strong>{' '}
+            &ldquo;May contain&rdquo; stays &ldquo;may contain&rdquo;. We do not say a product is
+            dangerous, do not say anyone was harmed, and do not reassure.
+          </li>
+          <li>
+            <strong style={{ color: colors.ink }}>
+              A notice we cannot summarise safely is printed as written.
+            </strong>{' '}
+            About one in ten. A borrowed summary that happens to be wrong is far worse than a
+            technical sentence, so where the wording is unusual we leave it alone.
+          </li>
+        </ul>
+        <p style={{ margin: '11px 0 0', fontSize: 13, lineHeight: 1.6, color: colors.ink3, maxWidth: '62ch' }}>
+          These summaries are written by a rule, not drafted by a language model, so every sentence
+          the site can produce is fixed in advance and reviewable in one place rather than one
+          notice at a time.
+        </p>
+
         {/* --- KNOWN GAPS ---
             Referenced by the ingredient-filter explainers on /search, which
             name the two biggest misses directly. A page about how we source
