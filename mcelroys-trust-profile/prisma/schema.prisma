@@ -374,6 +374,10 @@ model Ingredient {
   products           ProductIngredient[]
   studies            IngredientStudy[]
   regulatoryStatuses IngredientRegulatoryStatus[]
+  // What published authorities (IARC, California Prop 65, EFSA, FDA) have
+  // concluded about this ingredient. A different kind of record from
+  // `studies` — see IngredientAuthorityAssessment.
+  authorityAssessments IngredientAuthorityAssessment[]
 }
 
 model ProductIngredient {
@@ -1001,4 +1005,81 @@ model RegionalSupplyReport {
   reviewDate     DateTime?
 
   @@index([commodityId, reportDate])
+}
+
+// AN AUTHORITY'S OWN STATED CONCLUSION about an ingredient.
+//
+// THE THIRD KIND OF EVIDENCE, and the reason it is its own table.
+//
+//   IngredientStudy               one scientific paper, read and summarised
+//                                 by a person. 20 rows, 16 ingredients.
+//   IngredientRegulatoryStatus    is it permitted in this jurisdiction, up
+//                                 to what limit. 26 rows.
+//   IngredientAuthorityAssessment what a published authority CONCLUDED:
+//                                 an IARC group, a Prop 65 listing, an EFSA
+//                                 reference value, an FDA inventory entry.
+//
+// Michael asked for this after noticing that Yuka has findings on
+// ingredients where we show nothing. Yuka does not hold studies: its
+// documentation lists IARC, EFSA, ECHA, ANSES, Santé Canada, JECFA, FDA,
+// OEHHA and INERIS, and it reads each body's published classification. That
+// is a fundamentally more scalable shape than a study: an authority
+// publishes a LIST, so one ingest covers thousands of ingredients, where
+// hand-curating papers got us to 20 in months.
+//
+// DO NOT MERGE THIS INTO IngredientStudy. "IARC lists this as Group 2B" and
+// "a 2019 paper found X" are different kinds of claim carrying different
+// weight, and a reader must be able to tell which one they are reading. The
+// UI renders them as separate categories and /sourcing explains the
+// difference; collapsing them in the database would make that impossible.
+model IngredientAuthorityAssessment {
+  id           String     @id @default(dbgenerated("gen_random_uuid()"))
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+
+  // Which body. The canonical list, what each one is, and what its
+  // classifications mean in plain English all live in src/lib/authorities.ts
+  // — not here, so a wording correction never needs a re-ingest.
+  authority String
+
+  // hazard_classification | reference_value | safety_review | listing
+  assessmentType String
+
+  // THE AUTHORITY'S OWN WORDS, verbatim enough to check against the source.
+  // This is the citable string. Never paraphrase it in place — the plain
+  // English rendering is derived from classificationCode instead, so the two
+  // can never drift apart.
+  classification String
+
+  // Our normalised code for rendering and colour: group_1, group_2a,
+  // group_2b, group_3, cancer, developmental_toxicity, adi, permitted, ...
+  classificationCode String
+
+  // The name the AUTHORITY used, which routinely differs from ours
+  // ("Titanium dioxide" vs our "titanium dioxide color"), plus the CAS
+  // number where the list publishes one. Both are what make the citation
+  // checkable by somebody who doubts us.
+  substanceName String
+  casNumber     String?
+
+  // When the authority made or last revised the assessment. Null when the
+  // published list does not say — deliberately NOT backfilled with the pull
+  // date, which would invent a fact about the authority.
+  assessedDate DateTime?
+
+  // Provenance. No aiDrafted or reviewer columns on purpose: these rows are
+  // transcribed from a published list by a script, so the honest provenance
+  // is the URL, the document title and the date we read it. Adding a
+  // reviewer field would invite the same empty promise the product page just
+  // had removed from it.
+  sourceUrl      String
+  sourceTitle    String
+  dataPulledDate DateTime @default(now())
+
+  // One row per (ingredient, authority, classification, substance name). The
+  // substance name is in the key because one authority legitimately lists the
+  // same ingredient under several names with separate assessments.
+  @@unique([ingredientId, authority, classification, substanceName], map: "IngredientAuthorityAssessment_unique_idx")
+  @@index([ingredientId])
+  @@index([authority])
 }

@@ -41,29 +41,72 @@ export const INGREDIENT_FILTERS: {
   label: string
   // What it says on the chip once it is on.
   short: string
+  // The hover explainer, shown on the "i" in the rail. Michael, 2026-10-07:
+  // "there needs to be a little hover over explainer to explain what each of
+  // these broad categories."
+  //
+  // THESE NAME REAL INGREDIENTS, with the number of products each is on, read
+  // off our own database on 2026-10-07. Two reasons that matters more than a
+  // tidy definition would. First, "no seed oils" tells a shopper nothing
+  // until they know it catches soybean and canola — the two commonest
+  // ingredients in the entire catalogue. Second, a filter described in the
+  // abstract can drift away from what it actually does; one described by its
+  // own contents cannot, because the examples come from the same category
+  // values the query uses.
+  //
+  // Counts go stale as the catalogue grows. They are deliberately written as
+  // approximations and the wording survives being a little out of date.
+  what: string
   categories: string[]
 }[] = [
-  { key: 'seed-oil', label: 'No seed oils', short: 'no seed oils', categories: ['seed oil'] },
-  { key: 'dye', label: 'No artificial dyes', short: 'no dyes', categories: ['artificial dye'] },
+  {
+    key: 'seed-oil',
+    label: 'No seed oils',
+    short: 'no seed oils',
+    what:
+      'Seed and vegetable oils: soybean (on ~23,800 products), canola (~18,600), sunflower (~15,000), corn (~2,600), safflower (~1,900), and partially hydrogenated versions of them. About 1,470 ingredient names in all.',
+    categories: ['seed oil'],
+  },
+  {
+    key: 'dye',
+    label: 'No artificial dyes',
+    short: 'no dyes',
+    what:
+      'Added colourings: red 40 (~12,100 products), yellow 5 (~11,200), blue 1 (~9,700), yellow 6 (~7,900), titanium dioxide (~4,500), and their lake forms. About 820 names in all.',
+    categories: ['artificial dye'],
+  },
   {
     key: 'sweetener',
     label: 'No artificial sweeteners',
     short: 'no artificial sweeteners',
+    what:
+      'Non-sugar sweeteners: sucralose (~8,100 products), acesulfame potassium (~5,000), aspartame (~2,300), saccharin, neotame. About 320 names in all. Sugar, honey and fruit juice are not in this category.',
     categories: ['artificial sweetener'],
   },
   {
     key: 'preservative',
     label: 'No preservatives',
     short: 'no preservatives',
+    what:
+      'Added preservatives: potassium sorbate (~14,500 products), sodium benzoate (~9,900), sodium nitrite (~5,800), calcium propionate (~4,400), BHT, BHA, and the parabens. About 1,020 names in all. Salt, sugar and vinegar are not in this category even where they preserve.',
     // Three separate category values, all of which are preservatives. Mapping
     // only 'preservative' would quietly let every paraben through.
     categories: ['preservative', 'paraben preservative', 'antimicrobial preservative'],
   },
-  { key: 'emulsifier', label: 'No emulsifiers', short: 'no emulsifiers', categories: ['emulsifier'] },
+  {
+    key: 'emulsifier',
+    label: 'No emulsifiers',
+    short: 'no emulsifiers',
+    what:
+      'Ingredients that hold a mixture together: carrageenan (~10,700 products), mono- and diglycerides (~7,100), polysorbate 80 (~3,100), polysorbate 60 (~3,000). About 390 names in all. Soy lecithin is NOT caught by this filter — it is uncategorised in our data (see the known gaps on /sourcing).',
+    categories: ['emulsifier'],
+  },
   {
     key: 'flavoring',
     label: 'No undisclosed flavoring',
     short: 'no undisclosed flavoring',
+    what:
+      'Flavour listed as a blend the label does not break down: "natural flavor" (~82,700 products), "artificial flavor" (~30,900), "flavoring", "natural flavoring". About 2,200 names in all. This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. "Spices" is NOT caught by this filter — it is uncategorised in our data (see the known gaps on /sourcing).',
     categories: ['undisclosed flavoring'],
   },
 ]

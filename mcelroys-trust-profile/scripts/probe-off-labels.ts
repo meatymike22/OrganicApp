@@ -32,8 +32,14 @@
 //
 // Default is 200,000 lines, which takes well under a minute and is already
 // conclusive about whether a field exists. --all counts the whole file.
+//
+// Writes logs/probe-off-labels-<timestamp>.txt as it goes, like every other
+// script here. The first version of this file printed to stdout only, which
+// meant the one person who could run it had to copy a terminal buffer back
+// — and if they had closed it, the run was gone.
 
 import fs from 'node:fs'
+import path from 'node:path'
 import zlib from 'node:zlib'
 import { StringDecoder } from 'node:string_decoder'
 
@@ -72,6 +78,28 @@ async function* readLines(stream: NodeJS.ReadableStream): AsyncGenerator<string>
   if (carry) yield carry
 }
 
+// --- LOGGING, same convention as every other script in scripts/: written as
+// it goes, so an interrupted run still leaves a record of how far it got.
+const LOG_FILE = path.join(
+  './logs',
+  `probe-off-labels-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`
+)
+fs.mkdirSync('./logs', { recursive: true })
+
+function log(...parts: unknown[]) {
+  const line = parts.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
+  console.log(line)
+  fs.appendFileSync(LOG_FILE, line + '\n')
+}
+
+function logError(...parts: unknown[]) {
+  const line = parts
+    .map((a) => (a instanceof Error ? `${a.name}: ${a.message}` : typeof a === 'string' ? a : JSON.stringify(a)))
+    .join(' ')
+  console.error(line)
+  fs.appendFileSync(LOG_FILE, '[ERROR] ' + line + '\n')
+}
+
 function bump(m: Map<string, number>, k: string, by = 1) {
   m.set(k, (m.get(k) ?? 0) + by)
 }
@@ -84,13 +112,13 @@ function top(m: Map<string, number>, n: number): string {
 
 async function main() {
   if (!FILE || !fs.existsSync(FILE)) {
-    console.error(`Export file not found: ${FILE ?? '(none given)'}`)
-    console.error('Pass the path to openfoodfacts-products.jsonl.gz (do not unzip it).')
+    logError(`Export file not found: ${FILE ?? '(none given)'}`)
+    logError('Pass the path to openfoodfacts-products.jsonl.gz (do not unzip it).')
     process.exitCode = 1
     return
   }
 
-  console.log(`Probing ${FILE}${ALL ? ' (whole file)' : ` (first ${LINES.toLocaleString()} lines)`}\n`)
+  log(`Probing ${FILE}${ALL ? ' (whole file)' : ` (first ${LINES.toLocaleString()} lines)`}\n`)
 
   let lines = 0
   let parsed = 0
@@ -158,7 +186,7 @@ async function main() {
     }
     if (lines % 250_000 === 0) {
       const mins = ((Date.now() - started) / 60000).toFixed(1)
-      console.log(`  ...${lines.toLocaleString()} lines (${mins} min)`)
+      log(`  ...${lines.toLocaleString()} lines (${mins} min)`)
     }
     if (lines >= LINES) break
   }
@@ -167,46 +195,51 @@ async function main() {
   const mins = ((Date.now() - started) / 60000).toFixed(1)
   const pct = (n: number) => (parsed ? `${((n / parsed) * 100).toFixed(1)}%` : '—')
 
-  console.log(`\n===== LABEL FIELD PROBE (${mins} min) =====`)
-  console.log(`Lines read:        ${lines.toLocaleString()}`)
-  console.log(`Records parsed:    ${parsed.toLocaleString()}`)
-  console.log(`With a barcode:    ${withBarcode.toLocaleString()}`)
+  log(`\n===== LABEL FIELD PROBE (${mins} min) =====`)
+  log(`Lines read:        ${lines.toLocaleString()}`)
+  log(`Records parsed:    ${parsed.toLocaleString()}`)
+  log(`With a barcode:    ${withBarcode.toLocaleString()}`)
 
-  console.log(`\nLabel-ish keys PRESENT and non-empty (this is the answer):`)
-  console.log(top(keyPresent, 25))
+  log(`\nLabel-ish keys PRESENT and non-empty (this is the answer):`)
+  log(top(keyPresent, 25))
 
-  console.log(`\nLabel-ish keys present but EMPTY:`)
-  console.log(top(keyEmpty, 15))
+  log(`\nLabel-ish keys present but EMPTY:`)
+  log(top(keyEmpty, 15))
 
   if (!keyPresent.has('labels_tags') && !keyEmpty.has('labels_tags')) {
-    console.log(`\n!! labels_tags DOES NOT EXIST in this export.`)
-    console.log(`   Do not build the labels import until the list above is read.`)
-    console.log(`   Whatever is listed as present is what we actually have.`)
+    log(`\n!! labels_tags DOES NOT EXIST in this export.`)
+    log(`   Do not build the labels import until the list above is read.`)
+    log(`   Whatever is listed as present is what we actually have.`)
   }
 
-  console.log(`\nWhat an organic / non-GMO filter would be worth:`)
-  console.log(`  products tagged organic:            ${anyOrganic.toLocaleString()}  (${pct(anyOrganic)})`)
-  console.log(`    ...of those, with a barcode:      ${organicWithBarcode.toLocaleString()}`)
-  console.log(`  products tagged non-GMO:            ${anyNonGmo.toLocaleString()}  (${pct(anyNonGmo)})`)
-  console.log(`  (a barcode is required to match one of our products)`)
+  log(`\nWhat an organic / non-GMO filter would be worth:`)
+  log(`  products tagged organic:            ${anyOrganic.toLocaleString()}  (${pct(anyOrganic)})`)
+  log(`    ...of those, with a barcode:      ${organicWithBarcode.toLocaleString()}`)
+  log(`  products tagged non-GMO:            ${anyNonGmo.toLocaleString()}  (${pct(anyNonGmo)})`)
+  log(`  (a barcode is required to match one of our products)`)
 
-  console.log(`\nMost common label tags:`)
-  console.log(top(labelTagValues, 40))
+  log(`\nMost common label tags:`)
+  log(top(labelTagValues, 40))
 
   if (rawLabelsSamples.length > 0) {
-    console.log(`\nRaw \`labels\` from a few records:`)
-    for (const s of rawLabelsSamples) console.log(`    ${s}`)
+    log(`\nRaw \`labels\` from a few records:`)
+    for (const s of rawLabelsSamples) log(`    ${s}`)
   }
 
-  console.log(
+  log(
     `\nNOTE: a label tag is a CLAIM TRANSCRIBED FROM THE PACKAGE by an Open Food`
   )
-  console.log(`Facts contributor. It is not a certification record and nobody audited it.`)
-  console.log(`It belongs in its own column with its own wording ("the label says organic"),`)
-  console.log(`never merged into the USDA certification rows.`)
+  log(`Facts contributor. It is not a certification record and nobody audited it.`)
+  log(`It belongs in its own column with its own wording ("the label says organic"),`)
+  log(`never merged into the USDA certification rows.`)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exitCode = 1
-})
+main()
+  .then(() => {
+    log(`\nLog written to ${LOG_FILE}`)
+  })
+  .catch((e) => {
+    logError(e)
+    logError(`Log written to ${LOG_FILE}`)
+    process.exitCode = 1
+  })

@@ -5,12 +5,14 @@ import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { isShortened, productDisplayName, shortProductName } from '@/lib/productName'
+import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
+import { getRelatedProducts, type RelatedProduct } from '@/lib/relatedProducts'
 import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, type RecallGroup } from '@/lib/recalls'
 import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
-import { SignalTable, StatusChip } from '@/components/StatusChip'
+import { SignalTable, SignalTableNote, StatusChip } from '@/components/StatusChip'
 
 // Everything on this page in one query. The product page is the place a
 // shopper goes to check our work, so it pulls the actual source rows — the
@@ -40,6 +42,9 @@ const PRODUCT_FIELDS = {
           category: true,
           flaggedForResearch: true,
           _count: { select: { studies: true } },
+          // The codes, not a count: "IARC Group 2B" is information and "2
+          // rulings" is not. A handful of rows per ingredient at most.
+          authorityAssessments: { select: { classificationCode: true } },
         },
       },
     },
@@ -112,9 +117,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const forSignals = product as unknown as ProductForSignals
 
-  const [listed, recalls] = await Promise.all([
+  // Related products cost about 250 ms (measured; see relatedProducts.ts), so
+  // they go in the same Promise.all as the recall queries rather than in
+  // series after them. A separate floating promise would also have worked and
+  // would have been worse: a rejection on a promise nobody awaits in the same
+  // tick is an unhandled rejection.
+  const [listed, recalls, related] = await Promise.all([
     getRecallsListingProducts([product.id]),
     getProductRecalls(product.id),
+    getRelatedProducts({
+      id: product.id,
+      category: product.category,
+      companyId: product.company.id,
+    }),
   ])
 
   const flagged = flaggedSignal(forSignals)
@@ -285,11 +300,27 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 },
                 { question: 'Open research', signal: flagged, href: '#flagged' },
                 { question: 'Recalls', signal: recall, href: '#recalls' },
-                { question: 'Certified organic', signal: organic, href: '#certificates' },
-                { question: 'Non-GMO verified', signal: nonGmo, href: '#certificates' },
+                // These two used to point at #certificates, which no longer
+                // exists — Michael, 2026-10-07: "I am not sure how much
+                // immediate value this section provides. At the very top we
+                // already provide it. Remove this for now." The certificate
+                // record and its date live on the sources page, so that is
+                // where the rows now go. A row that links to a deleted anchor
+                // silently does nothing, which is worse than not linking.
+                {
+                  question: 'Certified organic',
+                  signal: organic,
+                  href: `/products/${product.id}/sources`,
+                },
+                {
+                  question: 'Non-GMO verified',
+                  signal: nonGmo,
+                  href: `/products/${product.id}/sources`,
+                },
                 { question: 'Who owns the brand', signal: owner, href: owner.href },
               ]}
             />
+            <SignalTableNote />
           </div>
 
           {/* WHERE THE SOURCES WENT.
@@ -348,7 +379,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <Ingredients ingredients={ingredients} product={product} hasOrder={hasOrder} signal={flagged} />
         <Flagged ingredients={ingredients} signal={flagged} productId={product.id} />
         <Recalls recalls={recalls} product={product} />
-        <Checks product={product} organic={organic} nonGmo={nonGmo} />
+        {/* WHERE THE CERTIFICATES SECTION WAS. Michael, 2026-10-07:
+            "Honestly I am not sure how much immediate value this section
+            provides. At the very top we already provide it. Remove this for
+            now. Instead, in this space maybe include a section for 'related
+            products'."
+            He is right that it was a second copy of the signal table: the
+            same organic and non-GMO answers, three screens further down. The
+            certificate records and their dates are still every bit as
+            reachable — they are on this product's sources page, which is
+            where the two table rows now link. */}
+        <Related products={related} />
       </div>
 
       <SiteFooter />
@@ -409,7 +450,14 @@ type IngredientRows = {
   listPosition: number | null
   isTrace: boolean
   concentrationNote: string | null
-  ingredient: { id: string; name: string; category: string | null; flaggedForResearch: boolean; _count: { studies: number } }
+  ingredient: {
+    id: string
+    name: string
+    category: string | null
+    flaggedForResearch: boolean
+    _count: { studies: number }
+    authorityAssessments: { classificationCode: string }[]
+  }
 }[]
 
 // INGREDIENTS WORTH READING ABOUT — split by whether we actually hold
@@ -430,9 +478,19 @@ type IngredientRows = {
 // open-research colour. Amber plus a zero is the worst of both: it looks like
 // a warning and contains no information.
 //
-// So the list is now two lists. The ones with research lead and say how much.
-// The ones without are below, in neutral grey, under a heading that says what
-// the flag is. Nothing is hidden and nothing is implied.
+// So the list is now three lists, in descending order of what we hold:
+//
+//   1. Studies on file. Says how many.
+//   2. No study, but a named authority has published a classification. This
+//      is the third research category Michael asked for on 2026-10-07 — the
+//      authority's own category, shown as the authority's own words, with the
+//      source a click away. A classification is NOT a study: it is a
+//      committee's reading of evidence we may not hold ourselves, so it is
+//      labelled as one and never counted among the studies.
+//   3. Flagged by our classifier and nothing on file yet. Neutral grey,
+//      under a heading that says exactly that.
+//
+// Nothing is hidden and nothing is implied.
 function Flagged({
   ingredients,
   signal,
@@ -444,20 +502,30 @@ function Flagged({
 }) {
   const flagged = ingredients.filter((pi) => pi.ingredient.flaggedForResearch)
   const withStudies = flagged.filter((pi) => pi.ingredient._count.studies > 0)
-  const classifiedOnly = flagged.filter((pi) => pi.ingredient._count.studies === 0)
+  const withAuthority = flagged.filter(
+    (pi) => pi.ingredient._count.studies === 0 && pi.ingredient.authorityAssessments.length > 0,
+  )
+  const classifiedOnly = flagged.filter(
+    (pi) => pi.ingredient._count.studies === 0 && pi.ingredient.authorityAssessments.length === 0,
+  )
 
   return (
     <Collapsible
       id="flagged"
-      title="ingredients worth reading about"
+      // Michael, 2026-10-07: "this should just say Flagged Ingredients".
+      // The count still leads, so this renders "3 flagged ingredients".
+      title="flagged ingredients"
       count={flagged.length}
       countState={flagged.length > 0 ? 'openResearch' : undefined}
       note={
         flagged.length === 0
           ? 'Nothing flagged'
-          : withStudies.length > 0
-            ? `${withStudies.length} with research on file`
-            : 'None with research on file yet'
+          : [
+              withStudies.length > 0 ? `${withStudies.length} with studies` : null,
+              withAuthority.length > 0 ? `${withAuthority.length} classified by an authority` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'Nothing on file yet'
       }
       open={flagged.length > 0}
     >
@@ -480,8 +548,37 @@ function Flagged({
               </>
             )}
 
-            {classifiedOnly.length > 0 && (
+            {withAuthority.length > 0 && (
               <div style={{ marginTop: withStudies.length > 0 ? 20 : 0 }}>
+                <p
+                  style={{
+                    margin: '0 0 11px',
+                    fontSize: 13.5,
+                    lineHeight: 1.6,
+                    color: colors.ink2,
+                    maxWidth: 760,
+                  }}
+                >
+                  <strong style={{ color: colors.ink }}>Classified by an authority.</strong> We hold
+                  no study on these, but a named body — a cancer agency, a food safety authority, a
+                  state regulator — has published a decision placing the substance in a category.
+                  The category is that body's own, shown in its own words, and it is not a finding
+                  about this product.{' '}
+                  <Link href="/sourcing" style={{ color: colors.link }}>
+                    What each authority is, and what its category means
+                  </Link>
+                  .
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                  {withAuthority.map((pi) => (
+                    <AuthorityRow key={pi.ingredient.id} pi={pi} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {classifiedOnly.length > 0 && (
+              <div style={{ marginTop: withStudies.length > 0 || withAuthority.length > 0 ? 20 : 0 }}>
                 {/* THE HONEST HEADING. This is the to-do list, and saying so
                     is the whole point — a reader who clicks one of these and
                     finds an empty page has been misled, not informed. */}
@@ -502,8 +599,9 @@ function Flagged({
                     Classified as worth checking, not yet researched.
                   </strong>{' '}
                   These are additives or processing ingredients rather than whole foods, which is
-                  how our classifier marks them. We have no study on file for any of them yet, and
-                  that is a gap in our records — not a finding either way about the ingredient.
+                  how our classifier marks them. We hold no study and no authority classification
+                  for any of them yet, and that is a gap in our records — not a finding either way
+                  about the ingredient.
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 11 }}>
                   {classifiedOnly.map((pi) => (
@@ -536,7 +634,18 @@ function Flagged({
           </>
         )}
 
-        {withStudies.length > 0 && <SourceNote productId={productId} what="Every study above" />}
+        {(withStudies.length > 0 || withAuthority.length > 0) && (
+          <SourceNote
+            productId={productId}
+            what={
+              withStudies.length > 0 && withAuthority.length > 0
+                ? 'Every study and classification above'
+                : withStudies.length > 0
+                  ? 'Every study above'
+                  : 'Every classification above'
+            }
+          />
+        )}
       </div>
     </Collapsible>
   )
@@ -579,6 +688,68 @@ function FlaggedRow({ pi }: { pi: IngredientRows[number] }) {
       <StatusChip state="openResearch">
         {pi.ingredient._count.studies === 1 ? '1 study' : `${pi.ingredient._count.studies} studies`}
       </StatusChip>
+      <span style={{ fontSize: 20, color: colors.link }} aria-hidden>
+        &rsaquo;
+      </span>
+    </Link>
+  )
+}
+
+// One flagged ingredient we hold no study on, but which a named authority has
+// classified. The chip carries the STRONGEST classification on file, in the
+// authority's own category name — not a count, and not a word of ours. A code
+// we hold but have not written a plain-English reading for still gets a row;
+// it just gets a neutral chip saying a classification exists, because the
+// alternative is hiding a record we have.
+function AuthorityRow({ pi }: { pi: IngredientRows[number] }) {
+  const codes = [...pi.ingredient.authorityAssessments].sort(
+    (a, b) => assessmentWeight(a.classificationCode) - assessmentWeight(b.classificationCode),
+  )
+  const strongest = classificationMeaning(codes[0].classificationCode)
+  const extra = codes.length - 1
+
+  return (
+    <Link
+      href={`/ingredients/${pi.ingredient.id}#authorities`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        boxSizing: 'border-box',
+        padding: '13px 16px',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderLeft: `4px solid ${strongest ? status[strongest.state].fg : colors.ink4}`,
+        borderRadius: layout.radius,
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
+      <div style={{ flexGrow: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: font.display, fontSize: 17, fontWeight: 600 }}>
+          {pi.ingredient.name}
+        </div>
+        <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 3 }}>
+          {[
+            pi.ingredient.category,
+            pi.listPosition !== null ? `#${pi.listPosition} on the label` : null,
+            pi.isTrace ? 'listed as a trace amount' : null,
+            pi.concentrationNote,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </div>
+      </div>
+      {strongest ? (
+        <StatusChip state={strongest.state} title={strongest.plain}>
+          {strongest.label}
+          {extra > 0 ? ` + ${extra} more` : ''}
+        </StatusChip>
+      ) : (
+        <StatusChip state="nothingOnFile">
+          {codes.length === 1 ? '1 classification' : `${codes.length} classifications`}
+        </StatusChip>
+      )}
       <span style={{ fontSize: 20, color: colors.link }} aria-hidden>
         &rsaquo;
       </span>
@@ -692,196 +863,260 @@ function Group({
         <p style={{ margin: '9px 0 0', fontSize: 13, color: colors.ink3 }}>{empty}</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-          {groups.map((g) => {
-            const item = g.lead
-            const note = evidenceNote(item)
-            // How many agency records make up this one event. The FDA files
-            // one per affected product line, so a single recall arrives as
-            // sixteen near-identical records (see groupRecalls in
-            // recalls.ts). They are all kept and all citable; they are just
-            // not read out one by one.
-            const extra = g.items.length - 1
-            return (
-              <div
-                key={item.id}
-                style={{
-                  boxSizing: 'border-box',
-                  padding: '14px 16px',
-                  background: colors.card,
-                  border: `1px solid ${colors.line}`,
-                  borderLeft: `4px solid ${status[state].fg}`,
-                  borderRadius: layout.radius,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <StatusChip state={state}>
-                    {item.sourceAgency}
-                    {item.classification ? ` · ${item.classification}` : ''}
-                  </StatusChip>
-                  {item.actionDate && (
-                    <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
-                      {isoDate(item.actionDate)}
-                    </span>
-                  )}
-                  {item.status && <span style={{ fontSize: 12, color: colors.ink3 }}>{item.status}</span>}
-                </div>
-
-                <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6 }}>{item.reason}</p>
-
-                {/* What the notice actually covered, in its own words. This
-                    is the box that stops a 2018 notice about one product line
-                    reading as a recall of everything the company makes. */}
-                {item.productDescription && (
-                  <div
-                    style={{
-                      marginTop: 11,
-                      boxSizing: 'border-box',
-                      padding: '10px 12px',
-                      background: colors.panel,
-                      borderRadius: 6,
-                      fontSize: 12.5,
-                      lineHeight: 1.55,
-                      color: colors.ink2,
-                    }}
-                  >
-                    <strong style={{ color: colors.ink }}>What it covered: </strong>
-                    {item.productDescription}
-                  </div>
-                )}
-
-                {note && (
-                  <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3 }}>
-                    {note}
-                  </p>
-                )}
-
-                {/* The one line that replaces fifteen repeated cards. The
-                    reference numbers themselves are on the sources page. */}
-                {extra > 0 && (
-                  <p style={{ margin: '9px 0 0', fontSize: 12.5, color: colors.ink3 }}>
-                    The agency filed {g.items.length} records under this notice, one per affected
-                    product line.
-                  </p>
-                )}
-              </div>
-            )
-          })}
+          {groups.map((g) => (
+            <RecallItemCard key={g.lead.id} g={g} state={state} />
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-// EVERY CHECK WE RUN, AND WHAT IT SAYS — as one table.
+// ONE RECALL NOTICE, COLLAPSED.
 //
-// Replaces a section headed "Verified" that listed only the certificates a
-// product happened to have. Michael: 'Saying simply "Verified" doesn't make
-// sense. It just isn't organic... I think there should simply be a table of
-// all of the potential caveats like "Non-gmo, organic, supply chain
-// disclosed, etc".'
+// Michael, 2026-10-07: "each of these individual recalls should be
+// collapseable as well." Same reasoning as the sections two rounds ago, and
+// it bites harder here: a company with seventeen notices produced seventeen
+// full cards, each with its own "What it covered" box, so the page was
+// several screens of recall before anything else on it could be reached.
 //
-// He is right, and the table form fixes something the old one got wrong. A
-// list of what we FOUND cannot be read: a product with no rows looks
-// identical whether we checked and found nothing or never looked at all. A
-// table of every check we run, each with its own state, can only be read one
-// way — and it is the three-state rule in its natural shape.
-function Checks({
-  product,
-  organic,
-  nonGmo,
-}: {
-  product: {
-    id: string
-    ingredientDisclosureStatus: string
-    productCertifications: { id: string; scheme: string; status: string; scopeNote: string | null }[]
-  }
-  organic: Signal
-  nonGmo: Signal
-}) {
-  // Any verification scheme we hold that is not the non-GMO one already
-  // shown above — so a scheme nobody anticipated still gets a row rather
-  // than being silently dropped.
-  const otherSchemes = product.productCertifications.filter((c) => !/non-?gmo/i.test(c.scheme))
+// WHAT STAYS IN THE SUMMARY is the part that decides whether to open: the
+// agency, the date, and the reason. The reason is the headline of a recall —
+// collapsing that behind a chevron would make seventeen notices look
+// identical and force you to open all of them.
+//
+// Native <details> again: no JavaScript, no hydration, and the nested
+// .rt-collapse rules are all direct-child selectors so this sits inside the
+// section's own <details> without the two fighting.
+function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof status }) {
+  const item = g.lead
+  const note = evidenceNote(item)
+  // How many agency records make up this one event. The FDA files one per
+  // affected product line, so a single recall arrives as sixteen
+  // near-identical records (see groupRecalls in recalls.ts). They are all
+  // kept and all citable; they are just not read out one by one.
+  const extra = g.items.length - 1
+  // Is there anything behind the chevron? A notice with no description, no
+  // evidence note and no sibling records has an empty body, and a control
+  // that opens onto nothing is worse than no control.
+  const hasBody = Boolean(item.productDescription) || Boolean(note) || extra > 0
 
-  // `note` is optional because `Signal.detail` is. Every organic and non-GMO
-  // branch in productSignals.ts does in fact set one today, but the type does
-  // not promise it, and the honest response to a missing note is an empty
-  // column — not a sentence invented here to fill it.
-  const rows: { check: string; state: keyof typeof status; label: string; note?: string }[] = [
-    {
-      check: 'Certified organic',
-      state: organic.state,
-      label: organic.label,
-      note: organic.detail,
-    },
-    {
-      check: 'Non-GMO verified',
-      state: nonGmo.state,
-      label: nonGmo.label,
-      note: nonGmo.detail,
-    },
-    {
-      check: 'Ingredients disclosed',
-      state:
-        product.ingredientDisclosureStatus === 'disclosed'
-          ? 'confirmed'
-          : product.ingredientDisclosureStatus === 'not_disclosed'
-            ? 'nothingOnFile'
-            : 'unchecked',
-      label:
-        product.ingredientDisclosureStatus === 'disclosed'
-          ? 'Published'
-          : product.ingredientDisclosureStatus === 'not_disclosed'
-            ? 'Not on file'
-            : 'Not checked',
-      note:
-        product.ingredientDisclosureStatus === 'disclosed'
-          ? 'A full ingredient list is published and is shown above.'
-          : product.ingredientDisclosureStatus === 'not_disclosed'
-            ? 'No ingredient list was found in any source we check.'
-            : 'We have not looked up an ingredient list for this product yet.',
-    },
-    ...otherSchemes.map((c) => ({
-      check: c.scheme,
-      state: (c.status === 'verified' ? 'confirmed' : 'nothingOnFile') as keyof typeof status,
-      label: c.status === 'verified' ? 'Verified' : 'Not current',
-      note: c.scopeNote ?? `The register for "${c.scheme}" records this product as "${c.status}".`,
-    })),
-  ]
+  const head = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {hasBody && (
+          <svg
+            className="rt-chev"
+            aria-hidden
+            width="9"
+            height="9"
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke={colors.ink3}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M4 2l5 4-5 4" />
+          </svg>
+        )}
+        <StatusChip state={state}>
+          {item.sourceAgency}
+          {item.classification ? ` · ${item.classification}` : ''}
+        </StatusChip>
+        {item.actionDate && (
+          <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink4 }}>
+            {isoDate(item.actionDate)}
+          </span>
+        )}
+        {item.status && <span style={{ fontSize: 12, color: colors.ink3 }}>{item.status}</span>}
+      </div>
+      <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink }}>
+        {item.reason}
+      </p>
+    </>
+  )
+
+  const body = (
+    <>
+      {/* What the notice actually covered, in its own words. This is the box
+          that stops a 2018 notice about one product line reading as a recall
+          of everything the company makes. */}
+      {item.productDescription && (
+        <div
+          style={{
+            marginTop: 11,
+            boxSizing: 'border-box',
+            padding: '10px 12px',
+            background: colors.panel,
+            borderRadius: 6,
+            fontSize: 12.5,
+            lineHeight: 1.55,
+            color: colors.ink2,
+          }}
+        >
+          <strong style={{ color: colors.ink }}>What it covered: </strong>
+          {item.productDescription}
+        </div>
+      )}
+
+      {note && (
+        <p style={{ margin: '10px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3 }}>
+          {note}
+        </p>
+      )}
+
+      {/* The one line that replaces fifteen repeated cards. */}
+      {extra > 0 && (
+        <p style={{ margin: '9px 0 0', fontSize: 12.5, color: colors.ink3 }}>
+          The agency filed {g.items.length} records under this notice, one per affected product
+          line.
+        </p>
+      )}
+
+      {/* THE RECORD ITSELF, as a page a person can read. Michael,
+          2026-10-07: "i dont think people will get any value out of a JSON
+          file. Is there a more intelligent way to link this?" See
+          /recalls/[id] — the agency URL for 94% of our notices is an
+          api.fda.gov JSON endpoint, and FDA publishes no human page keyed by
+          recall number, so the readable record has to be ours. */}
+      <div style={{ fontSize: 11.5, marginTop: 10 }}>
+        <Link href={`/recalls/${item.id}`} style={{ color: colors.link }}>
+          Read the full notice
+        </Link>
+      </div>
+    </>
+  )
+
+  const shell: React.CSSProperties = {
+    boxSizing: 'border-box',
+    padding: '14px 16px',
+    background: colors.card,
+    border: `1px solid ${colors.line}`,
+    borderLeft: `4px solid ${status[state].fg}`,
+    borderRadius: layout.radius,
+  }
+
+  if (!hasBody) {
+    return (
+      <div style={shell}>
+        {head}
+        <div style={{ fontSize: 11.5, marginTop: 10 }}>
+          <Link href={`/recalls/${item.id}`} style={{ color: colors.link }}>
+            Read the full notice
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
+    <details className="rt-collapse" style={shell}>
+      <summary style={{ cursor: 'pointer' }}>{head}</summary>
+      {body}
+    </details>
+  )
+}
+
+// RELATED PRODUCTS — the shelf, not a recommendation.
+//
+// Replaces the certificates section. Michael, 2026-10-07: "At the very top we
+// already provide it. Remove this for now. Instead, in this space maybe
+// include a section for 'related products', where the user can find similar
+// products (same type of product, similar ingredients (but not too similar,
+// etc)."
+//
+// THE ORDERING IS SIMILARITY AND NOTHING ELSE. I put this to him before
+// building it: a related shelf sorted by "fewer flagged ingredients" would be
+// a trust score reintroduced sideways, and this site does not score products.
+// So the number on each card is how much the two ingredient lists coincide,
+// the heading says that, and nothing here implies the neighbour is better or
+// worse than what you are looking at. See relatedProducts.ts for the measure
+// and why it is Jaccard rather than share-of-their-list.
+function Related({ products }: { products: RelatedProduct[] }) {
+  return (
     <Collapsible
-      id="certificates"
-      // No count: "4 what we checked" reads like nonsense, and the rows are
-      // visible anyway because this section opens by default.
-      title="what we checked"
-      note="Each row is a check we run, not a score"
-      open
+      id="related"
+      title="similar products"
+      count={products.length}
+      note={products.length === 0 ? 'None found' : 'By shared ingredients'}
+      open={products.length > 0}
     >
-      <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column' }}>
-        {rows.map((r, i) => (
-          <div
-            key={r.check}
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 14,
-              flexWrap: 'wrap',
-              padding: '12px 0',
-              borderTop: i === 0 ? undefined : `1px solid ${colors.line}`,
-            }}
-          >
-            <div style={{ flexBasis: 190, flexShrink: 0, fontSize: 14, fontWeight: 600 }}>{r.check}</div>
-            <div style={{ flexShrink: 0 }}>
-              <StatusChip state={r.state}>{r.label}</StatusChip>
+      <div style={{ marginTop: 4 }}>
+        {products.length === 0 ? (
+          <Callout state="nothingOnFile">
+            We did not find another product with a similar ingredient list. That usually means we
+            hold no ingredient list for this product, or none of the products we checked in this
+            category shared enough of it.
+          </Callout>
+        ) : (
+          <>
+            <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.6, color: colors.ink2, maxWidth: 760 }}>
+              Other products in the same category, made by a different company, whose ingredient
+              list overlaps this one. The percentage is how much of the two lists coincide &mdash;
+              it is a measure of similarity, not of quality, and the order says nothing about which
+              is better.
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: 10,
+              }}
+            >
+              {products.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/products/${p.id}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    boxSizing: 'border-box',
+                    padding: '12px 14px',
+                    background: colors.card,
+                    border: `1px solid ${colors.line}`,
+                    borderRadius: layout.radius,
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <ProductThumb
+                    product={p}
+                    category={p.category}
+                    productType={p.productType}
+                    size={48}
+                    intrinsic={120}
+                    label={p.name}
+                  />
+                  <span style={{ flexGrow: 1, minWidth: 0 }}>
+                    <span
+                      style={{
+                        display: 'block',
+                        fontSize: 13.5,
+                        fontWeight: 600,
+                        lineHeight: 1.35,
+                        color: colors.ink,
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 11.5, color: colors.ink3, marginTop: 3 }}>
+                      {p.company.legalName}
+                    </span>
+                    {/* The raw counts as well as the percentage. "12 of 43"
+                        can be checked against the two ingredient lists;
+                        "28%" on its own cannot. */}
+                    <span style={{ display: 'block', fontSize: 11, color: colors.ink4, marginTop: 3 }}>
+                      {`${p.percent}% overlap · ${p.shared} of ${p.distinct} ingredients shared`}
+                    </span>
+                  </span>
+                </Link>
+              ))}
             </div>
-            <div style={{ flexGrow: 1, flexBasis: 280, minWidth: 0, fontSize: 12.5, lineHeight: 1.55, color: colors.ink3 }}>
-              {r.note ?? ''}
-            </div>
-          </div>
-        ))}
+          </>
+        )}
       </div>
-      <SourceNote productId={product.id} what="Every register above" />
     </Collapsible>
   )
 }
@@ -910,7 +1145,8 @@ function Ingredients({
   return (
     <Collapsible
       id="ingredients"
-      title="every ingredient"
+      // Michael, 2026-10-07: "this should just say Ingredients".
+    title="ingredients"
       count={product.ingredientDisclosureStatus === 'disclosed' ? ingredients.length : null}
       note={hasOrder ? 'In label order' : 'Label order not recorded'}
       open

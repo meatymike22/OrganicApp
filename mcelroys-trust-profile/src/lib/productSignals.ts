@@ -16,6 +16,27 @@
 // Collapsing the third into the second is the most tempting mistake in this
 // whole app and the one that would turn a gap in our data into a false claim
 // about somebody's product.
+//
+// ONE REFINEMENT, 2026-10-07. Michael: "if the product isn't in a public
+// database, it is NOT certified organic or non gmo. So instead of 'not on
+// file' let's simply say 'no'."
+//
+// He is right, and the reason is worth writing down because it looks like it
+// breaks the rule above and does not. Certification is not a property of food
+// that a register happens to record — it is a thing that EXISTS ONLY BY BEING
+// IN THE REGISTER. There is no such thing as a USDA-certified organic product
+// that is absent from the USDA register, and none of the words "certified" or
+// "verified" can be true of a product no programme has certified or verified.
+// So for these two questions, absence from a complete register IS the answer,
+// and "Not on file" was hedging about something we actually know.
+//
+// What does NOT change:
+//   - `unchecked` still says "Not checked". Michael's sentence begins "if the
+//     product isn't in a public database", which presupposes we looked. Where
+//     we could not look, we have no answer and must not print one.
+//   - The negative is about the CERTIFICATE, never about the food. "Not
+//     certified" is a fact; "not organic" is a claim about how something was
+//     grown, which no register can tell us and we never make.
 
 import type { StatusKey } from '@/lib/design'
 import { isoDate, isoYear } from '@/lib/design'
@@ -30,8 +51,16 @@ export type Signal = {
   state: StatusKey
   // The short label that goes in the chip (fits ~13 characters).
   label: string
-  // A longer, plain-English version for the product page, where there is room.
+  // A longer, plain-English version. This is the glossary text: it lives on
+  // /sourcing now rather than on the product page, because six of these in a
+  // column is a wall. Michael, 2026-10-07: "this is too much. the
+  // description text here can go into a document that includes a glossary of
+  // terms... this description causes too much clutter."
   detail?: string
+  // The one-line version the signal table prints. Where this is absent the
+  // table falls back to `detail`, so a signal whose detail is already short
+  // needs nothing extra.
+  short?: string
   // The date the underlying record was read, when there is one.
   asOf?: string | null
   // Where to click through to.
@@ -122,6 +151,7 @@ export function flaggedSignal(p: ProductForSignals): Signal {
       state: 'confirmed',
       label: 'None flagged',
       detail: 'No ingredient on this product currently has open or conflicting research on file.',
+      short: 'Nothing on the label is an additive we track',
       asOf,
     }
   }
@@ -130,10 +160,22 @@ export function flaggedSignal(p: ProductForSignals): Signal {
     column: 'flagged',
     state: 'openResearch',
     label: `${flagged} flagged`,
+    // WORDING. This used to read "N ingredients have conflicting health
+    // research on file", which is false for almost every product that shows
+    // it: 6,250 ingredients carry the flag and 16 have a study on file. The
+    // same sentence was fixed in the product page's own section on 2026-10-07
+    // and survived here, where the hero table prints it.
+    //
+    // This signal cannot say how much we hold without a per-ingredient study
+    // and classification count, which the search page would have to pay for
+    // on every row. So it says what the flag IS — a classification, not a
+    // finding — and the product page's section, which does have the counts,
+    // gives the breakdown.
     detail:
       flagged === 1
-        ? 'One ingredient has conflicting health research on file. The studies, and who funded them, are on the ingredient page.'
-        : `${flagged} ingredients have conflicting health research on file. The studies, and who funded them, are on each ingredient page.`,
+        ? 'One ingredient is flagged as worth researching: an additive or processing ingredient rather than a whole food. What we hold on it — studies, authority classifications, or nothing yet — is on the product page.'
+        : `${flagged} ingredients are flagged as worth researching: additives or processing ingredients rather than whole foods. What we hold on each — studies, authority classifications, or nothing yet — is on the product page.`,
+    short: 'Additives and processing ingredients, not whole foods',
     asOf,
     href: `/products/${p.id}#flagged`,
   }
@@ -169,6 +211,7 @@ export function recallSignal(p: ProductForSignals, listed: RecallItem[] | undefi
       label: 'Not checked',
       detail:
         'Recall notices are matched by company name, and this brand has not been confirmed as a company yet, so no notices have been matched to it.',
+      short: 'We have not been able to match notices to this brand',
       asOf: null,
     }
   }
@@ -218,6 +261,7 @@ export function organicSignal(p: ProductForSignals): Signal {
       // was built around. A product-level source (the Non-GMO Project sheet
       // is per-barcode) is the real answer and is still to come.
       label: 'Maker certified',
+      short: 'The maker holds a certificate; the register does not certify products',
       // WHAT THIS ROW ACTUALLY IS, and why the wording is careful.
       //
       // The USDA Organic Integrity Database is a register of certified
@@ -251,6 +295,7 @@ export function organicSignal(p: ProductForSignals): Signal {
       state: 'nothingOnFile',
       label: 'Not current',
       detail: `The USDA record for this product shows a certificate marked "${lapsed.certificationStatus}".`,
+      short: `Certificate marked "${lapsed.certificationStatus}"`,
       asOf: isoDate(lapsed.lastVerifiedDate),
     }
   }
@@ -260,7 +305,8 @@ export function organicSignal(p: ProductForSignals): Signal {
       column: 'organic',
       state: 'unchecked',
       label: 'Not checked',
-      detail: 'The organic register is searched by company name, and this brand has not been confirmed as a company yet.',
+      detail: 'The organic register is searched by company name, and this brand has not been confirmed as a company yet, so we have not been able to look. This is the one case where we cannot answer the question.',
+      short: 'We have not been able to search the register',
       asOf: null,
     }
   }
@@ -268,10 +314,13 @@ export function organicSignal(p: ProductForSignals): Signal {
   return {
     column: 'organic',
     state: 'nothingOnFile',
-    label: 'Not on file',
-    // Deliberately NOT "not organic". We know what the register says; we do
-    // not know how the food was grown.
-    detail: 'This product is not in the USDA Organic Integrity Database. That is what the register says, not a statement about the food.',
+    // "Not certified", not "Not on file" and not "No". See the note at the top
+    // of this file: certification exists only by being in the register, so
+    // absence from it settles the question of certification. It settles
+    // nothing about the food, which is why the word is "certified".
+    label: 'Not certified',
+    detail: 'This product is not in the USDA Organic Integrity Database, and US organic certification exists only by being in that register — so it is not certified organic. That is a fact about the certificate, not about how the food was grown.',
+    short: 'Not in the USDA organic register',
     asOf: null,
   }
 }
@@ -287,6 +336,7 @@ export function nonGmoSignal(p: ProductForSignals): Signal {
       state: 'confirmed',
       label: 'Non-GMO',
       detail: `Verified under "${verified.scheme}".`,
+      short: `Verified under "${verified.scheme}"`,
       asOf: isoDate(verified.lastVerifiedDate),
     }
   }
@@ -298,6 +348,7 @@ export function nonGmoSignal(p: ProductForSignals): Signal {
       state: 'nothingOnFile',
       label: 'Not current',
       detail: `The record for "${lapsed.scheme}" is marked "${lapsed.status}".`,
+      short: `"${lapsed.scheme}" is marked "${lapsed.status}"`,
       asOf: isoDate(lapsed.lastVerifiedDate),
     }
   }
@@ -307,7 +358,8 @@ export function nonGmoSignal(p: ProductForSignals): Signal {
       column: 'nonGmo',
       state: 'unchecked',
       label: 'Not checked',
-      detail: 'Verification registers are searched by company name, and this brand has not been confirmed as a company yet.',
+      detail: 'Verification registers are searched by company name, and this brand has not been confirmed as a company yet, so we have not been able to look.',
+      short: 'We have not been able to search the registers',
       asOf: null,
     }
   }
@@ -315,8 +367,14 @@ export function nonGmoSignal(p: ProductForSignals): Signal {
   return {
     column: 'nonGmo',
     state: 'nothingOnFile',
-    label: 'Not on file',
-    detail: 'This product is not in the verification registers we check.',
+    // Michael, 2026-10-07: 'Just say "Not verified by any public database"'.
+    // Verification is a programme a maker opts into, so not being in one is
+    // the whole answer. Note what this does NOT say: a product can contain no
+    // GMOs and simply never have been submitted for verification. "Not
+    // verified" is true either way; "not non-GMO" would not be.
+    label: 'Not verified',
+    detail: 'Not verified by any public database. Non-GMO verification is a programme a maker applies for, so this means no programme we check has verified it — not that the product contains GMOs.',
+    short: 'Not verified by any public database',
     asOf: null,
   }
 }

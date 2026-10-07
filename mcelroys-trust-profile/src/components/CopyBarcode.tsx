@@ -47,13 +47,22 @@ export function CopyBarcode({ value }: { value: string }) {
         Barcode
       </span>
 
-      {shown ? (
+      {shown && (
         <span style={{ fontFamily: font.mono, fontSize: 13, color: colors.ink3 }}>{value}</span>
-      ) : (
-        <button type="button" onClick={() => setShown(true)} style={linkButton}>
-          Show
-        </button>
       )}
+
+      {/* Michael, 2026-10-07: "after showing i should be able to then hide the
+          barcode." It was a one-way door — Show replaced itself with the
+          digits and there was no way back short of reloading the page. A
+          control that can only be pressed once is a bug, not a simplification. */}
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-expanded={shown}
+        style={linkButton}
+      >
+        {shown ? 'Hide' : 'Show'}
+      </button>
 
       <button
         type="button"

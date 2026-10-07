@@ -696,68 +696,13 @@ function NothingAskedYet({ photos }: { photos: Map<string, ExampleProduct> }) {
         })}
       </div>
 
-      <hr style={{ border: 0, borderTop: `1px solid ${colors.line}`, margin: '32px 0 0' }} />
-
-      {/* THE AISLES, laid out the way a store is walked — the same list and the
-          same order as the bar at the top of the page, from SiteChrome. */}
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.09em',
-          textTransform: 'uppercase',
-          color: colors.ink3,
-          margin: '20px 0 0',
-        }}
-      >
-        Or walk the aisles
-      </div>
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 10,
-          marginTop: 14,
-        }}
-      >
-        {AISLES.map((a) => (
-          <Link
-            key={a.q}
-            href={`/search?aisle=${a.q}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 11,
-              boxSizing: 'border-box',
-              padding: '14px 15px',
-              background: colors.card,
-              border: `1px solid ${colors.line}`,
-              borderRadius: layout.radius,
-              textDecoration: 'none',
-              color: colors.ink,
-              fontSize: 14,
-              fontWeight: 600,
-            }}
-          >
-            <svg
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9C9382"
-              strokeWidth={1.7}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ flexShrink: 0 }}
-              aria-hidden
-            >
-              {a.path}
-            </svg>
-            {a.label}
-          </Link>
-        ))}
-      </div>
+      {/* THE AISLE GRID IS GONE. Michael, 2026-10-07: "no need for this
+          section, they already have tabs above."
+          It was ten cards built from the same AISLES array, in the same
+          order, as the AisleBar sitting a few hundred pixels above them — my
+          own comment here used to say so approvingly. A second copy of a
+          control is not a shortcut to it; it is one more thing to read
+          before you find out it does nothing new. */}
 
       {/* The method paragraph that used to sit here is gone. Michael:
           "remove this text, this is something that should go into the about
@@ -1055,7 +1000,11 @@ function FilterRail({
             color: colors.ink2,
           }}
         >
-          What&apos;s not in it
+          {/* Michael, 2026-10-07: "Just say Ingredient Filter. Lets keep it
+              simple." The old heading was trying to explain the semantics in
+              the title — that these are exclusions — which is the job of the
+              per-filter explainers below, not of four words in small caps. */}
+          Ingredient filter
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
@@ -1099,11 +1048,52 @@ function FilterRail({
                 >
                   {on ? '✓' : ''}
                 </span>
-                {f.label}
+                <span style={{ flexGrow: 1, minWidth: 0 }}>{f.label}</span>
+
+                {/* Michael, 2026-10-07: "there needs to be a little hover over
+                    explainer to explain what each of these broad categories.
+                    a little 'i' symbol would be perfect."
+                    `f.what` names real ingredients from our own data rather
+                    than describing the category in the abstract — "no seed
+                    oils" is only meaningful once you know it catches soybean
+                    and canola. Native title again: keyboard-reachable, no
+                    state, nothing to hydrate. */}
+                <span
+                  title={f.what}
+                  aria-label={f.what}
+                  role="img"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 14,
+                    height: 14,
+                    flexShrink: 0,
+                    borderRadius: '50%',
+                    border: `1px solid ${colors.ink4}`,
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    fontStyle: 'italic',
+                    lineHeight: 1,
+                    color: colors.ink3,
+                    cursor: 'help',
+                  }}
+                >
+                  i
+                </span>
               </Link>
             )
           })}
         </div>
+
+        {/* THE RULE THAT APPLIES TO ALL SIX, stated once rather than in six
+            tooltips. It is the one thing a reader could otherwise get wrong:
+            a product we hold no ingredient list for is NOT excluded, because
+            excluding it would claim we know what is in it. */}
+        <p style={{ margin: '9px 0 0', fontSize: 11, lineHeight: 1.45, color: colors.ink4 }}>
+          Products with no ingredient list on file still pass — we cannot
+          exclude what we have not read.
+        </p>
 
         <div
           style={{

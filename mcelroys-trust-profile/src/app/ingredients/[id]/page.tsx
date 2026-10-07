@@ -10,6 +10,11 @@ import { StatusChip } from '@/components/StatusChip'
 // stayed here, so the ingredient page kept advertising a review process the
 // rest of the site had stopped claiming. One implementation, one wording.
 import { SourceLine } from '@/components/PageParts'
+// Authority classifications are a THIRD kind of record, beside studies and
+// country rules: a published decision by a named body, in that body's own
+// words. The module holds the plain-English translation of each category and
+// nothing else — no judgement of our own. /sourcing explains the distinction.
+import { assessmentWeight, authority, classificationMeaning } from '@/lib/authorities'
 
 // ONE INGREDIENT: the studies on file about it, how each country regulates
 // it, and which products list it.
@@ -78,6 +83,21 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           reviewDate: true,
         },
       },
+      authorityAssessments: {
+        select: {
+          id: true,
+          authority: true,
+          assessmentType: true,
+          classification: true,
+          classificationCode: true,
+          substanceName: true,
+          casNumber: true,
+          assessedDate: true,
+          sourceUrl: true,
+          sourceTitle: true,
+          dataPulledDate: true,
+        },
+      },
     },
   })
   if (!ingredient) notFound()
@@ -126,6 +146,18 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
   })
 
   const studyCount = ingredient.studies.length
+
+  // Strongest statement first, then by the authority's name, so an IARC
+  // Group 1 is never printed below an administrative permission. A code we
+  // have no description for sorts to the bottom rather than being dropped:
+  // the record exists, and hiding it would be the gap-as-claim mistake.
+  const assessments = [...ingredient.authorityAssessments].sort(
+    (a, b) =>
+      assessmentWeight(a.classificationCode) - assessmentWeight(b.classificationCode) ||
+      (authority(a.authority)?.short ?? a.authority).localeCompare(
+        authority(b.authority)?.short ?? b.authority,
+      ),
+  )
 
   return (
     <>
@@ -198,6 +230,18 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           mono
         />
         <SignalTile
+          label="Authority rulings"
+          value={assessments.length}
+          note={
+            assessments.length === 0
+              ? 'None on file'
+              : 'Published decisions, not studies'
+          }
+          accent={assessments.length > 0 ? status.openResearch.fg : undefined}
+          href={assessments.length > 0 ? '#authorities' : undefined}
+          mono
+        />
+        <SignalTile
           label="Rules by country"
           value={rules.length}
           note={rules.length === 0 ? 'None recorded yet' : rules.map((r) => r.jurisdiction).join(' · ')}
@@ -229,6 +273,7 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           responses={responses}
           flagged={ingredient.flaggedForResearch}
         />
+        <Authorities assessments={assessments} />
         <Rules rules={rules} />
         <Products count={productCount} sample={sample} />
       </div>
@@ -382,6 +427,157 @@ function StudyBody({ study, nested }: { study: Study; nested?: boolean }) {
 
       <SourceLine url={study.sourceUrl} label="Source" readAt={study.dataPulledDate} />
     </>
+  )
+}
+
+type AuthorityAssessment = {
+  id: string
+  authority: string
+  assessmentType: string
+  classification: string
+  classificationCode: string
+  substanceName: string
+  casNumber: string | null
+  assessedDate: Date | null
+  sourceUrl: string
+  sourceTitle: string
+  dataPulledDate: Date
+}
+
+// WHAT AUTHORITIES HAVE CLASSIFIED IT AS.
+//
+// The third research category. A row here is one named body's published
+// decision, quoted as it was published, with our plain-English reading of
+// what that category means underneath and a link to the body's own page.
+//
+// Three rules this section exists to keep:
+//   1. It never says "studies". These are classifications; a classification
+//      can rest on studies we do not hold, and calling them studies would
+//      claim a record we do not have.
+//   2. The verbatim string is printed before our translation, so the reader
+//      can see the authority's words and ours are plainly ours.
+//   3. No row is a verdict. The colour marks what kind of statement it is,
+//      never how worried to be, and the heading never adds up to a score.
+function Authorities({ assessments }: { assessments: AuthorityAssessment[] }) {
+  return (
+    <section>
+      <SectionHead
+        id="authorities"
+        title="What authorities have classified it as"
+        source="Published authority decisions"
+      />
+      <div style={{ marginTop: 14 }}>
+        {assessments.length === 0 ? (
+          <Callout state="nothingOnFile">
+            No authority has published a classification for this ingredient that we hold. That is a
+            gap in our records, not a finding either way —{' '}
+            <Link href="/sourcing" style={{ color: colors.link }}>
+              what we check and what we do not
+            </Link>
+            .
+          </Callout>
+        ) : (
+          <>
+            <p
+              style={{
+                margin: '0 0 13px',
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: colors.ink2,
+                maxWidth: 760,
+              }}
+            >
+              These are classifications, not studies. Each one is a decision a named body published
+              about the substance — a category it placed the substance in, or a limit it set — and
+              the line under it is our plain reading of what that category means.{' '}
+              <Link href="/sourcing" style={{ color: colors.link }}>
+                How we read each authority
+              </Link>
+              .
+            </p>
+            <div
+              style={{
+                background: colors.card,
+                border: `1px solid ${colors.line}`,
+                borderRadius: layout.radius,
+                overflow: 'hidden',
+              }}
+            >
+              {assessments.map((a, i) => (
+                <AssessmentRow key={a.id} a={a} first={i === 0} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function AssessmentRow({ a, first }: { a: AuthorityAssessment; first: boolean }) {
+  const body = authority(a.authority)
+  const meaning = classificationMeaning(a.classificationCode)
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '200px 1fr',
+        gap: 16,
+        boxSizing: 'border-box',
+        padding: '14px 16px',
+        borderTop: first ? undefined : `1px solid ${colors.line}`,
+        alignItems: 'baseline',
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontFamily: font.display, fontSize: 16, fontWeight: 600 }}>
+          {body?.short ?? a.authority}
+        </div>
+        {body && (
+          <div style={{ fontSize: 12, lineHeight: 1.45, color: colors.ink3, marginTop: 3 }}>
+            {body.name}
+          </div>
+        )}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        {/* The authority's own words first, verbatim, so the reader can see
+            where the record ends and our reading of it begins. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {meaning && <StatusChip state={meaning.state}>{meaning.label}</StatusChip>}
+          <span style={{ fontFamily: font.mono, fontSize: 12.5, color: colors.ink }}>
+            {a.classification}
+          </span>
+        </div>
+        {meaning ? (
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: colors.ink2, marginTop: 8 }}>
+            {meaning.plain}
+          </div>
+        ) : (
+          // A category we hold but have not written a description for. Say
+          // that, rather than borrowing a neighbouring category's wording.
+          <div style={{ fontSize: 13, lineHeight: 1.6, color: colors.ink3, marginTop: 8 }}>
+            We have not written a plain-English reading of this category yet. The authority's own
+            wording is above and its page is linked below.
+          </div>
+        )}
+        <div
+          style={{
+            fontSize: 12,
+            lineHeight: 1.5,
+            color: colors.ink3,
+            marginTop: 7,
+          }}
+        >
+          {`Listed as “${a.substanceName}”`}
+          {a.casNumber ? `, CAS ${a.casNumber}` : ''}
+          {a.assessedDate
+            ? `, classified ${a.assessedDate.toISOString().slice(0, 10)}`
+            : ''}
+          .
+        </div>
+        <SourceLine url={a.sourceUrl} label={a.sourceTitle} readAt={a.dataPulledDate} />
+      </div>
+    </div>
   )
 }
 

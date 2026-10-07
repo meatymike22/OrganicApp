@@ -1022,10 +1022,21 @@ function Sidebar({ company }: { company: { investorFilings: Filing[]; supplyChai
                       ))}
                     </div>
                   )}
+                  {/* NO READ DATE IN THE RAIL. Michael, 2026-10-07:
+                      "remove the read and the date."
+                      This line was printing two dates side by side in a
+                      350px column — "SEC filing of 2026-08-27 · read
+                      2026-10-01" — and only one of them tells a reader
+                      anything: the date the filing was made. When we read it
+                      matters for a record that can change; a filed SEC
+                      document does not change.
+                      The read date is kept everywhere it has room — the
+                      recall cards in the main column, the sources page —
+                      because it is the backbone of the sourcing claim. It
+                      was the rail it was cluttering. */}
                   <SourceLine
                     url={f.sourceUrl}
                     label={f.filingDate ? `SEC filing of ${isoDate(f.filingDate)}` : 'SEC filing'}
-                    readAt={f.dataPulledDate}
                   />
                 </div>
               )
@@ -1054,7 +1065,7 @@ function Sidebar({ company }: { company: { investorFilings: Filing[]; supplyChai
                     ? 'Independently verified'
                     : 'As published by the company, not independently verified'}
                 </div>
-                <SourceLine url={d.sourceUrl} label="Source" readAt={d.dataPulledDate} />
+                <SourceLine url={d.sourceUrl} label="Source" />
               </div>
             ))}
           </div>

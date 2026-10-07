@@ -319,14 +319,25 @@ export function StatusKeyPanel() {
           away. Nothing was removed; it stopped being in the way. */}
       <dl style={{ margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 7 }}>
         {STATUS_MEANINGS.map((e) => (
+          // Michael, 2026-10-07, on the Recalls row: the phrase "should be
+          // vertically under 'Recalls'. Right now it is placed to the right,
+          // and it is incongruent with the other rows."
+          //
+          // He was looking at a wrapping bug. The row was one flex line with
+          // flexWrap, so whether the phrase sat beside the term or under it
+          // depended on how long the term happened to be: "Recalls" left room
+          // and "Not on file" did not. Five rows, two different shapes, set by
+          // string length. A grid fixes the shape for every row regardless of
+          // what the words are.
           <div
             key={e.state}
             title={e.title}
             style={{
-              display: 'flex',
+              display: 'grid',
+              gridTemplateColumns: '10px 1fr',
+              columnGap: 7,
+              rowGap: 1,
               alignItems: 'baseline',
-              gap: 7,
-              flexWrap: 'wrap',
               fontSize: 12.5,
               lineHeight: 1.35,
               color: status[e.state].fg,
@@ -346,7 +357,8 @@ export function StatusKeyPanel() {
               }}
             />
             <dt style={{ fontWeight: 700 }}>{e.term}</dt>
-            <dd style={{ margin: 0, opacity: 0.85 }}>{e.note}</dd>
+            {/* Column 2 of row 2: under the term, never under the swatch. */}
+            <dd style={{ gridColumn: 2, margin: 0, opacity: 0.85 }}>{e.note}</dd>
           </div>
         ))}
       </dl>
@@ -455,8 +467,13 @@ export function SignalTable({
             <dd style={{ margin: 0, flexShrink: 0 }}>
               <StatusChip state={row.signal.state}>{row.signal.label}</StatusChip>
             </dd>
-            {/* The one-line reason, which is where "not on file" stops being
-                a verdict and becomes a statement about a register. */}
+            {/* THE ONE-LINE REASON, which is where "not certified" stops
+                being a verdict and becomes a statement about a register.
+                It prints `short` and falls back to `detail`. Michael,
+                2026-10-07: "this is too much... this description causes too
+                much clutter. Add it to another page that is used for users to
+                understand more about what we are doing." The long version is
+                the glossary on /sourcing, linked under the table. */}
             <dd
               style={{
                 margin: 0,
@@ -468,7 +485,7 @@ export function SignalTable({
                 color: colors.ink3,
               }}
             >
-              {row.signal.detail ?? ''}
+              {row.signal.short ?? row.signal.detail ?? ''}
             </dd>
           </>
         )
@@ -495,5 +512,20 @@ export function SignalTable({
         )
       })}
     </dl>
+  )
+}
+
+// The line under the table. One link, not six tooltips: the full wording for
+// every row lives in one place a reader can actually read, and nothing on the
+// product page has to carry a paragraph to be honest.
+export function SignalTableNote() {
+  return (
+    <p style={{ margin: '9px 0 0', fontSize: 11.5, lineHeight: 1.5, color: colors.ink4, maxWidth: 620 }}>
+      Each row says what a public record says, never whether a product is good.{' '}
+      <Link href="/sourcing#glossary" style={{ color: colors.link }}>
+        What each answer means
+      </Link>
+      .
+    </p>
   )
 }
