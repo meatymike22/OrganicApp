@@ -25,6 +25,7 @@ export function Collapsible({
   count,
   countState,
   note,
+  info,
   open = false,
   children,
 }: {
@@ -42,6 +43,22 @@ export function Collapsible({
   // Secondary detail, right-aligned on a wide screen (see .rt-collapse-meta
   // in globals.css, which drops it under the heading on a phone).
   note?: string
+  // THE EXPLANATION, BEHIND AN "i" RATHER THAN ABOVE THE CONTENT.
+  //
+  // Michael, on the flagged-ingredients section, 2026-10-08: "this info
+  // should be in the 'i' next to the title. We do not need to show this
+  // information it is simply causing text clutter and will turn off the
+  // layman."
+  //
+  // The same control the search filters have carried since round 10, for the
+  // same reason. A paragraph explaining what a section means is worth having
+  // and is not worth three lines above every reader's first glance at the
+  // section itself.
+  //
+  // It is a native `title`, so it needs no JavaScript and is reachable by
+  // keyboard. Anything a reader MUST see to read the section correctly stays
+  // in the body — a tooltip is for the explanation, never for the caveat.
+  info?: string
   open?: boolean
   children: ReactNode
 }) {
@@ -110,6 +127,8 @@ export function Collapsible({
             capitalise(title)
           )}
         </span>
+
+        {info && <InfoDot text={info} />}
 
         {note && (
           <span className="rt-collapse-meta" style={{ fontSize: 12.5, color: colors.ink3 }}>
@@ -188,5 +207,37 @@ export function MiniCollapse({
           to the line that opened it. */}
       <div style={{ padding: '0 0 13px 19px' }}>{children}</div>
     </details>
+  )
+}
+
+// The "i" circle. Same shape and size as the one on the search filter rail,
+// deliberately: two different "more information" affordances on one site is
+// one too many.
+export function InfoDot({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      aria-label={text}
+      role="img"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 15,
+        height: 15,
+        flexShrink: 0,
+        alignSelf: 'center',
+        borderRadius: '50%',
+        border: `1px solid ${colors.ink4}`,
+        fontSize: 10,
+        fontWeight: 700,
+        fontStyle: 'italic',
+        lineHeight: 1,
+        color: colors.ink3,
+        cursor: 'help',
+      }}
+    >
+      i
+    </span>
   )
 }

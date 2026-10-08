@@ -193,14 +193,25 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     <>
       <TopNav />
       <AisleBar />
+      {/* THE COMPANY IS NOT IN THIS TRAIL ANY MORE.
+          Michael, 2026-10-08: "why am i getting the campbells company in the
+          tab history bar here? i never clicked on the campbells page. this
+          needs to be fixed."
+
+          The trail was correct — that product's company IS The Campbell's
+          Company, and a breadcrumb shows where a page sits rather than where
+          you have been. But he has now read it as browsing history twice (the
+          same comment arrived in round 12), and a component that has to be
+          explained is not doing its job.
+
+          It also cost nothing to remove: the company name is a link in the
+          product header about 40 pixels below this bar, which is the natural
+          place to go up to the company from. One route up, not two, and no
+          row that looks like a history entry nobody created. */}
       <Breadcrumb
         trail={[
           { label: 'Rootify', href: '/' },
           { label: 'Search', href: '/search' },
-          {
-            label: companyDisplayName(product.company.legalName),
-            href: `/companies/${product.company.id}`,
-          },
           { label: title },
         ]}
       />
@@ -534,10 +545,35 @@ function Flagged({
           ? 'Nothing flagged'
           : [
               withStudies.length > 0 ? `${withStudies.length} with studies` : null,
-              withAuthority.length > 0 ? `${withAuthority.length} classified by an authority` : null,
+              withAuthority.length > 0 ? `${withAuthority.length} with an official ruling` : null,
             ]
               .filter(Boolean)
               .join(' · ') || 'Nothing on file yet'
+      }
+      // THE THREE EXPLANATIONS, IN ONE TOOLTIP.
+      //
+      // Michael, 2026-10-08: "this info should be in the 'i' next to the
+      // title. We do not need to show this information it is simply causing
+      // text clutter and will turn off the layman."
+      //
+      // This section had three paragraphs of prose above three lists — about
+      // 600 characters before a reader reached the first ingredient name. The
+      // paragraphs were each true and each worth having; none of them was
+      // worth being the first thing on the section.
+      //
+      // WHAT STAYED IN THE BODY, and the distinction is the three-state rule:
+      // each group keeps its own one-line heading, because the heading is the
+      // claim — "we hold research on these" and "classified as worth
+      // checking, not yet researched" are different statements and a reader
+      // must not have to hover to tell which list they are looking at. What
+      // moved is the explanation of what the heading means.
+      info={
+        'Flagged means our classifier marked an ingredient as an additive or a processing ' +
+        'ingredient rather than a whole food. It is not a finding that anything is harmful. ' +
+        'The lists below are in order of what we actually hold: studies we can show you, ' +
+        'then rulings published by a named agency in that agency\u2019s own words, then ' +
+        'ingredients we have classified but not yet researched \u2014 which is a gap in our ' +
+        'records rather than a verdict either way.'
       }
       open={flagged.length > 0}
     >
@@ -548,9 +584,8 @@ function Flagged({
           <>
             {withStudies.length > 0 && (
               <>
-                <p style={{ margin: '0 0 11px', fontSize: 13.5, lineHeight: 1.6, color: colors.ink2, maxWidth: 760 }}>
-                  We hold research on these. Open one to read the studies, what each found, and who
-                  paid for it. Appearing here is not a finding that an ingredient is harmful.
+                <p style={{ margin: '0 0 9px', fontSize: 13, fontWeight: 600, color: colors.ink }}>
+                  We hold research on these
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {withStudies.map((pi) => (
@@ -562,24 +597,11 @@ function Flagged({
 
             {withAuthority.length > 0 && (
               <div style={{ marginTop: withStudies.length > 0 ? 20 : 0 }}>
-                <p
-                  style={{
-                    margin: '0 0 11px',
-                    fontSize: 13.5,
-                    lineHeight: 1.6,
-                    color: colors.ink2,
-                    maxWidth: 760,
-                  }}
-                >
-                  <strong style={{ color: colors.ink }}>Classified by an authority.</strong> We hold
-                  no study on these, but a named body — a cancer agency, a food safety authority, a
-                  state regulator — has published a decision placing the substance in a category.
-                  The category is that body's own, shown in its own words, and it is not a finding
-                  about this product.{' '}
-                  <Link href="/sourcing" style={{ color: colors.link }}>
-                    What each authority is, and what its category means
+                <p style={{ margin: '0 0 9px', fontSize: 13, fontWeight: 600, color: colors.ink }}>
+                  An official ruling, but no study we hold{' '}
+                  <Link href="/sourcing" style={{ color: colors.link, fontWeight: 400, fontSize: 12.5 }}>
+                    what the agencies are
                   </Link>
-                  .
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {withAuthority.map((pi) => (
@@ -610,10 +632,7 @@ function Flagged({
                   <strong style={{ color: colors.ink }}>
                     Classified as worth checking, not yet researched.
                   </strong>{' '}
-                  These are additives or processing ingredients rather than whole foods, which is
-                  how our classifier marks them. We hold no study and no authority classification
-                  for any of them yet, and that is a gap in our records — not a finding either way
-                  about the ingredient.
+                  A gap in our records, not a finding either way.
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 11 }}>
                   {classifiedOnly.map((pi) => (

@@ -52,30 +52,65 @@ import type { ProductImageFields } from '@/components/ProductThumb'
 //   ingredient rows for those candidates ................... ~200 ms
 //
 // NOTE FOR ANYONE EDITING THE CANDIDATE QUERY: it must not have an ORDER BY.
-// With `ORDER BY sourceRank, name, id` the planner switches from
-// Product_category_idx to Product_sourceRank_name_id_idx and filters on
-// category instead of seeking it — the same query went from 67 ms to 3,264 ms
-// in testing. The candidate slice is therefore in physical index order, which
-// is arbitrary but stable, and that is a deliberate trade.
+// HOW CANDIDATES ARE CHOSEN, and this is the whole mechanism.
 //
-// The arbitrariness is the real limitation here: in a 12,000-product category
-// we look at 150 of them, so a better match may exist outside the slice. In
-// testing the slice did contain genuinely similar products, but this is the
-// first thing to fix if the shelf looks thin. The proper fix is a
-// `productCount` column on Ingredient so the search can be seeded from a
-// product's RAREST ingredients instead — that was measured too and costs
-// 2,267 ms without the column, because rarity currently has to be counted
-// per ingredient at query time.
+// Michael, 2026-10-08, on Campbell's "Au jus": "there are no other 'gravy'
+// products? i find that hard to believe."
+//
+// He was right, and the cause was not the overlap threshold. The shelf used
+// to take the first 150 products in the category in arbitrary physical index
+// order — ordering them switched the planner off Product_category_idx and
+// cost 3,264 ms instead of 67 ms, so arbitrary it was. "Sauce" holds 21,234
+// products. Looking at 150 of them at random and asking which are similar is
+// a lottery, and for Au jus it came up empty: measured across the whole
+// category, 4 products clear 35% overlap and 30 clear 25%, and the chance of
+// any of those 34 landing in a random 150 is about one in four.
+//
+// SO CANDIDATES ARE NOW SEEDED FROM THE PRODUCT'S RAREST INGREDIENTS. Au jus
+// lists 13 things; the two rarest are "hydrolyzed yeast protein" (38
+// products) and "hydrolyzed wheat gluten" (130). Every product carrying one
+// of those is a few hundred rows, fetched straight off
+// ProductIngredient_ingredientId_idx, and they are exactly the products that
+// share what is DISTINCTIVE about this one rather than the products that
+// happen to share salt and water. What that returns for Au jus: Orrington
+// Farms Brown Gravy Mix at 44%, two Mushroom Gravies at 37%, Heinz Beef
+// Gravy and three more at 26%. Gravies.
+//
+// This is what the previous version of this comment said to do, and it needed
+// Ingredient.productCount to be affordable — ranking by rarity at query time
+// measured 2,267 ms. That column now exists; see the migration.
 
-const CANDIDATES = 150
+// How many of the rarest ingredients to seed from. Three is enough to find
+// the neighbourhood and few enough that the seed stays small: the rarest
+// ingredient alone can be one a single manufacturer uses, and widening to
+// three picks up the category around it.
+const SEED_INGREDIENTS = 3
+// A ceiling on the seed rows, for the pathological case: a product whose
+// every ingredient is common (water, salt, sugar) has no rare seed, so the
+// cheapest honest answer is to look at a bounded slice and accept that the
+// shelf may be thin. Better a thin shelf than a 90,000-row read.
+const SEED_ROWS = 1500
+// Raised from 150 now that the 150 are no longer arbitrary: these are
+// products that share a rare ingredient, so looking at more of them finds
+// more real matches rather than more noise.
+const CANDIDATES = 400
 // Below this, an overlap fraction means very little: two products with three
 // ingredients each can hit 100% by both containing water, salt and sugar.
 const MIN_INGREDIENTS = 5
 // Michael said "maybe 50%, for example". Jaccard is a stricter measure than
-// the share-of-their-list number he would have had in mind, so 0.4 here is
-// about as demanding as 50% of one list. The percentage is printed on every
-// card, so a reader never has to take the threshold on trust.
-const MIN_OVERLAP = 0.4
+// the share-of-their-list number he would have had in mind.
+//
+// LOWERED FROM 0.4 TO 0.25 ON 2026-10-08, once the candidates were worth
+// scoring. Jaccard punishes a long ingredient list: Campbell's meatballs
+// lists 43 things, and nothing in the catalogue reaches 25% of that union,
+// because the union is enormous. Measured on the real data, 0.4 left two of
+// three sampled products with an empty shelf while 0.25 gave 30 peers each —
+// and every one of the 26% matches on Au jus was, on inspection, a gravy.
+//
+// The percentage and the shared count are printed on every card, so a reader
+// never has to take the threshold on trust: "8 of 24 ingredients, 26%" is
+// checkable against two ingredient lists.
+const MIN_OVERLAP = 0.25
 const MAX_RESULTS = 6
 // The second shelf: same kind of thing, shorter ingredient list. A lower bar
 // than MIN_OVERLAP on purpose — the whole point is a product that is
@@ -152,39 +187,56 @@ export async function getRelatedProducts(product: {
   // have not worked out is not a product we can put on a shelf.
   if (!product.category) return empty
 
-  const [mineRows, candidates] = await Promise.all([
-    prisma.productIngredient.findMany({
-      where: { productId: product.id },
-      select: { ingredientId: true },
-    }),
-    prisma.product.findMany({
-      where: {
-        category: product.category,
-        companyId: { not: product.companyId },
-        id: { not: product.id },
-        company: VETTED_COMPANIES,
-      },
-      // NO orderBy. See the note above — adding one costs 3.2 seconds.
-      take: CANDIDATES,
-      select: {
-        id: true,
-        name: true,
-        upc: true,
-        category: true,
-        categorySource: true,
-        productType: true,
-        imageUrl: true,
-        imageSource: true,
-        imageSourceUrl: true,
-        company: { select: { id: true, legalName: true } },
-      },
-    }),
-  ])
+  // Our own ingredients, each with how many products carry it. Sorted here
+  // rather than in SQL: thirteen rows do not need an ORDER BY.
+  const mineRows = await prisma.productIngredient.findMany({
+    where: { productId: product.id },
+    select: { ingredientId: true, ingredient: { select: { productCount: true } } },
+  })
 
   const mine = new Set(mineRows.map((r) => r.ingredientId))
-  if (mine.size < MIN_INGREDIENTS || candidates.length === 0) {
-    return { ...empty, myTotal: mine.size }
-  }
+  if (mine.size < MIN_INGREDIENTS) return { ...empty, myTotal: mine.size }
+
+  const seedIds = [...mineRows]
+    .sort((a, b) => a.ingredient.productCount - b.ingredient.productCount)
+    .slice(0, SEED_INGREDIENTS)
+    .map((r) => r.ingredientId)
+
+  // Every product carrying one of those rare ingredients. Index-driven on
+  // ProductIngredient_ingredientId_idx, and bounded.
+  const seedRows = await prisma.productIngredient.findMany({
+    where: { ingredientId: { in: seedIds }, productId: { not: product.id } },
+    select: { productId: true },
+    take: SEED_ROWS,
+  })
+  const seedProductIds = [...new Set(seedRows.map((r) => r.productId))]
+  if (seedProductIds.length === 0) return { ...empty, myTotal: mine.size }
+
+  const candidates = await prisma.product.findMany({
+    where: {
+      id: { in: seedProductIds },
+      category: product.category,
+      companyId: { not: product.companyId },
+      company: VETTED_COMPANIES,
+    },
+    // Still no orderBy: these are already the products worth looking at, and
+    // the ranking that matters happens on the overlap below.
+    take: CANDIDATES,
+    select: {
+      id: true,
+      name: true,
+      upc: true,
+      category: true,
+      categorySource: true,
+      productType: true,
+      imageUrl: true,
+      imageSource: true,
+      imageSourceUrl: true,
+      company: { select: { id: true, legalName: true } },
+    },
+  })
+
+  if (candidates.length === 0) return { ...empty, myTotal: mine.size }
 
   const rows = await prisma.productIngredient.findMany({
     where: { productId: { in: candidates.map((c) => c.id) } },

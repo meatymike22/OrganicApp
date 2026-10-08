@@ -70,12 +70,55 @@ async function list(where: Prisma.RegulatoryActionWhereInput, limit?: number): P
 //           recall was issued under its parent's name would show nothing.
 // `limit` caps each list (newest first); `count` is always the full total.
 export async function getCompanyRecalls(companyId: string, limit?: number) {
-  const [issued, naming] = await Promise.all([
+  const [issued, naming, subsidiary] = await Promise.all([
     list({ ...SHOWN_ACTIONS, companyId }, limit),
     list({ ...SHOWN_ACTIONS, companyId: { not: companyId }, links: { some: { companyId } } }, limit),
+    getSubsidiaryRecalls(companyId, limit),
   ])
   await attachLinks(naming.items, companyId)
-  return { issued, naming }
+  return { issued, naming, subsidiary }
+}
+
+// NOTICES NAMING A COMPANY THIS ONE OWNS.
+//
+// Michael, on The Campbell's Company, 2026-10-08: "does this company really
+// only have 1 recall for all of hte brands that it owns? that doesnt seem
+// right."
+//
+// It did not, and he was right. The page counted one bucket — notices whose
+// `companyId` is this company — and Campbell's has exactly one of those. It
+// owns 13 other companies in our records, holding 630 products between them,
+// and FOUR more FDA notices sit against one of them: Campbell Soup Supply
+// Co., the subsidiary that does the making and packing. Under-processing in
+// 2017, red plastic in cans in 2015, spoilage from dilute cleaning solution
+// in 2013, insanitary conditions in 2012.
+//
+// A shopper reading a parent company's recall history and not being shown
+// those is being under-informed by a technicality of which legal entity the
+// FDA happened to name.
+//
+// ONE LEVEL DOWN, NOT THE WHOLE TREE. Only companies whose parentCompanyId is
+// this company. Walking further would mean a notice against a distant
+// subsidiary appearing under a conglomerate that owns a hundred firms, which
+// is true and useless. If our ownership records ever get deeper than one
+// level this is the function to revisit.
+//
+// The count is kept SEPARATE from `issued` all the way to the screen, and the
+// heading on the page says whose name is on the notice. Adding them into one
+// number would say the FDA named Campbell's five times, which it did not.
+export async function getSubsidiaryRecalls(
+  companyId: string,
+  limit?: number
+): Promise<RecallList> {
+  const children = await prisma.company.findMany({
+    where: { parentCompanyId: companyId },
+    select: { id: true },
+  })
+  if (children.length === 0) return { count: 0, items: [] }
+  return list(
+    { ...SHOWN_ACTIONS, companyId: { in: children.map((c) => c.id) } },
+    limit
+  )
 }
 
 // Adds, to each action, how it is tied to `companyId` (strongest link first:

@@ -124,7 +124,12 @@ export default async function CompanyPage({
   const family = isUnvetted ? [] : await companyAndParents(company.id)
   const processHint = isUnvetted ? null : await getUnlinkedProcessRecalls(family.map((c) => c.id))
 
-  const recallTotal = (recalls?.issued.count ?? 0) + (recalls?.naming.count ?? 0)
+  // Notices naming a company this one owns count toward the total, because a
+  // parent company's recall history that leaves out its own factories'
+  // recalls is the wrong answer. They stay a separate bucket everywhere they
+  // are shown — see getSubsidiaryRecalls in recalls.ts.
+  const recallTotal =
+    (recalls?.issued.count ?? 0) + (recalls?.naming.count ?? 0) + (recalls?.subsidiary.count ?? 0)
   const brandsTotal = company.subsidiaries.length
 
   return (
@@ -319,6 +324,7 @@ export default async function CompanyPage({
               companyName={companyDisplayName(company.legalName)}
               issued={recalls.issued}
               naming={recalls.naming}
+              subsidiary={recalls.subsidiary}
               showAll={showAllRecalls}
               processHint={processHint}
               family={family}
@@ -623,6 +629,7 @@ function Recalls({
   companyName,
   issued,
   naming,
+  subsidiary,
   showAll,
   processHint,
   family,
@@ -631,6 +638,7 @@ function Recalls({
   companyName: string
   issued: RecallList
   naming: RecallList
+  subsidiary: RecallList
   showAll: boolean
   processHint: RecallList | null
   family: { id: string; legalName: string }[]
@@ -642,7 +650,8 @@ function Recalls({
   // records the agency happened to file. For Dole that is 28 rather than 232.
   const issuedGroups = groupRecalls(issued.items)
   const namingGroups = groupRecalls(naming.items)
-  const grouped = issuedGroups.length + namingGroups.length
+  const subsidiaryGroups = groupRecalls(subsidiary.items)
+  const grouped = issuedGroups.length + namingGroups.length + subsidiaryGroups.length
 
   return (
     <section>
@@ -664,11 +673,21 @@ function Recalls({
         title="recalls and government notices"
         count={grouped}
         countState="recall"
-        note="FDA, FSIS and CPSC records"
+        // The note says whose name is on what, so the single number above it
+        // can never be read as "the FDA named this company five times".
+        note={
+          [
+            issued.count > 0 ? `${issued.count} naming ${companyName}` : null,
+            subsidiary.count > 0 ? `${subsidiary.count} naming a company it owns` : null,
+            naming.count > 0 ? `${naming.count} from another company` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'FDA, FSIS and CPSC records'
+        }
         open={grouped > 0}
       >
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {issued.count === 0 && naming.count === 0 && (
+          {issued.count === 0 && naming.count === 0 && subsidiary.count === 0 && (
             <Callout state="nothingOnFile">No FDA, FSIS or CPSC notice we hold names {companyName}.</Callout>
           )}
 
@@ -706,6 +725,27 @@ function Recalls({
               groups={issuedGroups}
               total={issued.count}
               shown={issued.items.length}
+              companyId={companyId}
+              showAll={showAll}
+            />
+          )}
+
+          {/* NOTICES NAMING A SUBSIDIARY.
+              Michael, 2026-10-08: "does this company really only have 1
+              recall for all of hte brands that it owns? that doesnt seem
+              right." It did not — see getSubsidiaryRecalls in recalls.ts for
+              the four FDA notices against Campbell Soup Supply Co. that this
+              page was not showing.
+
+              The heading names the subsidiary rather than this company,
+              because that is whose name the FDA put on the notice. */}
+          {subsidiaryGroups.length > 0 && (
+            <RecallBlock
+              heading={`Notices naming a company ${companyName} owns`}
+              preamble="The notice names the subsidiary, not this company. Shown here because it is the same business."
+              groups={subsidiaryGroups}
+              total={subsidiary.count}
+              shown={subsidiary.items.length}
               companyId={companyId}
               showAll={showAll}
             />

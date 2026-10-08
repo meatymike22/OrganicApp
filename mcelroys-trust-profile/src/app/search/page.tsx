@@ -1043,32 +1043,12 @@ function FilterRail({
           Organic and non-GMO are missing on purpose. We hold 40 organic and
           18 non-GMO records across 416,382 products, so those filters would
           report our coverage as a fact about food. See ingredientFilters.ts. */}
-      <div
-        style={{
-          boxSizing: 'border-box',
-          padding: '14px 15px',
-          background: colors.card,
-          border: `1px solid ${colors.line}`,
-          borderRadius: layout.radius,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: colors.ink2,
-          }}
-        >
-          {/* Michael, 2026-10-07: "Just say Ingredient Filter. Lets keep it
-              simple." The old heading was trying to explain the semantics in
-              the title — that these are exclusions — which is the job of the
-              per-filter explainers below, not of four words in small caps. */}
-          Ingredient filter
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
+      {/* Michael, 2026-10-07: "Just say Ingredient Filter. Lets keep it
+          simple." The old heading was trying to explain the semantics in the
+          title — that these are exclusions — which is the job of the
+          per-filter explainers below, not of four words in small caps. */}
+      <RailSection title="Ingredient filter" open={filters.keys.length > 0 || filters.terms.length > 0}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {INGREDIENT_FILTERS.map((f) => (
             <FilterRow
               key={f.key}
@@ -1148,7 +1128,7 @@ function FilterRail({
             </Link>
           </div>
         )}
-      </div>
+      </RailSection>
 
       {/* ALLERGENS — A SECOND PANEL, BECAUSE THE RULE IS DIFFERENT.
           Michael, 2026-10-08: "also add allergens to this filter list."
@@ -1158,28 +1138,8 @@ function FilterRail({
           fifteen checkboxes with two different meanings is how that gets
           lost. Above: a product with no ingredient list passes. Here: it
           does not. See ingredientFilters.ts for the argument. */}
-      <div
-        style={{
-          boxSizing: 'border-box',
-          padding: '14px 15px',
-          background: colors.card,
-          border: `1px solid ${colors.line}`,
-          borderRadius: layout.radius,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: colors.ink2,
-          }}
-        >
-          Allergens
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
+      <RailSection title="Allergens" open={filters.allergens.length > 0}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {ALLERGEN_FILTERS.map((f) => (
             <FilterRow
               key={f.key}
@@ -1210,7 +1170,7 @@ function FilterRail({
             <Link href={linkTo({ ...filters, allergens: [] })}>Clear allergen filters</Link>
           </div>
         )}
-      </div>
+      </RailSection>
 
       <div
         style={{
@@ -1467,7 +1427,7 @@ function FilterRow({
           explainer to explain what each of these broad categories. a little
           'i' symbol would be perfect."
           `what` names real ingredients from our own data with their product
-          counts rather than describing the category in the abstract \u2014 "no
+          counts rather than describing the category in the abstract — "no
           seed oils" is only meaningful once you know it catches soybean and
           canola. Native title: keyboard-reachable, no state, nothing to
           hydrate. */}
@@ -1495,5 +1455,85 @@ function FilterRow({
         i
       </span>
     </Link>
+  )
+}
+
+// A COLLAPSIBLE PANEL IN THE SEARCH RAIL.
+//
+// Michael, 2026-10-08, on both filter panels: "make this menu collapseable",
+// "make this collapseable".
+//
+// The rail got long. Six ingredient filters plus nine allergens plus the
+// colour key plus the aisle box is more than fits beside the first result,
+// which is the thing the rail is supposed to help you read.
+//
+// WHEN A PANEL STARTS OPEN, and this is the part worth arguing about: when it
+// has a filter switched on. A fresh /search shows both panels closed, so the
+// rail is short and the results start at the top of the screen. The moment
+// you use a filter, the panel you used stays open on every subsequent page —
+// so a panel never hides a filter that is currently changing your results.
+// Collapsing an active filter out of sight is how someone ends up unable to
+// find why their result count looks wrong.
+//
+// Native <details>, like every other expandable on this site: no
+// "use client", no hydration, and it works with JavaScript off.
+function RailSection({
+  title,
+  open,
+  children,
+}: {
+  title: string
+  open: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <details
+      className="rt-collapse"
+      open={open}
+      style={{
+        boxSizing: 'border-box',
+        background: colors.card,
+        border: `1px solid ${colors.line}`,
+        borderRadius: layout.radius,
+      }}
+    >
+      <summary
+        style={{
+          boxSizing: 'border-box',
+          padding: '13px 15px',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <svg
+          className="rt-chev"
+          aria-hidden
+          width="10"
+          height="10"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke={colors.ink3}
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 2l5 4-5 4" />
+        </svg>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: colors.ink2,
+          }}
+        >
+          {title}
+        </span>
+      </summary>
+      <div style={{ padding: '0 15px 14px' }}>{children}</div>
+    </details>
   )
 }

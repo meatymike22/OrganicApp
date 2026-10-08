@@ -388,6 +388,24 @@ model Ingredient {
   // has to say so.
   allergens          String[]  @default([])
   allergensCheckedAt DateTime?
+  // HOW MANY PRODUCTS LIST THIS INGREDIENT. Denormalised on purpose.
+  //
+  // Maintained by scripts/sync-ingredient-product-count.ts, which the
+  // migration that added this column also ran once. Re-run it after any
+  // product or ingredient import.
+  //
+  // WHY IT EXISTS: relatedProducts.ts picks which products to compare by
+  // seeding from an ingredient's RARITY — two products that both list
+  // "hydrolyzed yeast protein" (38 products) have far more in common than two
+  // that both list salt (129,551). Counting that rarity at query time was
+  // measured at 2,267 ms, which is why it is a column.
+  //
+  // STALENESS IS SAFE HERE, and that is deliberate: this value only decides
+  // which products are CONSIDERED for the related shelf, never what is said
+  // about any of them. A stale count makes the shelf slightly worse, never
+  // wrong. Nothing user-facing prints it — the ingredient page deliberately
+  // stopped showing this number on 2026-10-08.
+  productCount       Int       @default(0)
   // True only for additives/processing-flagged ingredients that warrant dedicated
   // safety research (IngredientStudy records) — mirrors how Yuka only researches
   // the closed, standardized set of food additives, not every whole-food
@@ -401,6 +419,19 @@ model Ingredient {
   // concluded about this ingredient. A different kind of record from
   // `studies` — see IngredientAuthorityAssessment.
   authorityAssessments IngredientAuthorityAssessment[]
+
+  // Added 2026-10-08, both long-standing items from features-to-add #19.
+  //
+  // category: every ingredient-filtered search runs a NOT EXISTS against
+  // this column, and without an index that is a sequential scan of 127,268
+  // rows (~80 ms) before the anti-join starts. The allergen filters added in
+  // round 13 made it two such scans.
+  //
+  // name trigram: /ingredients can now be searched, and `name ILIKE '%x%'`
+  // measured a 252 ms sequential scan of the whole table. Same index type and
+  // same reasoning as Product_name_trgm_idx.
+  @@index([category])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Ingredient_name_trgm_idx")
 }
 
 model ProductIngredient {

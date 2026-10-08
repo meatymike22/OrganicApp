@@ -111,18 +111,17 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
   })
   if (!ingredient) notFound()
 
-  // The count reads only the ingredient index, without checking each
-  // product's company, so it can include a few products the site hides.
+  // THE PRODUCT COUNT IS GONE, and so is the query behind it.
   //
-  // THERE IS NO LONGER A SAMPLE. The page used to list twelve products that
-  // contain the ingredient, with photographs. Michael, 2026-10-08: "no need
-  // to show products that have it... there are 12000 products. remove this
-  // section." He is right about the arithmetic: twelve of twelve thousand is
-  // not a sample a reader can do anything with, and the twelve were whichever
-  // rows the index happened to reach first. The number stays on the tile,
-  // because how many products carry an ingredient is a real fact about our
-  // coverage; the twelve arbitrary cards do not survive it.
-  const productCount = await prisma.productIngredient.count({ where: { ingredientId: id } })
+  // Michael, 2026-10-08, on the tile reading 12,139: "remove this, people
+  // wont care about this number." Round 13 removed the list of products that
+  // carry the ingredient, for the same reason — twelve of twelve thousand is
+  // not a sample anyone can use — and this was the number that had been
+  // sitting above it. On its own it tells a shopper nothing they can act on:
+  // an ingredient being common is not a fact about whether to buy this jar.
+  //
+  // It is still one query away for anyone who wants it, and nothing else on
+  // the page depended on it.
 
   // A dissent, critique or replication is shown attached to the study it
   // answers, never as an equal finding beside it (see positionType in the
@@ -258,19 +257,25 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
         <SignalTile
           label="Studies on file"
           value={studyCount}
-          note={studyCount === 0 ? 'None added yet' : 'With who paid for each one'}
           accent={studyCount > 0 ? status.openResearch.fg : undefined}
           href={studyCount > 0 ? '#studies' : undefined}
           mono
         />
         <SignalTile
-          label="Authority rulings"
+          // "AUTHORITY RULINGS" WAS TOO ESOTERIC. Michael, 2026-10-08: "is
+          // there a better phrase for 'authority rulings' that the layman
+          // would understand at face value? it seems too esoteric. also
+          // remove 'none on file' below."
+          //
+          // "Official rulings" is the plainest wording that stays true of all
+          // nine bodies we ingest: IARC and EFSA are scientific agencies
+          // rather than regulators, so "regulator" would be wrong for them,
+          // while "official" covers a cancer agency, a food safety authority
+          // and a state regulator alike. The section heading below changed to
+          // match — two names for one thing is how a reader loses track of
+          // which number goes with which section.
+          label="Official rulings"
           value={assessments.length}
-          note={
-            assessments.length === 0
-              ? 'None on file'
-              : 'Published decisions, not studies'
-          }
           accent={assessments.length > 0 ? status.openResearch.fg : undefined}
           href={assessments.length > 0 ? '#authorities' : undefined}
           mono
@@ -278,14 +283,7 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
         <SignalTile
           label="Rules by country"
           value={rules.length}
-          note={rules.length === 0 ? 'None recorded yet' : rules.map((r) => r.jurisdiction).join(' · ')}
           href={rules.length > 0 ? '#rules' : undefined}
-          mono
-        />
-        <SignalTile
-          label="Products that list it"
-          value={productCount.toLocaleString()}
-          note="In our database"
           mono
         />
       </div>
@@ -545,8 +543,8 @@ function Authorities({ assessments }: { assessments: AuthorityAssessment[] }) {
     <section>
       <SectionHead
         id="authorities"
-        title="Authority classifications"
-        source="Published authority decisions"
+        title="Official rulings"
+        source="Published decisions by named health and safety agencies"
       />
       <div style={{ marginTop: 14 }}>
         {assessments.length === 0 ? (

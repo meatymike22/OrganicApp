@@ -2,6 +2,10 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+// isNonLatinName keeps the 515 Ukrainian, Bulgarian, Chinese and Korean
+// ingredient names out of the English browse list without deleting them.
+// See the header of that file for why they are kept.
+import { isNonLatinName } from '@/lib/ingredientNames'
 
 // THE INGREDIENTS INDEX.
 //
@@ -17,6 +21,20 @@ import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrom
 // asked with everything we have. An ingredient is something you arrive at
 // from a product label, so this page leads with the small set we actually
 // hold research on, and is honest about what the rest of the flag means.
+//
+// IT IS SEARCHABLE AS OF 2026-10-08. Michael: "people should also be able to
+// search ingredients and find much information on it, kind of like the
+// product search but with less filters."
+//
+// With ?q= the page stops being a curated index and becomes a search over all
+// 127,268 names, ranked by how many products list each one — which is the
+// closest thing to relevance this table has, and a real ordering rather than
+// alphabetical. Every row says what we hold on that ingredient, so the
+// difference between "we have research" and "we have classified it and
+// nothing else" is visible before you click.
+//
+// The browse list (no ?q=) leaves out names with no Latin letters. The SEARCH
+// does not: someone who types "цукор" should find it. See ingredientNames.ts.
 
 export const metadata = { title: 'Ingredients' }
 
@@ -30,6 +48,29 @@ export default async function IngredientsPage({
   const sp = await searchParams
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
+  // Two characters is the floor: "a" would match most of the table and the
+  // query would be a sequential scan returning nothing anyone asked for.
+  const q = (first(sp.q) ?? '').trim().slice(0, 60)
+  const searching = q.length >= 2
+
+  // SEARCH MODE. Ranked by productCount — the denormalised column added this
+  // round — so the ingredient on 30,000 labels comes before the one on two.
+  // Ordering by name would put "almond butter" above "almond", which is not
+  // what anyone typing "almond" is looking for.
+  const found = searching
+    ? await prisma.ingredient.findMany({
+        where: { name: { contains: q, mode: 'insensitive' } },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          productCount: true,
+          _count: { select: { studies: true, authorityAssessments: true, regulatoryStatuses: true } },
+        },
+        orderBy: [{ productCount: 'desc' }, { name: 'asc' }],
+        take: PAGE_SIZE,
+      })
+    : []
 
   const [studied, flaggedCount, totalCount, flagged] = await Promise.all([
     // The ingredients where a study is actually on file. Sixteen of them
@@ -42,14 +83,35 @@ export default async function IngredientsPage({
     }),
     prisma.ingredient.count({ where: { flaggedForResearch: true } }),
     prisma.ingredient.count(),
-    prisma.ingredient.findMany({
-      where: { flaggedForResearch: true },
-      select: { id: true, name: true, _count: { select: { products: true } } },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-    }),
+    // Skipped entirely in search mode: the browse list is not on screen, and
+    // this is the page's most expensive query.
+    searching
+      ? Promise.resolve([])
+      : prisma.ingredient.findMany({
+          where: { flaggedForResearch: true },
+          select: { id: true, name: true, _count: { select: { products: true } } },
+          orderBy: [{ name: 'asc' }, { id: 'asc' }],
+          skip: (page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+        }),
   ])
+
+  // THE BROWSE LIST LEAVES OUT NAMES WITH NO LATIN LETTERS.
+  //
+  // 515 ingredient names are Ukrainian, Bulgarian, Chinese or Korean —
+  // "цукор" (sugar), "вода" (water), "鸡蛋" (egg). They are real
+  // ingredients off real labels and are kept in the database; see
+  // ingredientNames.ts. They are simply not browsable on an English page, and
+  // they were a visible part of what Michael meant by "a lot of these
+  // ingredients have characters in them that shouldnt be there at all".
+  //
+  // Filtered here rather than in SQL: Postgres has no cheap "contains a Latin
+  // letter" predicate, and this is 120 rows. It means a page can show fewer
+  // than 120 — an honest consequence of not having a column for it, and the
+  // alternative is a regex filter the index cannot serve.
+  //
+  // SEARCH IS NOT FILTERED: someone who types "цукор" should find it.
+  const browsable = flagged.filter((i) => !isNonLatinName(i.name))
 
   const lastPage = Math.max(1, Math.ceil(flaggedCount / PAGE_SIZE))
 
@@ -83,11 +145,138 @@ export default async function IngredientsPage({
         </h1>
         <p style={{ margin: '12px 0 0', fontSize: 15, lineHeight: 1.6, color: colors.ink2, maxWidth: '64ch' }}>
           You usually reach an ingredient from a product label. This is the way in from the other
-          side: the ingredients we hold research on, and the ones our classification has flagged for
-          a closer look.
+          side: search all {totalCount.toLocaleString()} ingredient names we hold, or start from the
+          ones we hold research on.
         </p>
 
-        {/* --- Research actually on file --- */}
+        {/* A plain GET form, so a search is a URL someone can bookmark or
+            share, and so it works with JavaScript off. Same shape as the
+            search box in the site header. */}
+        <form action="/ingredients" style={{ display: 'flex', marginTop: 18, maxWidth: 520 }}>
+          <label htmlFor="q" className="sr-only">
+            Search ingredient names
+          </label>
+          <input
+            id="q"
+            name="q"
+            type="search"
+            defaultValue={q}
+            placeholder="Search an ingredient — soy lecithin, red 40, carrageenan"
+            style={{
+              flexGrow: 1,
+              height: 42,
+              boxSizing: 'border-box',
+              padding: '0 14px',
+              fontFamily: 'inherit',
+              fontSize: 15,
+              color: colors.ink,
+              background: '#FFFFFF',
+              border: `1px solid ${colors.line}`,
+              borderRight: 0,
+              borderRadius: '6px 0 0 6px',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              height: 42,
+              padding: '0 20px',
+              fontSize: 15,
+              fontWeight: 600,
+              color: '#FFFFFF',
+              background: colors.link,
+              border: `1px solid ${colors.link}`,
+              borderRadius: '0 6px 6px 0',
+              cursor: 'pointer',
+            }}
+          >
+            Search
+          </button>
+        </form>
+
+        {searching && (
+          <section style={{ marginTop: 26 }}>
+            <Head
+              title={`Matching \u201c${q}\u201d`}
+              count={found.length >= PAGE_SIZE ? undefined : found.length}
+            />
+            {found.length === 0 ? (
+              <p style={{ margin: '14px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink2 }}>
+                No ingredient name contains “{q}”. Ingredient names here are transcribed from
+                labels, so they follow the label’s wording rather than a standard vocabulary — try
+                a shorter word, or the name as it would be printed on a pack.
+              </p>
+            ) : (
+              <>
+                {found.length >= PAGE_SIZE && (
+                  <p style={{ margin: '12px 0 0', fontSize: 12.5, color: colors.ink3 }}>
+                    The {PAGE_SIZE} most-used matches, most-used first. Narrow the word to see fewer.
+                  </p>
+                )}
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column' }}>
+                  {found.map((i) => {
+                    // WHAT WE HOLD, said on the row. A reader deciding whether
+                    // to click should not have to click to find out that the
+                    // page is empty — that was the round-9 complaint about
+                    // flagged ingredients and it applies here too.
+                    const holds = [
+                      i._count.studies > 0
+                        ? `${i._count.studies} research ${i._count.studies === 1 ? 'record' : 'records'}`
+                        : null,
+                      i._count.authorityAssessments > 0
+                        ? `${i._count.authorityAssessments} official ${i._count.authorityAssessments === 1 ? 'ruling' : 'rulings'}`
+                        : null,
+                      i._count.regulatoryStatuses > 0
+                        ? `${i._count.regulatoryStatuses} country ${i._count.regulatoryStatuses === 1 ? 'rule' : 'rules'}`
+                        : null,
+                    ].filter(Boolean)
+                    const anything = holds.length > 0
+                    return (
+                      <Link
+                        key={i.id}
+                        href={`/ingredients/${i.id}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: 10,
+                          boxSizing: 'border-box',
+                          padding: '10px 12px 10px 11px',
+                          borderLeft: `3px solid ${anything ? status.openResearch.fg : 'transparent'}`,
+                          borderBottom: `1px solid ${colors.line}`,
+                          background: anything ? status.openResearch.bg : 'transparent',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                        }}
+                      >
+                        <span style={{ flexGrow: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 14.5, fontWeight: anything ? 600 : 400 }}>
+                            {capitalize(i.name)}
+                          </span>
+                          <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: colors.ink3 }}>
+                            {[i.category, anything ? holds.join(' \u00b7 ') : 'nothing on file yet']
+                              .filter(Boolean)
+                              .join(' \u00b7 ')}
+                          </span>
+                        </span>
+                        <span style={{ fontFamily: font.mono, fontSize: 12, color: colors.ink3, flexShrink: 0 }}>
+                          {i.productCount.toLocaleString()}
+                        </span>
+                      </Link>
+                    )
+                  })}
+                </div>
+                <p style={{ margin: '12px 0 0', fontSize: 11.5, color: colors.ink4 }}>
+                  The number on the right is how many products list that ingredient.
+                </p>
+              </>
+            )}
+          </section>
+        )}
+
+        {/* --- Research actually on file. Hidden while searching: the
+            search results answer the question that was asked. --- */}
+        {!searching && (
         <section style={{ marginTop: 30 }}>
           <Head title="Research on file" count={studied.length} />
           {studied.length === 0 ? (
@@ -111,7 +300,11 @@ export default async function IngredientsPage({
           )}
         </section>
 
+        )}
+
         {/* --- The flag, explained before the list --- */}
+        {!searching && (
+        <>
         <section style={{ marginTop: 34 }}>
           <Head title="Flagged for a closer look" count={flaggedCount} />
 
@@ -143,7 +336,7 @@ export default async function IngredientsPage({
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 14 }}>
-            {flagged.map((i) => (
+            {browsable.map((i) => (
               <Link
                 key={i.id}
                 href={`/ingredients/${i.id}`}
@@ -196,8 +389,11 @@ export default async function IngredientsPage({
         <p style={{ margin: '34px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3, maxWidth: '68ch' }}>
           Every other ingredient we hold —{' '}
           <span style={{ fontFamily: font.mono }}>{totalCount.toLocaleString()}</span> in all, most
-          of them ordinary foods — is reachable from the label of any product that lists it.
+          of them ordinary foods — is reachable from the search box above, or from the label of any
+          product that lists it.
         </p>
+        </>
+        )}
       </div>
 
       <SiteFooter />
@@ -217,11 +413,15 @@ const card: React.CSSProperties = {
   color: 'inherit',
 }
 
-function Head({ title, count }: { title: string; count: number }) {
+function Head({ title, count }: { title: string; count?: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, borderBottom: `2px solid ${colors.ink}`, paddingBottom: 8 }}>
       <h2 style={{ margin: 0, fontFamily: font.display, fontSize: 21, fontWeight: 600 }}>{title}</h2>
-      <span style={{ fontFamily: font.mono, fontSize: 13, color: colors.ink3 }}>{count.toLocaleString()}</span>
+      {count !== undefined && (
+        <span style={{ fontFamily: font.mono, fontSize: 13, color: colors.ink3 }}>
+          {count.toLocaleString()}
+        </span>
+      )}
     </div>
   )
 }
