@@ -15,6 +15,41 @@
 // MAINTENANCE: rules are added REACTIVELY — when a real ingredient appears in
 // ingested product data that should be flagged but isn't, add it here. Don't
 // pre-build speculative lists of additives that may never appear in the catalog.
+//
+// ------------------------------------------------------------------------
+// 2026-10-07: A LARGE REACTIVE ADDITION, with the counts that justified it.
+// This is the policy above being exercised, not bent.
+//
+// Found while writing hover explainers for the ingredient filters: several of
+// the commonest additives in the catalogue had NO category, so the filters
+// silently missed them — a product containing soy lecithin passed a "no
+// emulsifiers" filter. Michael, on a Keto ice cream bar: "yuka has this as an
+// additive and sources to go with the risk, but we dont. fix that". That was
+// steviol glycoside, uncategorised, along with every other non-sugar
+// sweetener and sugar alcohol in the catalogue.
+//
+// Products containing each thing added below:
+//   spices 36,359 · soy lecithin 30,962 · xanthan gum 22,180 · vegetable oil
+//   16,316 · guar gum 15,257 · caramel color 13,510 · locust bean gum 6,175 ·
+//   carob bean gum 3,067 · sorbitol 2,841 · stevia leaf extract 2,210 ·
+//   gum acacia 2,072 · erythritol 1,639 · monk fruit extract 1,613 ·
+//   maltitol 1,063 · stevia 685 · allulose 675 · xylitol 565 ·
+//   steviol glycoside 549 · propyl gallate 498
+//
+// TWO THINGS TO KNOW BEFORE EDITING THESE:
+//
+// 1. A NEW KEYWORD CHANGES `flaggedForResearch` TOO, for every ingredient it
+//    matches. That is correct — the flag means "an additive or processing
+//    ingredient worth researching" — but the flagged counts on product pages
+//    jump, and we hold no research on most of these. The product and
+//    ingredient pages were fixed in rounds 9-11 to say "classified as worth
+//    checking, not yet researched" rather than implying a finding, so this is
+//    honest now. It would NOT have been before those fixes.
+//
+// 2. CHANGING A RULE DOES NOTHING TO EXISTING ROWS. classifyIngredient runs
+//    at ingest. Run `npx tsx scripts/reclassify-ingredients.ts` (dry run by
+//    default) to apply a change to the ingredients already stored.
+// ------------------------------------------------------------------------
 
 import { normalizeIngredientName } from './ingredientNormalization'
 
@@ -30,6 +65,10 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     keywords: [
       'canola oil', 'rapeseed oil', 'soybean oil', 'corn oil', 'cottonseed oil',
       'sunflower oil', 'safflower oil', 'grapeseed oil', 'rice bran oil',
+      // Generic, and in practice almost always a soy or canola blend.
+      // NOT 'palm oil': palm is pressed from the fruit, not the seed, so
+      // filing it under seed oil would be wrong even though people group them.
+      'vegetable oil',
     ],
   },
   {
@@ -40,10 +79,35 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     ],
   },
   {
+    // A SEPARATE CATEGORY, not more keywords under 'artificial sweetener'.
+    // Stevia and monk fruit are plant extracts and erythritol is a sugar
+    // alcohol; calling any of them "artificial" would be a false label on our
+    // own page. They belong with the artificial ones in the FILTER — someone
+    // avoiding sweeteners wants all of them — which is why the filter maps to
+    // both categories and is named "No sugar substitutes" rather than
+    // "No artificial sweeteners". See ingredientFilters.ts.
+    category: 'sugar substitute',
+    keywords: [
+      // Sugar alcohols.
+      'erythritol', 'maltitol', 'sorbitol', 'xylitol', 'isomalt', 'mannitol',
+      'lactitol',
+      // Plant-derived non-sugar sweeteners. Both spellings are needed:
+      // "steviol" does not contain "stevia".
+      'stevia', 'steviol', 'monk fruit', 'luo han guo', 'allulose',
+      'thaumatin',
+    ],
+  },
+  {
     category: 'preservative',
     keywords: [
       'sodium benzoate', 'potassium sorbate', 'bha', 'bht', 'sodium nitrite',
       'sodium nitrate', 'calcium propionate', 'sulfur dioxide', 'sodium metabisulfite',
+      // Added 2026-10-07. Antioxidant preservatives and sulfites that were
+      // turning up uncategorised in real labels.
+      'propyl gallate', 'tbhq', 'tert-butylhydroquinone', 'sodium erythorbate',
+      'potassium benzoate', 'sorbic acid', 'benzoic acid', 'sodium sulfite',
+      'sodium bisulfite', 'potassium metabisulfite', 'natamycin',
+      'sodium propionate', 'potassium propionate',
     ],
   },
   {
@@ -51,12 +115,34 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     keywords: [
       'red 40', 'yellow 5', 'yellow 6', 'blue 1', 'blue 2', 'green 3',
       'fd&c', 'titanium dioxide',
+      // Added 2026-10-07: an added colouring on 13,510 products and
+      // uncategorised. Made by caramelising sugar rather than synthesised,
+      // which is why the filter it feeds is named "No added colors" rather
+      // than "No artificial dyes" — the category keeps its name so no stored
+      // row has to change.
+      'caramel color',
     ],
   },
   {
     category: 'emulsifier',
     keywords: [
       'polysorbate', 'carrageenan', 'carboxymethylcellulose', 'mono- and diglycerides',
+      // Added 2026-10-07. Emulsifiers, stabilisers and thickening gums. Soy
+      // lecithin alone is on 30,962 products and was passing a "no
+      // emulsifiers" filter untouched.
+      //
+      // Taxonomically these are not all emulsifiers — guar and xanthan are
+      // thickeners. The category keeps its name so no stored row has to be
+      // migrated, and the FILTER is named "No emulsifiers or gums", which is
+      // what it actually does. Naming is in ingredientFilters.ts.
+      //
+      // 'lecithin' as a substring catches soy, sunflower and egg lecithin,
+      // which is intended. Bare 'gum' is deliberately NOT a keyword: it would
+      // match chewing gum, gum base and guar-free products alike.
+      'lecithin', 'xanthan gum', 'guar gum', 'locust bean gum', 'carob bean gum',
+      'gum acacia', 'gum arabic', 'cellulose gum', 'gellan gum', 'tara gum',
+      'tragacanth', 'mono and diglycerides', 'datem',
+      'sodium stearoyl lactylate', 'polyglycerol ester',
     ],
   },
   {
@@ -121,6 +207,15 @@ const EXACT_MATCH_RULES: Record<string, string> = {
   'flavour': 'undisclosed flavoring',
   'flavors': 'undisclosed flavoring',
   'flavours': 'undisclosed flavoring',
+  // Added 2026-10-07. "Spices" is a blend the label does not break down —
+  // the same non-disclosure concern as "natural flavor", and it is on 36,359
+  // products. EXACT match only: a substring rule on 'spice' would also catch
+  // 'allspice', which is one named spice and discloses itself perfectly well.
+  'spices': 'undisclosed flavoring',
+  'spice': 'undisclosed flavoring',
+  'spice blend': 'undisclosed flavoring',
+  'seasoning': 'undisclosed flavoring',
+  'seasonings': 'undisclosed flavoring',
 }
 
 // Keywords go through the SAME normalization as ingredient names, so a rule

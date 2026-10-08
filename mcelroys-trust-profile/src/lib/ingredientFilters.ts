@@ -64,41 +64,54 @@ export const INGREDIENT_FILTERS: {
     label: 'No seed oils',
     short: 'no seed oils',
     what:
-      'Seed and vegetable oils: soybean (on ~23,800 products), canola (~18,600), sunflower (~15,000), corn (~2,600), safflower (~1,900), and partially hydrogenated versions of them. About 1,470 ingredient names in all.',
+      'Seed and vegetable oils: soybean (on ~23,800 products), canola (~18,600), plain "vegetable oil" (~16,300), sunflower (~15,000), corn (~2,600), safflower (~1,900), and hydrogenated versions of them. About 1,470 ingredient names in all. Palm oil is not in this category — palm is pressed from the fruit, not the seed.',
     categories: ['seed oil'],
   },
   {
     key: 'dye',
-    label: 'No artificial dyes',
-    short: 'no dyes',
+    // RENAMED 2026-10-07: caramel color is now caught, and it is made by
+    // caramelising sugar rather than synthesised, so "artificial dyes" would
+    // have been the wrong word for what the filter does.
+    label: 'No added colors',
+    short: 'no added colors',
     what:
-      'Added colourings: red 40 (~12,100 products), yellow 5 (~11,200), blue 1 (~9,700), yellow 6 (~7,900), titanium dioxide (~4,500), and their lake forms. About 820 names in all.',
+      'Colourings added to the food: caramel color (~13,500 products), red 40 (~12,100), yellow 5 (~11,200), blue 1 (~9,700), yellow 6 (~7,900), titanium dioxide (~4,500), and their lake forms. About 820 names in all.',
     categories: ['artificial dye'],
   },
   {
     key: 'sweetener',
-    label: 'No artificial sweeteners',
-    short: 'no artificial sweeteners',
+    // RENAMED 2026-10-07, because the filter now covers stevia, monk fruit
+    // and the sugar alcohols as well. Calling those "artificial" on our own
+    // page would be a false label — they are plant extracts and sugar
+    // alcohols — so the CATEGORY stayed 'artificial sweetener', a second
+    // category 'sugar substitute' was added, and the FILTER name widened to
+    // cover both honestly. Someone avoiding sweeteners wants all of them.
+    label: 'No sugar substitutes',
+    short: 'no sugar substitutes',
     what:
-      'Non-sugar sweeteners: sucralose (~8,100 products), acesulfame potassium (~5,000), aspartame (~2,300), saccharin, neotame. About 320 names in all. Sugar, honey and fruit juice are not in this category.',
-    categories: ['artificial sweetener'],
+      'Anything sweet that is not sugar: sucralose (~8,100 products), acesulfame potassium (~5,000), aspartame (~2,300), sorbitol (~2,800), stevia (~3,900 across its spellings), erythritol (~1,600), monk fruit (~2,100), maltitol, xylitol, allulose, steviol glycoside, saccharin. Sugar, honey and fruit juice are not in this category.',
+    categories: ['artificial sweetener', 'sugar substitute'],
   },
   {
     key: 'preservative',
     label: 'No preservatives',
     short: 'no preservatives',
     what:
-      'Added preservatives: potassium sorbate (~14,500 products), sodium benzoate (~9,900), sodium nitrite (~5,800), calcium propionate (~4,400), BHT, BHA, and the parabens. About 1,020 names in all. Salt, sugar and vinegar are not in this category even where they preserve.',
+      'Added preservatives: potassium sorbate (~14,500 products), sodium benzoate (~9,900), sodium nitrite (~5,800), calcium propionate (~4,400), sorbic acid (~4,400), sodium erythorbate (~4,100), natamycin (~2,400), potassium benzoate (~2,200), BHT, BHA, TBHQ, propyl gallate, and the parabens. Salt, sugar and vinegar are not in this category even where they preserve.',
     // Three separate category values, all of which are preservatives. Mapping
     // only 'preservative' would quietly let every paraben through.
     categories: ['preservative', 'paraben preservative', 'antimicrobial preservative'],
   },
   {
     key: 'emulsifier',
-    label: 'No emulsifiers',
-    short: 'no emulsifiers',
+    // RENAMED 2026-10-07: the filter now catches the thickening gums as well,
+    // and "emulsifiers" alone would have been a narrower promise than the
+    // filter keeps. Guar and xanthan are thickeners, not emulsifiers; the
+    // category keeps its old name so no stored row had to be migrated.
+    label: 'No emulsifiers or gums',
+    short: 'no emulsifiers or gums',
     what:
-      'Ingredients that hold a mixture together: carrageenan (~10,700 products), mono- and diglycerides (~7,100), polysorbate 80 (~3,100), polysorbate 60 (~3,000). About 390 names in all. Soy lecithin is NOT caught by this filter — it is uncategorised in our data (see the known gaps on /sourcing).',
+      'Ingredients that thicken a mixture or hold it together: soy lecithin (~31,000 products), xanthan gum (~22,200), guar gum (~15,300), carrageenan (~10,700), mono- and diglycerides (~7,100), cellulose gum (~6,700), locust bean gum (~6,200), gum arabic (~4,300), polysorbates, DATEM, gellan gum.',
     categories: ['emulsifier'],
   },
   {
@@ -106,7 +119,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No undisclosed flavoring',
     short: 'no undisclosed flavoring',
     what:
-      'Flavour listed as a blend the label does not break down: "natural flavor" (~82,700 products), "artificial flavor" (~30,900), "flavoring", "natural flavoring". About 2,200 names in all. This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. "Spices" is NOT caught by this filter — it is uncategorised in our data (see the known gaps on /sourcing).',
+      'Flavour listed as a blend the label does not break down: "natural flavor" (~82,700 products), "spices" (~36,400), "artificial flavor" (~30,900), "flavoring", "seasoning". About 2,200 names in all. This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. A named spice like allspice or cinnamon is not in this category, because it discloses itself.',
     categories: ['undisclosed flavoring'],
   },
 ]

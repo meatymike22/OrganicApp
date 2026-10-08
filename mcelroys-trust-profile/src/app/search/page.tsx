@@ -8,6 +8,7 @@ import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } 
 import { getRecallsListingProducts } from '@/lib/recalls'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
+import { brandLookupWhere, pickBrand, searchWhere, tokenise } from '@/lib/productSearch'
 // Only a confirmed company gets a page worth linking an example card to.
 import { VETTED_COMPANIES } from '@/lib/vetting'
 import {
@@ -173,25 +174,36 @@ async function buildWhere(
     if (upc.ok) {
       and.push({ upc: upc.upc })
     } else {
-      // PERFORMANCE: done in two steps rather than one OR across both tables.
-      // "name matches OR the company's name matches" written as one query
-      // makes Postgres read every product (~2 s). Finding the matching
-      // companies first (fast, trigram index on Company) and then asking for
-      // "name matches OR companyId is one of these" lets it use the product
-      // name index and the companyId index together. Same results either way.
-      const companies = await prisma.company.findMany({
-        where: {
-          OR: [{ legalName: { contains: q, mode: 'insensitive' } }, { dbaNames: { has: q } }],
-        },
-        select: { id: true },
-      })
-      const companyIds = companies.map((c) => c.id)
-      and.push({
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          ...(companyIds.length > 0 ? [{ companyId: { in: companyIds } }] : []),
-        ],
-      })
+      // TOKENISED, so a query can span a brand AND a product name.
+      //
+      // This replaced a single-substring match that could not find products
+      // we hold. "Yasso Pistachio" returned nothing while we held "pistachio
+      // brittle frozen greek yogurt bars" by Yasso, because the brand is
+      // stripped from the stored name and lives in the Company table, so
+      // neither the name nor the company name contains the whole string.
+      // Same for "clover sonoma, organic cream cheese". See productSearch.ts
+      // for the measurements and for the shape that keeps the trigram index.
+      //
+      // Still two steps rather than one OR across both tables, for the same
+      // reason as before: resolving companies first is a 6 ms trigram scan,
+      // and letting Postgres join the two tables itself was ~2 s.
+      const tokens = tokenise(q)
+
+      if (tokens.length === 0) {
+        // A query of pure punctuation. Fall back to the literal substring so
+        // the page still does something defined rather than matching all
+        // 416,382 products.
+        and.push({ name: { contains: q, mode: 'insensitive' } })
+      } else {
+        const companies = await prisma.company.findMany({
+          where: brandLookupWhere(tokens),
+          select: { id: true, legalName: true },
+          // Enough to find the best brand match without reading a long tail
+          // of companies that merely share one common word.
+          take: 600,
+        })
+        and.push(searchWhere(tokens, pickBrand(tokens, companies)))
+      }
     }
   }
 

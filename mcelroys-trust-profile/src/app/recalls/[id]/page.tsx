@@ -371,7 +371,7 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
                 The agency published this notice as a page of its own. Everything above is our
                 transcription of it; the original is the record.
               </p>
-              <SourceLine url={action.sourceUrl} label={`${action.sourceAgency} notice`} readAt={action.dataPulledDate} />
+              <SourceLine url={action.sourceUrl} label={`${action.sourceAgency} notice`} />
             </>
           )}
 

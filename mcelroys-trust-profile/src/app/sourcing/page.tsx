@@ -486,14 +486,18 @@ export default function SourcingPage() {
         >
           <li>
             <strong style={{ color: colors.ink }}>
-              Some common additives are not categorised yet, so the ingredient filters miss them.
+              Our ingredient filters are only as good as our ingredient categories.
             </strong>{' '}
-            The clearest cases: soy lecithin (on about 31,000 products), xanthan gum (22,000) and
-            guar gum (15,000) are not caught by &ldquo;no emulsifiers&rdquo;; &ldquo;spices&rdquo;
-            (36,000) is not caught by &ldquo;no undisclosed flavoring&rdquo;; caramel color
-            (13,500) is not caught by &ldquo;no artificial dyes&rdquo;; and plain
-            &ldquo;vegetable oil&rdquo; (16,000) is not caught by &ldquo;no seed oils&rdquo;. If you
-            are filtering on one of those, read the ingredient list as well.
+            Until 7 October 2026 several of the commonest additives in the catalogue had no
+            category at all, so the filters silently missed them &mdash; a product containing soy
+            lecithin passed a &ldquo;no emulsifiers&rdquo; filter. The rules now cover soy lecithin,
+            xanthan and guar gum, locust bean gum, cellulose gum, caramel color, plain
+            &ldquo;vegetable oil&rdquo;, &ldquo;spices&rdquo;, the sugar alcohols and the
+            plant-derived sweeteners. The filters are named for what they now actually catch:
+            &ldquo;No added colors&rdquo;, &ldquo;No emulsifiers or gums&rdquo;, &ldquo;No sugar
+            substitutes&rdquo;. If you are filtering on something not named in a filter&rsquo;s
+            own description, read the ingredient list as well &mdash; the list is always the
+            record, and the filter is a convenience over it.
           </li>
           <li>
             <strong style={{ color: colors.ink }}>Our study corpus is small.</strong> Twenty studies

@@ -38,7 +38,24 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { prisma } from '../src/lib/prisma'
+// DATABASE CONNECTION — the house pattern for every script in this folder.
+//
+// Prisma 7 needs an explicit Postgres driver adapter; a bare
+// `new PrismaClient()` throws "PrismaClient was instantiated without any
+// options. A driver adapter is required to connect to your database."
+//
+// And `import 'dotenv/config'` is NOT optional. A standalone tsx script does
+// not load .env by itself, so without it `process.env.DATABASE_URL` is
+// undefined and the adapter is built with no connection string. This is also
+// why no script here imports `src/lib/prisma` — that module builds the same
+// adapter but never loads .env, because Next.js has already done it by the
+// time the app uses it. Correct for the app, useless from the command line.
+import 'dotenv/config'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '@prisma/client'
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+const prisma = new PrismaClient({ adapter })
 
 const args = process.argv.slice(2)
 const FILE = args.find((a) => !a.startsWith('--')) ?? './data/p65chemicalslist.csv'

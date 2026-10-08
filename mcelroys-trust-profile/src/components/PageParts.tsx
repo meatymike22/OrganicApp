@@ -1,4 +1,4 @@
-import { colors, font, isoDate, status } from '@/lib/design'
+import { colors, font, status } from '@/lib/design'
 
 // Small building blocks shared by the detail pages (company, ingredient).
 // They are the same pieces the product page draws, kept in one file so the
@@ -91,16 +91,26 @@ export function Tag({ children, nested }: { children: React.ReactNode; nested?: 
 // The reviewDate columns stay in the schema for the day there IS a review
 // step. Nothing reads them, so nothing can imply one already happened. Do
 // not reintroduce a reviewedAt prop here without a real process behind it.
+// NO READ DATE. Michael, 2026-10-07: "no 'read' or date necessary here. On
+// all pages please get rid of this."
+//
+// The prop is REMOVED rather than defaulted off, the same way `reviewedAt`
+// was in round 7, so it cannot come back by someone passing it again. Every
+// call site was updated in the same commit.
+//
+// WHERE THE DATES STILL LIVE, because the sourcing claim depends on them:
+// each product's /products/[id]/sources page and each notice's /recalls/[id]
+// page both print the date we read every record, and they render it
+// themselves rather than through this component. So "shown with the date we
+// read it" stays true of the site; it is just no longer printed under every
+// single line, which is what he was objecting to.
 export function SourceLine({
   url,
   label,
-  readAt,
 }: {
   url?: string | null
   label: string
-  readAt?: Date | string | null
 }) {
-  const read = isoDate(readAt)
   return (
     <div style={{ fontSize: 11.5, color: colors.ink4, marginTop: 7, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {url ? (
@@ -110,7 +120,6 @@ export function SourceLine({
       ) : (
         <span>{label}</span>
       )}
-      {read && <span style={{ fontFamily: font.mono }}>read {read}</span>}
     </div>
   )
 }

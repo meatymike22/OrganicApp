@@ -10,6 +10,7 @@ import { StatusChip } from '@/components/StatusChip'
 // stayed here, so the ingredient page kept advertising a review process the
 // rest of the site had stopped claiming. One implementation, one wording.
 import { SourceLine } from '@/components/PageParts'
+import { ProductThumb } from '@/components/ProductThumb'
 // Authority classifications are a THIRD kind of record, beside studies and
 // country rules: a published decision by a named body, in that body's own
 // words. The module holds the plain-English translation of each category and
@@ -33,7 +34,12 @@ import { assessmentWeight, authority, classificationMeaning } from '@/lib/author
 
 // How many products to list by name. Some ingredients (natural flavor) are on
 // tens of thousands of labels; the count says how many, the list is a sample.
-const PRODUCT_SAMPLE = 24
+// Michael, 2026-10-07: "put less products in the section so people can
+// actually see what the product looks like." Twelve cards with a photograph
+// each read as a shelf; twenty-four lines of text read as a list nobody
+// finishes. The heading still says how many there are in total, so showing
+// fewer hides nothing.
+const PRODUCT_SAMPLE = 12
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -115,7 +121,22 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
       where: { ingredientId: id, product: { company: VETTED_COMPANIES } },
       take: PRODUCT_SAMPLE,
       select: {
-        product: { select: { id: true, name: true, company: { select: { id: true, legalName: true } } } },
+        product: {
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            productType: true,
+            // The three columns ProductThumb needs. Michael, 2026-10-07: "in
+            // this section why aren't there any photos of the products? make
+            // sure the photos are here." They were never selected, so every
+            // card had only text to show.
+            imageUrl: true,
+            imageSource: true,
+            imageSourceUrl: true,
+            company: { select: { id: true, legalName: true } },
+          },
+        },
       },
     }),
   ])
@@ -456,7 +477,7 @@ function StudyBody({ study, nested }: { study: Study; nested?: boolean }) {
         </div>
       )}
 
-      <SourceLine url={study.sourceUrl} label="Source" readAt={study.dataPulledDate} />
+      <SourceLine url={study.sourceUrl} label="Source" />
     </>
   )
 }
@@ -606,7 +627,7 @@ function AssessmentRow({ a, first }: { a: AuthorityAssessment; first: boolean })
             : ''}
           .
         </div>
-        <SourceLine url={a.sourceUrl} label={a.sourceTitle} readAt={a.dataPulledDate} />
+        <SourceLine url={a.sourceUrl} label={a.sourceTitle} />
       </div>
     </div>
   )
@@ -652,7 +673,7 @@ function Rules({ rules }: { rules: Ingredient['regulatoryStatuses'] }) {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   {r.notes && <div style={{ fontSize: 13, lineHeight: 1.55, color: colors.ink2 }}>{r.notes}</div>}
-                  <SourceLine url={r.sourceUrl} label="Source" readAt={r.dataPulledDate} />
+                  <SourceLine url={r.sourceUrl} label="Source" />
                 </div>
               </div>
             ))}
@@ -668,7 +689,16 @@ function Products({
   sample,
 }: {
   count: number
-  sample: { id: string; name: string; company: { id: string; legalName: string } }[]
+  sample: {
+    id: string
+    name: string
+    category: string | null
+    productType: string
+    imageUrl: string | null
+    imageSource: string | null
+    imageSourceUrl: string | null
+    company: { id: string; legalName: string }
+  }[]
 }) {
   return (
     <section>
@@ -693,7 +723,9 @@ function Products({
                 key={p.id}
                 href={`/products/${p.id}`}
                 style={{
-                  display: 'block',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
                   boxSizing: 'border-box',
                   padding: '11px 14px',
                   background: colors.card,
@@ -704,30 +736,45 @@ function Products({
                   minWidth: 0,
                 }}
               >
-                <div
-                  style={{
-                    fontFamily: font.display,
-                    fontSize: 15,
-                    fontWeight: 600,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {p.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 12.5,
-                    color: colors.ink3,
-                    marginTop: 3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {p.company.legalName}
-                </div>
+                {/* ProductThumb falls back to the aisle glyph when there is
+                    no photograph, so a card can never render blank, and it
+                    carries the CC-BY-SA credit contract with it. */}
+                <ProductThumb
+                  product={p}
+                  category={p.category}
+                  productType={p.productType}
+                  size={52}
+                  intrinsic={120}
+                  label={p.name}
+                />
+                <span style={{ flexGrow: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontFamily: font.display,
+                      fontSize: 15,
+                      fontWeight: 600,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 12.5,
+                      color: colors.ink3,
+                      marginTop: 3,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {p.company.legalName}
+                  </span>
+                </span>
               </Link>
             ))}
           </div>

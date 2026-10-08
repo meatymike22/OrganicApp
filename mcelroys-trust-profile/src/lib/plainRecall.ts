@@ -249,6 +249,10 @@ function selfTest(): boolean {
   return pass === CASES.length
 }
 
-if (process.argv.includes('--selftest')) {
+// GUARDED. This module lives in src/lib and is bundled into the app, so a
+// bare process.argv at module scope would throw in any runtime that has no
+// process (an edge runtime, a client bundle). The selftest only ever runs
+// when the file is invoked directly with npx tsx.
+if (typeof process !== 'undefined' && process.argv?.includes('--selftest')) {
   process.exitCode = selfTest() ? 0 : 1
 }
