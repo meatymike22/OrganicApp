@@ -128,3 +128,65 @@ export function Collapsible({
 function capitalise(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1)
 }
+
+// A LIGHTER COLLAPSIBLE, for a row inside a card.
+//
+// Collapsible above is a section: a bordered card with a 19px serif heading
+// and a count. Inside a research card, four of those stacked would be four
+// cards inside a card. This is the same native <details>, the same chevron
+// and the same CSS classes (which use `>` child selectors, so nesting one in
+// the other is safe) with the weight of a list row instead.
+//
+// Michael, 2026-10-08: "this needs to be seriously condensed and a more fun
+// read." This is the mechanism — a labelled paragraph becomes one line you
+// can open, rather than a paragraph you have to scroll past. See
+// studyOutline.ts for where the labels come from.
+export function MiniCollapse({
+  label,
+  open = false,
+  children,
+}: {
+  label: string
+  open?: boolean
+  children: ReactNode
+}) {
+  return (
+    <details
+      className="rt-collapse"
+      open={open}
+      style={{ boxSizing: 'border-box', borderTop: `1px solid ${colors.line}` }}
+    >
+      <summary
+        style={{
+          boxSizing: 'border-box',
+          padding: '10px 0',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+        }}
+      >
+        <svg
+          className="rt-chev"
+          aria-hidden
+          width="10"
+          height="10"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke={colors.ink3}
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 2l5 4-5 4" />
+        </svg>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: colors.ink, lineHeight: 1.4 }}>
+          {label}
+        </span>
+      </summary>
+      {/* Indented to the chevron's text, so an open row reads as belonging
+          to the line that opened it. */}
+      <div style={{ padding: '0 0 13px 19px' }}>{children}</div>
+    </details>
+  )
+}

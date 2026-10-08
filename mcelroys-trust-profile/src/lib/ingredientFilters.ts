@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client'
+import { ALLERGENS, ALLERGEN_LABEL, type Allergen } from '@/lib/allergens'
 
 // FILTERING PRODUCTS BY WHAT IS *NOT* IN THEM.
 //
@@ -124,6 +125,114 @@ export const INGREDIENT_FILTERS: {
   },
 ]
 
+// ALLERGENS ARE A SEPARATE GROUP, WITH A STRICTER RULE.
+//
+// Michael, 2026-10-08: "also add allergens to this filter list."
+//
+// THEY COULD NOT JOIN THE LIST ABOVE, and the reason is the most important
+// thing in this file. Every filter above passes a product whose ingredient
+// list we do not hold, on the grounds that excluding it would claim we know
+// what is in it. That is the right call for preservatives. It is the wrong
+// call for peanuts: a shopper who filters out peanuts and is shown a product
+// whose ingredients we never got has been told something we did not mean to
+// say, and the consequence of that error is not an unexpected label.
+//
+// So an allergen filter inverts the rule. A product passes only when:
+//   1. its ingredient list is disclosed, AND
+//   2. every ingredient on it has been through the classifier
+//      (allergensCheckedAt is not null), AND
+//   3. none of them names the allergen.
+//
+// Unknown is treated as present. See allergenFilterWhere below.
+//
+// WHAT THE FILTER STILL CANNOT SEE, which is why every surface that offers
+// it carries this warning rather than burying it:
+//   - cross-contamination. "May contain traces of peanuts" is a separate
+//     statement on a package and we hold none of them.
+//   - anything inside "natural flavor", which is on 82,700 products and
+//     names nothing. FALCPA requires a major allergen used within a flavour
+//     to be declared separately, so the law is on our side here, but the
+//     ingredient list is transcribed by volunteers and a missed line is a
+//     missed line.
+//   - the label's own "Contains: milk, soy" statement, which is the
+//     authoritative one and which we do not store. Adding it is the right
+//     next step for this feature.
+//
+// Nobody should use this instead of reading the package, and the wording on
+// screen says exactly that.
+export const ALLERGEN_FILTERS: {
+  key: Allergen
+  label: string
+  short: string
+  what: string
+}[] = [
+  {
+    key: 'milk',
+    label: 'No milk',
+    short: 'no milk',
+    what:
+      'Dairy in any form: milk (on ~18,100 products), cream (~15,500), whey (~15,500), cheese and cheese cultures (~14,000), butter (~9,800), lactose, casein and caseinates, yogurt, ghee, curd. Cocoa butter, peanut butter, coconut milk, almond milk and cream of tartar are NOT counted — they are not dairy.',
+  },
+  {
+    key: 'egg',
+    label: 'No eggs',
+    short: 'no eggs',
+    what:
+      'Egg in any form: egg (~10,300 products), yolk (~5,100), white (~4,500), albumen, mayonnaise, meringue, lysozyme. Eggplant is not counted.',
+  },
+  {
+    key: 'peanut',
+    label: 'No peanuts',
+    short: 'no peanuts',
+    what:
+      'Peanut in any form: peanut (~7,600 products), peanut oil (~2,900), peanut butter (~2,300), peanut flour, groundnut. Peanuts are legumes, so they are counted separately from tree nuts — filtering one does not filter the other.',
+  },
+  {
+    key: 'tree nut',
+    label: 'No tree nuts',
+    short: 'no tree nuts',
+    what:
+      'Almond (~9,200 products), cashew (~3,800), pecan (~2,800), walnut (~2,000), hazelnut, pistachio, macadamia, brazil nut, pine nut, chestnut, praline, marzipan, nougat. COCONUT IS INCLUDED, because FDA’s tree-nut list for labelling includes it — that is FDA’s classification and not ours, and it means coconut oil (~6,900 products) is filtered out too. Nutmeg, water chestnut and nutritional yeast are not tree nuts and are not counted.',
+  },
+  {
+    key: 'wheat',
+    label: 'No wheat',
+    short: 'no wheat',
+    what:
+      'Wheat flour (~31,100 products), wheat (~7,800), wheat gluten (~6,300), wheat starch, semolina, durum, spelt, kamut, couscous, bulgur, seitan, matzo. An unqualified "flour" or "enriched flour" counts, because under 21 CFR 137.105 that means wheat flour on a US label — about 16,000 more products. Rice, corn, oat, almond, chickpea and malted barley flours do not count, and neither does buckwheat. This is a WHEAT filter, not a gluten-free filter: barley and rye contain gluten and are not here.',
+  },
+  {
+    key: 'soy',
+    label: 'No soy',
+    short: 'no soy',
+    what:
+      'Soy lecithin (~31,000 products), soybean oil (~23,800), soybean (~8,100), soy protein, soy sauce, soya, tofu, tempeh, miso, edamame, tamari. Highly refined soybean oil and soy lecithin are exempt from FALCPA allergen labelling and many soy-allergic people tolerate them — they are still counted here, because that is not our call to make for you. Tamarind and annatto are not soy.',
+  },
+  {
+    key: 'sesame',
+    label: 'No sesame',
+    short: 'no sesame',
+    what:
+      'Sesame seed (~3,200 products), sesame oil (~1,600), sesame (~1,100), tahini, halva. Sesame became the ninth US major allergen under the FASTER Act on 1 January 2023.',
+  },
+  {
+    key: 'fish',
+    label: 'No fish',
+    short: 'no fish',
+    what:
+      'Anchovy (~850 products), Worcestershire sauce (~840, which is made with anchovies and says so nowhere in its name), sardine, tuna, salmon, cod, pollock, tilapia, surimi, fish oil, fish sauce, bonito, caviar, roe.',
+  },
+  {
+    key: 'shellfish',
+    label: 'No shellfish',
+    short: 'no shellfish',
+    what:
+      'Crustaceans — shrimp (~1,200 products), crab, lobster, crayfish, krill, langoustine — AND molluscs: clam, oyster, mussel, scallop, squid, octopus, abalone, snail. FDA’s major-allergen list names crustacean shellfish only; molluscs are included here because someone avoiding shellfish is usually avoiding both. Oyster mushroom and scalloped potatoes are not counted.',
+  },
+]
+
+const ALLERGEN_KEYS = new Set<string>(ALLERGENS)
+
 // A free-text exclusion has to be long enough to mean something. "e" would
 // match almost every ingredient in the database.
 const MIN_TERM = 3
@@ -135,12 +244,16 @@ export type IngredientFilterState = {
   keys: string[]
   // Free-text ingredient names to exclude, lowercased and de-duplicated.
   terms: string[]
+  // Keys from ALLERGEN_FILTERS, in catalogue order. Separate from `keys`
+  // because they obey a different rule about unknown data, and mixing them
+  // into one list is how that difference would eventually get lost.
+  allergens: Allergen[]
 }
 
-export const EMPTY_FILTERS: IngredientFilterState = { keys: [], terms: [] }
+export const EMPTY_FILTERS: IngredientFilterState = { keys: [], terms: [], allergens: [] }
 
 export function hasAnyFilter(f: IngredientFilterState): boolean {
-  return f.keys.length > 0 || f.terms.length > 0
+  return f.keys.length > 0 || f.terms.length > 0 || f.allergens.length > 0
 }
 
 // Parse ?free=seed-oil,dye and ?without=red+40,sucralose
@@ -150,7 +263,8 @@ export function hasAnyFilter(f: IngredientFilterState): boolean {
 // because each one costs a substring scan of the ingredient table.
 export function parseIngredientFilters(
   free: string | undefined,
-  without: string | undefined
+  without: string | undefined,
+  no?: string | undefined
 ): IngredientFilterState {
   const known = new Set(INGREDIENT_FILTERS.map((f) => f.key))
   const keys = (free ?? '')
@@ -163,11 +277,20 @@ export function parseIngredientFilters(
     .map((s) => s.trim().toLowerCase().replace(/\s+/g, ' '))
     .filter((s) => s.length >= MIN_TERM && s.length <= MAX_TERM)
 
+  // ?no=milk,tree nut — a separate parameter from ?free= so that an allergen
+  // key can never be read as an additive key or the other way round. A link
+  // that does that would silently drop the stricter unknown-data rule.
+  const allergens = (no ?? '')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter((x) => ALLERGEN_KEYS.has(x)) as Allergen[]
+
   return {
     // Catalogue order, not URL order, so the same set of filters always
     // produces the same URL and the same chip order.
     keys: INGREDIENT_FILTERS.filter((f) => keys.includes(f.key)).map((f) => f.key),
     terms: [...new Set(terms)].slice(0, MAX_TERMS),
+    allergens: ALLERGEN_FILTERS.filter((f) => allergens.includes(f.key)).map((f) => f.key),
   }
 }
 
@@ -177,6 +300,7 @@ export function ingredientFilterParams(f: IngredientFilterState): Record<string,
   const out: Record<string, string> = {}
   if (f.keys.length > 0) out.free = f.keys.join(',')
   if (f.terms.length > 0) out.without = f.terms.join(',')
+  if (f.allergens.length > 0) out.no = f.allergens.join(',')
   return out
 }
 
@@ -184,13 +308,22 @@ export function toggleFilterKey(f: IngredientFilterState, key: string): Ingredie
   const on = f.keys.includes(key)
   const keys = on ? f.keys.filter((k) => k !== key) : [...f.keys, key]
   return {
+    ...f,
     keys: INGREDIENT_FILTERS.filter((x) => keys.includes(x.key)).map((x) => x.key),
-    terms: f.terms,
+  }
+}
+
+export function toggleAllergen(f: IngredientFilterState, key: Allergen): IngredientFilterState {
+  const on = f.allergens.includes(key)
+  const next = on ? f.allergens.filter((k) => k !== key) : [...f.allergens, key]
+  return {
+    ...f,
+    allergens: ALLERGEN_FILTERS.filter((x) => next.includes(x.key)).map((x) => x.key),
   }
 }
 
 export function removeTerm(f: IngredientFilterState, term: string): IngredientFilterState {
-  return { keys: f.keys, terms: f.terms.filter((t) => t !== term) }
+  return { ...f, terms: f.terms.filter((t) => t !== term) }
 }
 
 // THE WHERE CLAUSES.
@@ -233,7 +366,59 @@ export function ingredientFilterWhere(f: IngredientFilterState): Prisma.ProductW
     })
   }
 
+  and.push(...allergenFilterWhere(f))
+
   return and
+}
+
+// THE ALLERGEN CLAUSES, WHERE UNKNOWN COUNTS AS PRESENT.
+//
+// Three conditions, and the first two are added once however many allergens
+// are selected, because they are about whether we can answer at all:
+//
+//   1. ingredientDisclosureStatus = 'disclosed'. 271,952 products of 416,382
+//      have a disclosed list; the other 144,430 are not products we have
+//      nothing on, they are products we cannot speak for. The additive
+//      filters pass those. This one must not.
+//
+//   2. no ingredient on the product has a null allergensCheckedAt. An
+//      ingredient added by an import after the last classifier run has an
+//      empty allergens array, which looks exactly like "checked, none
+//      found" and is not. Without this clause the filter would get quietly
+//      less safe every time new products land.
+//
+//   3. then, per allergen, the ordinary anti-join: no ingredient on the
+//      product lists it.
+//
+// Cost: condition 2 is one more NOT EXISTS of the same shape as the existing
+// filters, which measured at 111 ms for two filters and 852 ms for all six.
+// A filtered page already shows no total (see needsExactCount), so none of
+// this is on the COUNT path.
+export function allergenFilterWhere(f: IngredientFilterState): Prisma.ProductWhereInput[] {
+  if (f.allergens.length === 0) return []
+
+  const and: Prisma.ProductWhereInput[] = [
+    { ingredientDisclosureStatus: 'disclosed' },
+    { NOT: { productIngredients: { some: { ingredient: { allergensCheckedAt: null } } } } },
+    // A disclosed status with no ingredient rows would otherwise satisfy
+    // both clauses above and pass every allergen filter on an empty list.
+    { productIngredients: { some: {} } },
+  ]
+
+  for (const allergen of f.allergens) {
+    and.push({
+      NOT: { productIngredients: { some: { ingredient: { allergens: { has: allergen } } } } },
+    })
+  }
+
+  return and
+}
+
+// Every allergen written out, for a sentence that lists them: "no milk, no
+// peanuts, no sesame". Used where a filtered result set has to say what it
+// filtered.
+export function allergenList(keys: Allergen[]): string {
+  return keys.map((k) => ALLERGEN_LABEL[k]).join(', ')
 }
 
 // WHY A FILTERED PAGE SHOWS NO TOTAL.

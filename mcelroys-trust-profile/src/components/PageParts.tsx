@@ -167,3 +167,28 @@ export function Monogram({ name, size = 92 }: { name: string; size?: number }) {
     </div>
   )
 }
+
+// Renders stored text that may contain blank-line paragraph breaks. The
+// records are typed as prose with real paragraphs in them, and collapsing
+// those into one block would make a 900-character section unreadable in
+// exactly the way this change is meant to fix.
+export function Paragraphs({ text, small }: { text: string; small?: boolean }) {
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+  return (
+    <>
+      {paragraphs.map((p, i) => (
+        <p
+          key={i}
+          style={{
+            margin: i === 0 ? 0 : '9px 0 0',
+            fontSize: small ? 13 : 14,
+            lineHeight: 1.62,
+            color: small ? colors.ink2 : colors.ink,
+          }}
+        >
+          {p}
+        </p>
+      ))}
+    </>
+  )
+}

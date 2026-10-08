@@ -46,7 +46,31 @@ ALTER TABLE "ProductIngredient" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "RegionalSupplyReport" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "RegulatoryAction" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "SupplyChainDisclosure" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+-- _prisma_migrations is Prisma's own bookkeeping table, and it is the one
+-- table in this list that does NOT exist in the shadow database Prisma
+-- builds to check for drift: the shadow replays every migration without
+-- recording any of them, so the table is never created there.
+--
+-- Unguarded, this line applied cleanly to the real database on 2026-09-30
+-- and then failed every `prisma migrate dev` afterwards — P3006 / P3018,
+-- "relation _prisma_migrations does not exist" — which looks like a broken
+-- migration history and is really a migration that is not portable.
+--
+-- Guarded the same way the role block below is guarded: skip quietly where
+-- the object is absent. Against the real database this is a no-op that
+-- leaves RLS exactly as this migration already set it, which is what makes
+-- editing an applied migration defensible here — the file still describes
+-- the state the database is in. The checksum in _prisma_migrations was
+-- updated to match (2026-10-08).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_tables
+    WHERE schemaname = 'public' AND tablename = '_prisma_migrations'
+  ) THEN
+    ALTER TABLE "_prisma_migrations" ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 -- The roles only exist on Supabase; skip quietly anywhere else (e.g. a local
 -- Postgres used for testing).

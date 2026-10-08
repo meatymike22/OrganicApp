@@ -17,6 +17,7 @@
 // applies the same display rule.
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { companyDisplayName } from '@/lib/productName'
 
 // Which actions are shown. Every recall the firm is named on appears on its
 // company page, whatever the product category (food, drug, device, consumer
@@ -97,7 +98,7 @@ async function attachLinks(items: RecallItem[], companyId: string) {
 // itself identifies that product (its barcode). Everything else is worded as
 // "a notice names this brand", never as "this product was recalled".
 export function evidenceNote(item: RecallItem): string | null {
-  const issuer = item.company.legalName
+  const issuer = companyDisplayName(item.company.legalName)
   const middleman =
     item.company.businessRole === 'supply_chain'
       ? ` ${issuer} makes, packs, imports or distributes products for other companies.`

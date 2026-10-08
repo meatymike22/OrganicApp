@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import type { CSSProperties, ReactNode } from 'react'
 import { colors, font } from '@/lib/design'
+import { TopNav } from '@/components/SiteChrome'
 
 // THE FAQ, at /faq.
 //
@@ -174,20 +175,14 @@ export default function FaqPage() {
   return (
     <div style={{ boxSizing: 'border-box', background: colors.paper, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
 
-      {/* The marketing nav, matching the landing page — no search field. */}
-      <div style={{ minHeight: '72px', flexShrink: 0, boxSizing: 'border-box', padding: '0 clamp(18px, 4vw, 40px)', background: colors.dark }}>
-        <div style={{ ...SHELL, minHeight: '72px', display: 'flex', alignItems: 'center', gap: '32px', flexWrap: 'wrap' }}>
-          <a href="/" style={{ fontFamily: font.display, fontSize: '25px', fontWeight: 700, color: colors.paper, letterSpacing: '-0.01em', textDecoration: 'none' }}>Rootify</a>
-          <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', gap: '26px', fontSize: '14px', flexWrap: 'wrap' }}>
-            <a href="/#included" style={{ color: '#D3D9D4', textDecoration: 'none' }}>What you get</a>
-            <a href="/#how" style={{ color: '#D3D9D4', textDecoration: 'none' }}>How it works</a>
-            <a href="/#who" style={{ color: '#D3D9D4', textDecoration: 'none' }}>Who we are</a>
-            <a href="/#pricing" style={{ color: '#D3D9D4', textDecoration: 'none' }}>Pricing</a>
-            <a href="/faq" aria-current="page" style={{ color: '#FFFFFF', fontWeight: 600, textDecoration: 'none' }}>FAQ</a>
-          </div>
-          <a href="/search" style={{ display: 'inline-flex', alignItems: 'center', height: '40px', padding: '0 18px', boxSizing: 'border-box', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: colors.link, borderRadius: '6px', textDecoration: 'none' }}>Browse the database</a>
-        </div>
-      </div>
+      {/* THE SHARED SITE HEADER. Michael, 2026-10-08: "this should be the
+          same despite which page we are on." This page and the landing page
+          each hand-wrote their own dark bar, and the two had already drifted
+          — the same button read "Search products" on one and "Browse the
+          database" on the other. Both use TopNav now, which is the header
+          every page that holds data has used since round 8. See
+          SiteChrome.tsx for what moved out of it to make that possible. */}
+      <TopNav active="faq" />
 
       {/* HEADER */}
       <div style={{ ...SHELL, boxSizing: 'border-box', padding: '54px clamp(18px, 4vw, 40px) 0' }}>

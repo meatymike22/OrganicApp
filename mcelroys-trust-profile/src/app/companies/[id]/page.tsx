@@ -15,7 +15,7 @@ import {
   type RecallList,
 } from '@/lib/recalls'
 import { plainReason } from '@/lib/plainRecall'
-import { productDisplayName } from '@/lib/productName'
+import { companyDisplayName, productDisplayName } from '@/lib/productName'
 import { ProductThumb } from '@/components/ProductThumb'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
@@ -46,7 +46,7 @@ const PRODUCTS_SHOWN = 24
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const company = await prisma.company.findUnique({ where: { id }, select: { legalName: true } })
-  return { title: company?.legalName ?? 'Company not found' }
+  return { title: company ? companyDisplayName(company.legalName) : 'Company not found' }
 }
 
 export default async function CompanyPage({
@@ -135,7 +135,7 @@ export default async function CompanyPage({
         trail={[
           { label: 'Rootify', href: '/' },
           { label: 'Companies', href: '/companies' },
-          { label: company.legalName },
+          { label: companyDisplayName(company.legalName) },
         ]}
       />
 
@@ -150,7 +150,7 @@ export default async function CompanyPage({
           flexWrap: 'wrap',
         }}
       >
-        <Monogram name={company.legalName} />
+        <Monogram name={companyDisplayName(company.legalName)} />
 
         <div style={{ flexGrow: 1, flexBasis: 420, minWidth: 0 }}>
           <Eyebrow color={status.ownership.fg}>
@@ -170,7 +170,7 @@ export default async function CompanyPage({
               letterSpacing: '-0.015em',
             }}
           >
-            {company.legalName}
+            {companyDisplayName(company.legalName)}
           </h1>
 
           <MetaLine company={company} />
@@ -188,7 +188,7 @@ export default async function CompanyPage({
           {company.businessRole === 'supply_chain' && (
             <div style={{ marginTop: 14, maxWidth: 760 }}>
               <Callout state="nothingOnFile">
-                <strong>Supply-chain company.</strong> {company.legalName} mainly makes, packs,
+                <strong>Supply-chain company.</strong> {companyDisplayName(company.legalName)} mainly makes, packs,
                 imports or distributes food sold under other companies&apos; brands. Its recalls often
                 concern those brands&apos; products.
               </Callout>
@@ -197,7 +197,7 @@ export default async function CompanyPage({
           {company.businessRole === 'retailer' && (
             <div style={{ marginTop: 14, maxWidth: 760 }}>
               <Callout state="nothingOnFile">
-                <strong>Retailer.</strong> {company.legalName} sells food to consumers. Its recalls
+                <strong>Retailer.</strong> {companyDisplayName(company.legalName)} sells food to consumers. Its recalls
                 usually concern its store-brand products or items it sold.
               </Callout>
             </div>
@@ -240,7 +240,7 @@ export default async function CompanyPage({
                 color: colors.ink,
               }}
             >
-              {company.parentCompany.legalName}
+              {companyDisplayName(company.parentCompany.legalName)}
             </Link>
             {company.ownershipNote && (
               <div style={{ fontSize: 12.5, lineHeight: 1.5, color: colors.ink2, marginTop: 7 }}>
@@ -316,7 +316,7 @@ export default async function CompanyPage({
           {recalls && (
             <Recalls
               companyId={company.id}
-              companyName={company.legalName}
+              companyName={companyDisplayName(company.legalName)}
               issued={recalls.issued}
               naming={recalls.naming}
               showAll={showAllRecalls}
@@ -325,7 +325,7 @@ export default async function CompanyPage({
             />
           )}
           <Products
-            companyName={company.legalName}
+            companyName={companyDisplayName(company.legalName)}
             companyAliases={company.dbaNames}
             products={products}
             total={productCount}
@@ -425,7 +425,7 @@ function Brands({
               minWidth: 0,
             }}
           >
-            <Monogram name={b.legalName} size={34} />
+            <Monogram name={companyDisplayName(b.legalName)} size={34} />
             <div style={{ flexGrow: 1, minWidth: 0 }}>
               <div
                 style={{
@@ -438,7 +438,7 @@ function Brands({
                   textOverflow: 'ellipsis',
                 }}
               >
-                {b.legalName}
+                {companyDisplayName(b.legalName)}
               </div>
               <div style={{ fontSize: 12, color: colors.ink2, marginTop: 3 }}>
                 {b._count.products === 0 ? (
@@ -599,7 +599,10 @@ function processNotice(
   count: number
 ): string {
   const firms = firmIds
-    .map((cid) => family.find((c) => c.id === cid)?.legalName)
+    .map((cid) => {
+      const n = family.find((c) => c.id === cid)?.legalName
+      return n === undefined ? undefined : companyDisplayName(n)
+    })
     .filter((n): n is string => Boolean(n))
     .join(' and ')
   const one = count === 1
@@ -689,7 +692,7 @@ function Recalls({
                 <span key={cid}>
                   {i > 0 && ' · '}
                   <Link href={`/companies/${cid}?recalls=all#recalls`}>
-                    See {family.find((c) => c.id === cid)?.legalName}&apos;s recalls
+                    See {companyDisplayName(family.find((c) => c.id === cid)?.legalName ?? '')}&apos;s recalls
                   </Link>
                 </span>
               ))}
@@ -865,7 +868,7 @@ function RecallCard({ group, companyId }: { group: RecallEventGroup; companyId: 
           {extra > 0 && issuedElsewhere && ' '}
           {issuedElsewhere && (
             <>
-              Issued by <Link href={`/companies/${action.company.id}`}>{action.company.legalName}</Link>.
+              Issued by <Link href={`/companies/${action.company.id}`}>{companyDisplayName(action.company.legalName)}</Link>.
             </>
           )}
         </div>

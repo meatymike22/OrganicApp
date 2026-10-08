@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import type { CSSProperties } from 'react'
 import { font } from '@/lib/design'
 import { ScrollReveal } from '@/components/ScrollReveal'
+import { TopNav } from '@/components/SiteChrome'
 
 // THE LANDING PAGE, at /.
 //
@@ -126,23 +127,13 @@ export default function HomePage() {
       <style>{ICON_CSS}</style>
       <div style={{ boxSizing: "border-box", background: "#FAF8F3", display: "flex", flexDirection: "column", maxWidth: "100%", overflowX: "clip" }}>
 
-        {/* NAV */}
-        <div style={{ minHeight: "72px", flexShrink: "0", boxSizing: "border-box", padding: "0 clamp(18px, 4vw, 40px)", background: "#222d27" }}>
-          <div style={{ ...SHELL, minHeight: "72px", display: "flex", alignItems: "center", gap: "32px", flexWrap: "wrap" }}>
-            <a href="/" style={{ fontFamily: FONT_DISPLAY, fontSize: "25px", fontWeight: "700", color: "#FAF8F3", letterSpacing: "-0.01em", textDecoration: "none" }}>Rootify</a>
-            <div style={{ flexGrow: "1", display: "flex", alignItems: "center", gap: "26px", fontSize: "14px", flexWrap: "wrap" }}>
-              <a href="#included" style={{ color: "#D3D9D4", textDecoration: "none" }}>What you get</a>
-              <a href="#how" style={{ color: "#D3D9D4", textDecoration: "none" }}>How it works</a>
-              <a href="#who" style={{ color: "#D3D9D4", textDecoration: "none" }}>Who we are</a>
-              <a href="#pricing" style={{ color: "#D3D9D4", textDecoration: "none" }}>Pricing</a>
-              <a href="/faq" style={{ color: "#D3D9D4", textDecoration: "none" }}>FAQ</a>
-            </div>
-            <a href="/search" style={{ display: "inline-flex", alignItems: "center", height: "40px", padding: "0 18px", boxSizing: "border-box", fontSize: "14px", fontWeight: "600", color: "#FFFFFF", background: "#B0502F", borderRadius: "6px", textDecoration: "none" }}>Search products</a>
-          </div>
-        </div>
+        {/* NAV — the shared site header, same component and same markup as
+            every other page. See TopNav in SiteChrome.tsx for why the
+            section links below are no longer in it. */}
+        <TopNav />
 
         {/* HERO */}
-        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px clamp(18px, 4vw, 40px) 56px", display: "flex", gap: "40px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ ...SHELL, minHeight: "600px", flexShrink: "0", boxSizing: "border-box", padding: "60px clamp(18px, 4vw, 40px) 24px", display: "flex", gap: "40px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
           <div style={{ flexGrow: "1", flexBasis: "460px", maxWidth: "620px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11.5px", fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase", color: "#1D4D3C" }}>
               <span style={{ width: "22px", height: "2px", background: "#1D4D3C", display: "inline-block" }}></span>
@@ -270,6 +261,16 @@ export default function HomePage() {
 
           </div>
         </div>
+
+        {/* JUMP TO A SECTION. These were the header links until the header
+            became shared — see TopNav. They are navigation within this page,
+            so they live on this page. */}
+        <nav aria-label="Sections of this page" style={{ ...SHELL, boxSizing: "border-box", padding: "0 clamp(18px, 4vw, 40px) 46px", display: "flex", flexWrap: "wrap", gap: "9px" }}>
+          <a href="#included" style={{ display: "inline-flex", alignItems: "center", padding: "7px 14px", boxSizing: "border-box", fontSize: "13.5px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "99px", textDecoration: "none" }}>What you get</a>
+          <a href="#how" style={{ display: "inline-flex", alignItems: "center", padding: "7px 14px", boxSizing: "border-box", fontSize: "13.5px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "99px", textDecoration: "none" }}>How it works</a>
+          <a href="#who" style={{ display: "inline-flex", alignItems: "center", padding: "7px 14px", boxSizing: "border-box", fontSize: "13.5px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "99px", textDecoration: "none" }}>Who we are</a>
+          <a href="#pricing" style={{ display: "inline-flex", alignItems: "center", padding: "7px 14px", boxSizing: "border-box", fontSize: "13.5px", fontWeight: "600", color: "#16201B", background: "#FFFFFF", border: "1px solid #E6E1D6", borderRadius: "99px", textDecoration: "none" }}>Pricing</a>
+        </nav>
 
         {/* INDEPENDENCE */}
         <div style={{ minHeight: "152px", flexShrink: "0", boxSizing: "border-box", padding: "26px clamp(18px, 4vw, 40px)", background: "#1D4D3C" }}>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { companyDisplayName } from '@/lib/productName'
 import { colors, font, isoDate, layout } from '@/lib/design'
 import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
@@ -42,8 +43,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   if (!action) return { title: 'Notice not found' }
   const when = action.actionDate ? isoDate(action.actionDate) : null
   return {
-    title: `${action.sourceAgency} notice · ${action.company.legalName}${when ? ` · ${when}` : ''}`,
-    description: `What a ${action.sourceAgency} notice naming ${action.company.legalName} said, and the record it came from.`,
+    title: `${action.sourceAgency} notice · ${companyDisplayName(action.company.legalName)}${
+      when ? ` · ${when}` : ''
+    }`,
+    description: `What a ${action.sourceAgency} notice naming ${companyDisplayName(
+      action.company.legalName
+    )} said, and the record it came from.`,
   }
 }
 
@@ -152,7 +157,10 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
       <Breadcrumb
         trail={[
           { label: 'Rootify', href: '/' },
-          { label: action.company.legalName, href: `/companies/${action.company.id}` },
+          {
+            label: companyDisplayName(action.company.legalName),
+            href: `/companies/${action.company.id}`,
+          },
           { label: `${action.sourceAgency} notice` },
         ]}
       />
@@ -216,7 +224,7 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
         <p style={{ margin: '13px 0 0', fontSize: 15, lineHeight: 1.6, color: colors.ink2 }}>
           Issued by the {agency ? agency.name : action.sourceAgency}, naming{' '}
           <Link href={`/companies/${action.company.id}`} style={{ color: colors.link }}>
-            {action.company.legalName}
+            {companyDisplayName(action.company.legalName)}
           </Link>
           .
         </p>

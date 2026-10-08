@@ -42,6 +42,7 @@ import type { StatusKey } from '@/lib/design'
 import { isoDate, isoYear } from '@/lib/design'
 import { RELEVANT_DOMAINS_BY_TYPE, type ProductType } from '@/lib/productTypes'
 import type { RecallItem } from '@/lib/recalls'
+import { companyDisplayName } from '@/lib/productName'
 
 // One cell in the five-column strip.
 export type Signal = {
@@ -386,10 +387,14 @@ export function ownerSignal(p: ProductForSignals): Signal {
   return {
     column: 'owner',
     state: 'ownership',
-    label: parent ? parent.legalName : p.company.legalName,
+    label: parent ? companyDisplayName(parent.legalName) : companyDisplayName(p.company.legalName),
     detail: parent
-      ? `${p.company.legalName} is owned by ${parent.legalName}.`
-      : `${p.company.legalName}. We hold no record of a parent company above it.`,
+      ? `${companyDisplayName(p.company.legalName)} is owned by ${companyDisplayName(
+          parent.legalName
+        )}.`
+      : `${companyDisplayName(
+          p.company.legalName
+        )}. We hold no record of a parent company above it.`,
     href: `/companies/${parent ? parent.id : p.company.id}`,
   }
 }

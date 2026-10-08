@@ -17,6 +17,14 @@
 -- Building the indexes takes a minute or two. Writes to Product/Company wait
 -- while each index builds; reads (the website) are not blocked.
 
+-- The "extensions" schema is created by Supabase when it provisions a
+-- database, not by Postgres. The shadow database Prisma builds to check for
+-- drift is a plain empty database on the same server, so the schema is not
+-- there and this line would fail with 3F000 the moment the earlier blocker
+-- in 20260930170000 was cleared. Creating it first costs nothing against
+-- the real database, where it already exists. (Added 2026-10-08; the
+-- checksum in _prisma_migrations was updated to match.)
+CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
 
 -- Product name: "name contains …" in search.

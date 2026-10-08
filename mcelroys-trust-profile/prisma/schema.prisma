@@ -365,6 +365,29 @@ model Ingredient {
   id                 String @id @default(dbgenerated("gen_random_uuid()"))
   name               String @unique
   category           String? // e.g. "seed oil", "preservative", "artificial sweetener", "dye"
+  // WHICH OF THE NINE US MAJOR ALLERGENS THIS INGREDIENT NAMES.
+  //
+  // Written by scripts/classify-allergens.ts from the ingredient NAME, using
+  // the rules in src/lib/allergens.ts. Values come from the ALLERGENS list
+  // there: milk, egg, fish, shellfish, tree nut, peanut, wheat, soy, sesame.
+  //
+  // An array rather than one value, because an ingredient can be two: "egg
+  // noodle" is egg and wheat, "almond milk" is a tree nut and nothing else.
+  //
+  // allergensCheckedAt IS THE POINT OF HAVING TWO COLUMNS. An empty array
+  // means the classifier ran and found none; a null checkedAt means nobody
+  // has looked. Those are not the same statement and the second one must
+  // never be read as the first, which is the same three-state rule the rest
+  // of this schema keeps (see Product.imageCheckedAt). A product carrying
+  // any ingredient with a null checkedAt cannot pass an allergen filter:
+  // see ingredientFilters.ts.
+  //
+  // NOT THE LABEL'S "CONTAINS" STATEMENT. This is derived from the
+  // ingredient list we hold, so it cannot see cross-contamination warnings
+  // or anything hidden inside "natural flavor". Every surface that reads it
+  // has to say so.
+  allergens          String[]  @default([])
+  allergensCheckedAt DateTime?
   // True only for additives/processing-flagged ingredients that warrant dedicated
   // safety research (IngredientStudy records) — mirrors how Yuka only researches
   // the closed, standardized set of food additives, not every whole-food

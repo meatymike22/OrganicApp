@@ -173,3 +173,36 @@ a:hover {
     flex-basis: 100%;
   }
 }
+
+/* THE INGREDIENT LIST ON A PRODUCT PAGE.
+
+   Michael, 2026-10-08: "the ingredients need to be listed like yuka lists
+   its ingredients: more organized and in a display that makes reading fast
+   and more fun."
+
+   The display was a wrapped cloud of chips. Twenty-one chips of different
+   widths on three ragged lines is the slowest possible way to read a list of
+   twenty-one things: there is no column for the eye to follow, and the two
+   that matter are somewhere in the middle of it.
+
+   So it is a list now, one ingredient per row, in label order. Two columns
+   on a wide screen via CSS multi-column, which flows DOWN the first column
+   and then across — 1 to 11, then 12 to 21 — rather than across and wrapping
+   the way a grid would. For a numbered list read in order that is the
+   difference between a list and a table of contents.
+
+   Why this is here and not inline: column-count has to change with the
+   viewport, and break-inside has to stop a row splitting across the column
+   boundary. Neither is expressible in a style prop. */
+.rt-inglist {
+  column-count: 2;
+  column-gap: 34px;
+}
+.rt-inglist > * {
+  break-inside: avoid;
+}
+@media (max-width: 820px) {
+  .rt-inglist {
+    column-count: 1;
+  }
+}

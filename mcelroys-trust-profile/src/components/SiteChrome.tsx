@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { colors, font, layout } from '@/lib/design'
 
-// The furniture that sits at the top of every page inside the app: the dark
-// brand bar with the search field, and the aisle bar under it.
+// The furniture that sits at the top of every page: the dark brand bar with
+// the search field, and the aisle bar under it.
 //
-// The marketing home page does NOT use this — it has a plain nav with no
-// search field and no aisles, because someone who has not downloaded the app
-// has nothing to search yet.
+// EVERY page, as of 2026-10-08, the landing page and /faq included. Those two
+// used to hand-write their own dark bar; see TopNav below for what changed
+// and what moved out of the header to make one header possible.
 
 // The aisles, in the order a shopper walks a store: the perimeter first
 // (produce, meat, dairy, bakery), then the centre aisles, then the non-food
@@ -137,11 +137,50 @@ export function aisleLabel(q: string | undefined): string | undefined {
   return AISLES.find((a) => a.q === q)?.label ?? q
 }
 
-export function TopNav({ query }: { query?: string }) {
+// THE HEADER, AND THERE IS ONLY ONE OF IT.
+//
+// Michael, on the FAQ page, 2026-10-08: "this should be the same despite
+// which page we are on."
+//
+// He was looking at two headers that had grown apart. Every page that holds
+// data — search, a product, a company, an ingredient, a recall — used this
+// component: wordmark, search box, Companies. The landing page and /faq each
+// hand-wrote a different dark bar instead, with anchor links to the landing
+// page's own sections and a coloured call-to-action button. Those two had
+// even drifted from each other: the same button read "Search products" on
+// one and "Browse the database" on the other.
+//
+// So there is now one header, it is this one, and the two marketing pages
+// use it like everything else. Two consequences worth stating, because both
+// were decisions:
+//
+//   1. THE SEARCH BOX IS ON EVERY PAGE NOW, including the landing page. That
+//      is the right trade: search is what the site is for, and a visitor who
+//      has just read what Rootify does should not have to find a button.
+//
+//   2. THE LANDING PAGE'S SECTION LINKS LEFT THE HEADER. "What you get",
+//      "How it works", "Who we are" and "Pricing" are navigation within one
+//      page, not navigation around the site, so putting them in a site-wide
+//      header would have printed four dead-ish links on every product page.
+//      They moved to a chip row under the hero — which is the pattern /faq
+//      already used for its own sections, so this is the site's own idiom
+//      rather than a new one.
+//
+// `active` draws the current page's link as current, for a reader and for a
+// screen reader both. It is deliberately not a pathname check: this is a
+// server component and knowing the route here would mean making it a client
+// one, for an underline.
+export function TopNav({
+  query,
+  active,
+}: {
+  query?: string
+  active?: 'companies' | 'faq'
+}) {
   return (
     <div
       style={{
-        height: 72,
+        minHeight: 72,
         flexShrink: 0,
         boxSizing: 'border-box',
         padding: `0 ${layout.gutter}px`,
@@ -149,6 +188,11 @@ export function TopNav({ query }: { query?: string }) {
         display: 'flex',
         alignItems: 'center',
         gap: 28,
+        // Wraps rather than overflows: wordmark, a search box and two links
+        // do not fit on a 390px phone in one row, and a header that scrolls
+        // sideways is worse than a header two rows tall.
+        flexWrap: 'wrap',
+        rowGap: 12,
       }}
     >
       <Link
@@ -210,19 +254,43 @@ export function TopNav({ query }: { query?: string }) {
         </button>
       </form>
 
-      <Link
-        href="/companies"
-        style={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#D3D9D4',
-          textDecoration: 'none',
-          flexShrink: 0,
-        }}
-      >
-        Companies
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexShrink: 0 }}>
+        <HeaderLink href="/companies" current={active === 'companies'}>
+          Companies
+        </HeaderLink>
+        <HeaderLink href="/faq" current={active === 'faq'}>
+          FAQ
+        </HeaderLink>
+      </div>
     </div>
+  )
+}
+
+function HeaderLink({
+  href,
+  current,
+  children,
+}: {
+  href: string
+  current: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={current ? 'page' : undefined}
+      style={{
+        fontSize: 14,
+        fontWeight: 600,
+        // The current page is brighter rather than underlined: an underline
+        // in a 14px dark bar reads as a hover state.
+        color: current ? '#FFFFFF' : '#D3D9D4',
+        textDecoration: 'none',
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </Link>
   )
 }
 

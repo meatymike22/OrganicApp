@@ -6,13 +6,14 @@ import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
-import { productDisplayName, shortProductName } from '@/lib/productName'
+import { companyDisplayName, productDisplayName, shortProductName } from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
 import { brandLookupWhere, pickBrand, searchWhere, tokenise } from '@/lib/productSearch'
 // Only a confirmed company gets a page worth linking an example card to.
 import { VETTED_COMPANIES } from '@/lib/vetting'
 import {
   EMPTY_FILTERS,
+  ALLERGEN_FILTERS,
   hasAnyFilter,
   INGREDIENT_FILTERS,
   ingredientFilterParams,
@@ -20,6 +21,7 @@ import {
   needsExactCount,
   parseIngredientFilters,
   removeTerm,
+  toggleAllergen,
   toggleFilterKey,
   type IngredientFilterState,
 } from '@/lib/ingredientFilters'
@@ -306,7 +308,7 @@ export default async function SearchPage({
   const aisle = first(sp.aisle)?.trim() || undefined
   const page = Math.max(1, Number(first(sp.page) ?? 1) || 1)
   const per = resolvePageSize(first(sp.per))
-  const filters = parseIngredientFilters(first(sp.free), first(sp.without))
+  const filters = parseIngredientFilters(first(sp.free), first(sp.without), first(sp.no))
 
   // HAS ANYTHING BEEN ASKED YET?
   //
@@ -871,7 +873,7 @@ function ResultRow({
             </span>
           )}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {product.company.legalName}
+            {companyDisplayName(product.company.legalName)}
           </span>
         </div>
 
@@ -1013,6 +1015,10 @@ function FilterRail({
   if (q) carry.q = q
   if (aisle) carry.aisle = aisle
   if (filters.keys.length > 0) carry.free = filters.keys.join(',')
+  // Allergen selections have to ride along too, or typing an exclusion into
+  // the box below would silently clear them — which on this panel means a
+  // shopper's peanut filter disappearing without a word.
+  if (filters.allergens.length > 0) carry.no = filters.allergens.join(',')
   if (per !== DEFAULT_PAGE_SIZE) carry.per = String(per)
 
   return (
@@ -1063,82 +1069,15 @@ function FilterRail({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
-          {INGREDIENT_FILTERS.map((f) => {
-            const on = filters.keys.includes(f.key)
-            return (
-              <Link
-                key={f.key}
-                href={linkTo(toggleFilterKey(filters, f.key))}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '5px 0',
-                  fontSize: 13,
-                  textDecoration: 'none',
-                  color: on ? colors.ink : colors.ink2,
-                  fontWeight: on ? 600 : 400,
-                }}
-              >
-                {/* A drawn box rather than a real checkbox: these are links,
-                    so they work with JavaScript off and each one is a URL
-                    somebody can paste. A checkbox would need a form and a
-                    submit to do the same job less well. */}
-                <span
-                  aria-hidden
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 14,
-                    height: 14,
-                    flexShrink: 0,
-                    borderRadius: 3,
-                    border: `1.5px solid ${on ? status.confirmed.fg : '#C9C2B2'}`,
-                    background: on ? status.confirmed.fg : colors.paper,
-                    color: colors.paper,
-                    fontSize: 10,
-                    lineHeight: 1,
-                  }}
-                >
-                  {on ? '✓' : ''}
-                </span>
-                <span style={{ flexGrow: 1, minWidth: 0 }}>{f.label}</span>
-
-                {/* Michael, 2026-10-07: "there needs to be a little hover over
-                    explainer to explain what each of these broad categories.
-                    a little 'i' symbol would be perfect."
-                    `f.what` names real ingredients from our own data rather
-                    than describing the category in the abstract — "no seed
-                    oils" is only meaningful once you know it catches soybean
-                    and canola. Native title again: keyboard-reachable, no
-                    state, nothing to hydrate. */}
-                <span
-                  title={f.what}
-                  aria-label={f.what}
-                  role="img"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 14,
-                    height: 14,
-                    flexShrink: 0,
-                    borderRadius: '50%',
-                    border: `1px solid ${colors.ink4}`,
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    fontStyle: 'italic',
-                    lineHeight: 1,
-                    color: colors.ink3,
-                    cursor: 'help',
-                  }}
-                >
-                  i
-                </span>
-              </Link>
-            )
-          })}
+          {INGREDIENT_FILTERS.map((f) => (
+            <FilterRow
+              key={f.key}
+              href={linkTo(toggleFilterKey(filters, f.key))}
+              label={f.label}
+              what={f.what}
+              on={filters.keys.includes(f.key)}
+            />
+          ))}
         </div>
 
         {/* THE RULE THAT APPLIES TO ALL SIX, stated once rather than in six
@@ -1199,9 +1138,76 @@ function FilterRail({
 
         <IngredientExcludeBox terms={filters.terms} hidden={carry} />
 
-        {hasAnyFilter(filters) && (
+        {/* Clears THIS panel only. It used to clear EMPTY_FILTERS, which
+            since the allergen panel arrived would have taken a shopper's
+            peanut filter off with it. */}
+        {(filters.keys.length > 0 || filters.terms.length > 0) && (
           <div style={{ marginTop: 10, fontSize: 12.5 }}>
-            <Link href={linkTo(EMPTY_FILTERS)}>Clear ingredient filters</Link>
+            <Link href={linkTo({ ...EMPTY_FILTERS, allergens: filters.allergens })}>
+              Clear ingredient filters
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* ALLERGENS — A SECOND PANEL, BECAUSE THE RULE IS DIFFERENT.
+          Michael, 2026-10-08: "also add allergens to this filter list."
+
+          It is next to the ingredient filter rather than inside it because
+          the two answer unknown data in opposite directions, and one list of
+          fifteen checkboxes with two different meanings is how that gets
+          lost. Above: a product with no ingredient list passes. Here: it
+          does not. See ingredientFilters.ts for the argument. */}
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: '14px 15px',
+          background: colors.card,
+          border: `1px solid ${colors.line}`,
+          borderRadius: layout.radius,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: colors.ink2,
+          }}
+        >
+          Allergens
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 9 }}>
+          {ALLERGEN_FILTERS.map((f) => (
+            <FilterRow
+              key={f.key}
+              href={linkTo(toggleAllergen(filters, f.key))}
+              label={f.label}
+              what={f.what}
+              on={filters.allergens.includes(f.key)}
+            />
+          ))}
+        </div>
+
+        {/* THE WARNING IS NOT A TOOLTIP. Someone using this filter may be
+            avoiding an allergen that can hurt them, so what it cannot see is
+            on the page, in the same place every time, not behind an "i". */}
+        <p style={{ margin: '10px 0 0', fontSize: 11, lineHeight: 1.5, color: colors.ink3 }}>
+          <strong style={{ color: colors.ink2 }}>Read the package.</strong> This reads the
+          ingredient list we hold — not the label&apos;s own &ldquo;Contains&rdquo; line, which we
+          do not store. It cannot see &ldquo;may contain traces of&rdquo; warnings, and it cannot
+          see inside &ldquo;natural flavor&rdquo;.
+        </p>
+        <p style={{ margin: '7px 0 0', fontSize: 11, lineHeight: 1.5, color: colors.ink4 }}>
+          Unlike the filters above, a product we hold no ingredient list for is excluded rather
+          than passed: here we treat what we have not read as present.
+        </p>
+
+        {filters.allergens.length > 0 && (
+          <div style={{ marginTop: 10, fontSize: 12.5 }}>
+            <Link href={linkTo({ ...filters, allergens: [] })}>Clear allergen filters</Link>
           </div>
         )}
       </div>
@@ -1398,5 +1404,96 @@ function Pagination({
 
       {forward ? <Link href={url(page + 1)}>Next &rarr;</Link> : <span />}
     </div>
+  )
+}
+
+// ONE FILTER ROW, used by both the ingredient filters and the allergens.
+//
+// It was written inline in the ingredient list and copied into the allergen
+// list in a first draft, which is how the two would have drifted: the drawn
+// checkbox, the hover explainer and the on/off weight are presentation and
+// have no business being stated twice.
+function FilterRow({
+  href,
+  label,
+  what,
+  on,
+}: {
+  href: string
+  label: string
+  what: string
+  on: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 0',
+        fontSize: 13,
+        textDecoration: 'none',
+        color: on ? colors.ink : colors.ink2,
+        fontWeight: on ? 600 : 400,
+      }}
+    >
+      {/* A drawn box rather than a real checkbox: these are links, so they
+          work with JavaScript off and each one is a URL somebody can paste.
+          A checkbox would need a form and a submit to do the same job less
+          well. */}
+      <span
+        aria-hidden
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 14,
+          height: 14,
+          flexShrink: 0,
+          borderRadius: 3,
+          border: `1.5px solid ${on ? status.confirmed.fg : '#C9C2B2'}`,
+          background: on ? status.confirmed.fg : colors.paper,
+          color: colors.paper,
+          fontSize: 10,
+          lineHeight: 1,
+        }}
+      >
+        {on ? '\u2713' : ''}
+      </span>
+      <span style={{ flexGrow: 1, minWidth: 0 }}>{label}</span>
+
+      {/* Michael, 2026-10-07: "there needs to be a little hover over
+          explainer to explain what each of these broad categories. a little
+          'i' symbol would be perfect."
+          `what` names real ingredients from our own data with their product
+          counts rather than describing the category in the abstract \u2014 "no
+          seed oils" is only meaningful once you know it catches soybean and
+          canola. Native title: keyboard-reachable, no state, nothing to
+          hydrate. */}
+      <span
+        title={what}
+        aria-label={what}
+        role="img"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 14,
+          height: 14,
+          flexShrink: 0,
+          borderRadius: '50%',
+          border: `1px solid ${colors.ink4}`,
+          fontSize: 9.5,
+          fontWeight: 700,
+          fontStyle: 'italic',
+          lineHeight: 1,
+          color: colors.ink3,
+          cursor: 'help',
+        }}
+      >
+        i
+      </span>
+    </Link>
   )
 }

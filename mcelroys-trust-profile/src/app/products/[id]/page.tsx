@@ -1,10 +1,18 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+// The filter catalogue, so a category chip on this page links to the search
+// filter that means the same thing by the same word.
+import { INGREDIENT_FILTERS } from '@/lib/ingredientFilters'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
-import { isShortened, productDisplayName, shortProductName } from '@/lib/productName'
+import {
+  companyDisplayName,
+  isShortened,
+  productDisplayName,
+  shortProductName,
+} from '@/lib/productName'
 import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
 import { plainReason } from '@/lib/plainRecall'
 import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
@@ -98,7 +106,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   })
   if (!product) return { title: 'Product not found' }
   const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
-  return { title: `${title} — ${product.company.legalName}` }
+  return { title: `${title} — ${companyDisplayName(product.company.legalName)}` }
 }
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -189,7 +197,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         trail={[
           { label: 'Rootify', href: '/' },
           { label: 'Search', href: '/search' },
-          { label: product.company.legalName, href: `/companies/${product.company.id}` },
+          {
+            label: companyDisplayName(product.company.legalName),
+            href: `/companies/${product.company.id}`,
+          },
           { label: title },
         ]}
       />
@@ -243,7 +254,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </span>
             )}
             <Link href={`/companies/${product.company.id}`} style={{ color: colors.ink3 }}>
-              {product.company.legalName}
+              {companyDisplayName(product.company.legalName)}
             </Link>
           </div>
 
@@ -802,8 +813,12 @@ function Recalls({
           state="recall"
         />
         <Group
-          heading={`Notices naming ${product.company.legalName}, without naming this product`}
-          empty={`No notice names ${product.company.legalName} without naming a product.`}
+          heading={`Notices naming ${companyDisplayName(
+            product.company.legalName
+          )}, without naming this product`}
+          empty={`No notice names ${companyDisplayName(
+            product.company.legalName
+          )} without naming a product.`}
           groups={named}
           state="nothingOnFile"
         />
@@ -1168,7 +1183,7 @@ function Shelf({ products, myTotal }: { products: RelatedProduct[]; myTotal?: nu
                       {p.name}
                     </span>
                     <span style={{ display: 'block', fontSize: 11.5, color: colors.ink3, marginTop: 3 }}>
-                      {p.company.legalName}
+                      {companyDisplayName(p.company.legalName)}
                     </span>
                     {/* The raw counts as well as the percentage. "12 of 43"
                         can be checked against the two ingredient lists;
@@ -1210,7 +1225,7 @@ function Ingredients({
     <Collapsible
       id="ingredients"
       // Michael, 2026-10-07: "this should just say Ingredients".
-    title="ingredients"
+      title="ingredients"
       count={product.ingredientDisclosureStatus === 'disclosed' ? ingredients.length : null}
       note={hasOrder ? 'In label order' : 'Label order not recorded'}
       open
@@ -1220,45 +1235,10 @@ function Ingredients({
           <Callout state={signal.state}>{signal.detail}</Callout>
         ) : (
           <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            <IngredientSummary ingredients={ingredients} />
+            <div className="rt-inglist" style={{ marginTop: 13 }}>
               {ingredients.map((pi) => (
-                <Link
-                  key={pi.ingredient.id}
-                  href={`/ingredients/${pi.ingredient.id}`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    boxSizing: 'border-box',
-                    padding: '6px 11px',
-                    background: pi.ingredient.flaggedForResearch ? status.openResearch.bg : colors.card,
-                    border: `1px solid ${pi.ingredient.flaggedForResearch ? status.openResearch.border : colors.line}`,
-                    borderRadius: 6,
-                    fontSize: 13,
-                    color: pi.ingredient.flaggedForResearch ? status.openResearch.fg : colors.ink,
-                    textDecoration: 'none',
-                  }}
-                >
-                  {pi.listPosition !== null && (
-                    <span style={{ fontFamily: font.mono, fontSize: 11, color: colors.ink4 }}>
-                      {pi.listPosition}
-                    </span>
-                  )}
-                  {pi.ingredient.name}
-                  {pi.isOrganicSourced && (
-                    <span
-                      title="Listed on the label as an organic ingredient"
-                      style={{ fontSize: 10.5, fontWeight: 700, color: status.confirmed.fg }}
-                    >
-                      ORG
-                    </span>
-                  )}
-                  {pi.isTrace && (
-                    <span title="Listed as a trace amount" style={{ fontSize: 10.5, color: colors.ink4 }}>
-                      trace
-                    </span>
-                  )}
-                </Link>
+                <IngredientRow key={pi.ingredient.id} pi={pi} />
               ))}
             </div>
             <SourceNote productId={product.id} what="This ingredient list" />
@@ -1267,5 +1247,189 @@ function Ingredients({
       </div>
     </Collapsible>
   )
+}
+
+// THE FAST READ, ABOVE THE LIST.
+//
+// Three numbers a shopper can take in without reading anything: how many
+// ingredients the label has, how many of them the label calls organic, and
+// how many we are researching. The last of those is the only one with a
+// colour, and only when it is not zero.
+//
+// These are counts of rows we hold, not claims about the food. "18 listed as
+// organic" says the label said so for 18 of them — the wording has to carry
+// that, because an organic CERTIFICATE is a different record on this page and
+// a reader should not come away thinking the two are the same thing.
+function IngredientSummary({ ingredients }: { ingredients: IngredientRows }) {
+  const organic = ingredients.filter((pi) => pi.isOrganicSourced).length
+  const flagged = ingredients.filter((pi) => pi.ingredient.flaggedForResearch).length
+
+  // Which kinds of additive are on this label, with how many of each. Read
+  // off Ingredient.category, so it says the same thing the search filters
+  // mean by the same words.
+  const kinds = new Map<string, number>()
+  for (const pi of ingredients) {
+    const c = pi.ingredient.category
+    if (c) kinds.set(c, (kinds.get(c) ?? 0) + 1)
+  }
+  const byKind = [...kinds.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+
+  const facts: { text: string; color?: string }[] = [
+    { text: `${ingredients.length} on the label` },
+    ...(organic > 0 ? [{ text: `${organic} listed as organic`, color: status.confirmed.fg }] : []),
+    ...(flagged > 0
+      ? [{ text: `${flagged} we are researching`, color: status.openResearch.fg }]
+      : []),
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        {facts.map((fact) => (
+          <span
+            key={fact.text}
+            style={{ fontSize: 13, fontWeight: 600, color: fact.color ?? colors.ink2 }}
+          >
+            {fact.text}
+          </span>
+        ))}
+      </div>
+      {byKind.length > 0 && (
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+          {byKind.map(([kind, n]) => (
+            // Each kind links to the search filtered to products WITHOUT it,
+            // which is the thing someone reading this list wants next.
+            <Link
+              key={kind}
+              href={filterHref(kind)}
+              title={`Find products with no ${kind}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '3px 9px',
+                background: colors.panel,
+                borderRadius: 99,
+                fontSize: 12,
+                color: colors.ink2,
+                textDecoration: 'none',
+              }}
+            >
+              <span style={{ fontFamily: font.mono, fontWeight: 700, color: colors.ink }}>{n}</span>
+              {kind}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// A category chip links to the search filter that excludes it, when there is
+// one. INGREDIENT_FILTERS is keyed by filter, each covering one or more
+// category values, so the lookup runs the other way round.
+function filterHref(category: string): string {
+  const filter = INGREDIENT_FILTERS.find((f) => f.categories.includes(category))
+  return filter ? `/search?free=${filter.key}` : `/search?without=${encodeURIComponent(category)}`
+}
+
+// ONE INGREDIENT, ONE ROW.
+//
+// What each row says, left to right: where it sits on the label, what it is
+// called, and what we know about it. Nothing is ranked and nothing is
+// scored — the amber on a flagged row is the same amber the rest of the site
+// uses for "there is research to read", and a row with nothing on file is
+// plain, not green.
+function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
+  const flagged = pi.ingredient.flaggedForResearch
+  const studies = pi.ingredient._count.studies
+  const authorities = pi.ingredient.authorityAssessments.length
+
+  // What we hold, said in as few words as fits on the row. Studies and
+  // authority classifications are counted separately and never added
+  // together: a classification is a committee reading evidence we may not
+  // hold, which is the distinction /sourcing exists to explain.
+  const holding =
+    studies > 0
+      ? `${studies} research ${studies === 1 ? 'record' : 'records'}`
+      : authorities > 0
+        ? `${authorities} authority ${authorities === 1 ? 'ruling' : 'rulings'}`
+        : flagged
+          ? 'nothing on file yet'
+          : null
+
+  return (
+    <Link
+      href={`/ingredients/${pi.ingredient.id}`}
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 9,
+        boxSizing: 'border-box',
+        padding: '7px 10px 7px 9px',
+        borderLeft: `3px solid ${flagged ? status.openResearch.fg : 'transparent'}`,
+        borderBottom: `1px solid ${colors.line}`,
+        background: flagged ? status.openResearch.bg : 'transparent',
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
+      {/* The label position. Absent when the source record did not keep the
+          order, and then the column is simply empty rather than guessed. */}
+      <span
+        style={{
+          flexShrink: 0,
+          minWidth: 18,
+          fontFamily: font.mono,
+          fontSize: 11,
+          color: colors.ink4,
+          textAlign: 'right',
+        }}
+      >
+        {pi.listPosition ?? ''}
+      </span>
+
+      <span style={{ flexGrow: 1, minWidth: 0 }}>
+        <span
+          style={{
+            fontSize: 13.5,
+            fontWeight: flagged ? 600 : 400,
+            color: flagged ? status.openResearch.fg : colors.ink,
+          }}
+        >
+          {sentenceCase(pi.ingredient.name)}
+        </span>
+        {pi.isOrganicSourced && (
+          <span
+            title="Listed on the label as an organic ingredient"
+            style={{ marginLeft: 7, fontSize: 10, fontWeight: 700, color: status.confirmed.fg }}
+          >
+            ORG
+          </span>
+        )}
+        {pi.isTrace && (
+          <span title="Listed as a trace amount" style={{ marginLeft: 7, fontSize: 10.5, color: colors.ink4 }}>
+            trace
+          </span>
+        )}
+        {/* What kind of thing it is, under the name rather than beside it, so
+            a long ingredient name never pushes it off the row. */}
+        {(pi.ingredient.category || holding) && (
+          <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: colors.ink3 }}>
+            {[pi.ingredient.category, holding].filter(Boolean).join(' \u00b7 ')}
+          </span>
+        )}
+      </span>
+    </Link>
+  )
+}
+
+// Ingredient names are stored lower case, because that is how they are
+// matched and counted. A label does not read "corn meal, whole grain rolled
+// oats"; printing them as stored made the list look like a database dump.
+// Only the first letter changes — anything else would be us deciding how a
+// brand capitalises its own ingredients.
+function sentenceCase(name: string): string {
+  return name.length === 0 ? name : name[0]!.toUpperCase() + name.slice(1)
 }
 

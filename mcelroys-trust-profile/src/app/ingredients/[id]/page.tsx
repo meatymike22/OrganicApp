@@ -2,15 +2,26 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
-import { VETTED_COMPANIES } from '@/lib/vetting'
 import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 // The shared one. This file used to carry its own copy, which drifted: when
 // the "not yet checked by a person" line was removed from PageParts it
 // stayed here, so the ingredient page kept advertising a review process the
 // rest of the site had stopped claiming. One implementation, one wording.
-import { SourceLine } from '@/components/PageParts'
-import { ProductThumb } from '@/components/ProductThumb'
+import { Callout, Paragraphs, SectionHead, SourceLine, Tag } from '@/components/PageParts'
+// SectionHead, Callout and Tag were local copies here too, and the header
+// comment above said they should go the same way. They have.
+import { MiniCollapse } from '@/components/Collapsible'
+// Where a 1,500-character research record becomes a headline and four rows
+// a reader can open. Nothing in it rewrites the stored text.
+import {
+  clipParagraph,
+  framingLead,
+  FUNDING_LABEL,
+  POSITION_LABEL,
+  STUDY_TYPE_LABEL,
+  studyOutline,
+} from '@/lib/studyOutline'
 // Authority classifications are a THIRD kind of record, beside studies and
 // country rules: a published decision by a named body, in that body's own
 // words. The module holds the plain-English translation of each category and
@@ -32,14 +43,6 @@ import { assessmentWeight, authority, classificationMeaning } from '@/lib/author
 // and lived on in this file. SectionHead and Callout below are still local
 // copies and should go the same way.
 
-// How many products to list by name. Some ingredients (natural flavor) are on
-// tens of thousands of labels; the count says how many, the list is a sample.
-// Michael, 2026-10-07: "put less products in the section so people can
-// actually see what the product looks like." Twelve cards with a photograph
-// each read as a shelf; twenty-four lines of text read as a list nobody
-// finishes. The heading still says how many there are in total, so showing
-// fewer hides nothing.
-const PRODUCT_SAMPLE = 12
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -108,39 +111,18 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
   })
   if (!ingredient) notFound()
 
-  // PERFORMANCE: some ingredients are on 80,000+ labels. Sorting those by
-  // product name in the database means reading every one of them (~12 s), so
-  // the sample is taken unsorted (stops after PRODUCT_SAMPLE rows, ~15 ms) and
-  // sorted here. The count reads only the ingredient index, without checking
-  // each product's company, so it can include a few products the site hides.
-  const [productCount, rawSample] = await Promise.all([
-    prisma.productIngredient.count({ where: { ingredientId: id } }),
-    prisma.productIngredient.findMany({
-      // Only products from confirmed companies are listed by name — the
-      // same set the rest of the site shows.
-      where: { ingredientId: id, product: { company: VETTED_COMPANIES } },
-      take: PRODUCT_SAMPLE,
-      select: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            productType: true,
-            // The three columns ProductThumb needs. Michael, 2026-10-07: "in
-            // this section why aren't there any photos of the products? make
-            // sure the photos are here." They were never selected, so every
-            // card had only text to show.
-            imageUrl: true,
-            imageSource: true,
-            imageSourceUrl: true,
-            company: { select: { id: true, legalName: true } },
-          },
-        },
-      },
-    }),
-  ])
-  const sample = rawSample.map((r) => r.product).sort((a, b) => a.name.localeCompare(b.name))
+  // The count reads only the ingredient index, without checking each
+  // product's company, so it can include a few products the site hides.
+  //
+  // THERE IS NO LONGER A SAMPLE. The page used to list twelve products that
+  // contain the ingredient, with photographs. Michael, 2026-10-08: "no need
+  // to show products that have it... there are 12000 products. remove this
+  // section." He is right about the arithmetic: twelve of twelve thousand is
+  // not a sample a reader can do anything with, and the twelve were whichever
+  // rows the index happened to reach first. The number stays on the tile,
+  // because how many products carry an ingredient is a real fact about our
+  // coverage; the twelve arbitrary cards do not survive it.
+  const productCount = await prisma.productIngredient.count({ where: { ingredientId: id } })
 
   // A dissent, critique or replication is shown attached to the study it
   // answers, never as an equal finding beside it (see positionType in the
@@ -304,7 +286,6 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           label="Products that list it"
           value={productCount.toLocaleString()}
           note="In our database"
-          href={productCount > 0 ? '#products' : undefined}
           mono
         />
       </div>
@@ -324,10 +305,10 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           findings={findings}
           responses={responses}
           flagged={ingredient.flaggedForResearch}
+          ingredientId={ingredient.id}
         />
         <Authorities assessments={assessments} />
         <Rules rules={rules} />
-        <Products count={productCount} sample={sample} />
       </div>
 
       <SiteFooter />
@@ -354,18 +335,56 @@ type Study = {
   reviewDate: Date | null
 }
 
+// WHAT THE RESEARCH SAYS, CONDENSED.
+//
+// Michael, 2026-10-08: "this is way too much information for the layman.
+// this needs to be seriously condensed and a more fun read. scholars can go
+// to another page for more detailed info."
+//
+// What he was looking at: the sunflower oil page opened with two research
+// records printed in full, which is about 4,000 characters of regulatory
+// prose, before anything else on the page. Across the 20 records in the
+// database findingSummary averages 1,510 characters.
+//
+// What a card shows now:
+//   - two tags: what kind of record it is, and who paid for it.
+//   - the record's own one-line conclusion, from the stored evidenceFraming
+//     column. Not written here and not derived from the prose.
+//   - the opening, cut at a sentence boundary around 340 characters.
+//   - one closed row per labelled paragraph, named with the author's own
+//     label, and one more for the rest of the opening if it was cut.
+//   - the source link.
+//
+// WHAT IS NOT HERE AND WHY. The full citation, the consensus rating, the
+// declared-interests box and the dated source record are on
+// /ingredients/[id]/research, linked under the cards. They are the reason
+// this site exists, so they do not disappear — but a shopper deciding about
+// a tub of yoghurt is not reading an author disclosure, and printing it in
+// front of them was costing us the readers who would have read the
+// conclusion.
+//
+// NOTHING IS SUMMARISED. Every character a card shows or hides is the stored
+// text. See studyOutline.ts for the reasoning; the short version is that a
+// paraphrase would become the version most people read, one step further
+// from the source, with nobody checking it.
 function Studies({
   findings,
   responses,
   flagged,
+  ingredientId,
 }: {
   findings: Study[]
   responses: Map<string, Study[]>
   flagged: boolean
+  ingredientId: string
 }) {
   return (
     <section>
-      <SectionHead id="studies" title="What the studies say" source="Peer-reviewed literature and regulator findings" />
+      <SectionHead
+        id="studies"
+        title="What the research says"
+        source="Peer-reviewed literature and regulator findings"
+      />
       <div style={{ marginTop: 14 }}>
         {findings.length === 0 ? (
           flagged ? (
@@ -379,18 +398,44 @@ function Studies({
             </Callout>
           )
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {findings.map((s) => (
-              <StudyCard key={s.id} study={s} responses={responses.get(s.id) ?? []} />
-            ))}
-          </div>
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {findings.map((s) => (
+                <FindingCard key={s.id} study={s} responses={responses.get(s.id) ?? []} />
+              ))}
+            </div>
+            <div style={{ marginTop: 13, fontSize: 13.5, lineHeight: 1.6 }}>
+              <Link
+                href={`/ingredients/${ingredientId}/research`}
+                style={{ color: colors.link, fontWeight: 600 }}
+              >
+                Read the full research record
+              </Link>{' '}
+              <span style={{ color: colors.ink3 }}>
+                — every paragraph in full, with each citation, who funded it, what the authors
+                declared, and the date we read the source.
+              </span>
+            </div>
+          </>
         )}
       </div>
     </section>
   )
 }
 
-function StudyCard({ study, responses }: { study: Study; responses: Study[] }) {
+function FindingCard({ study, responses }: { study: Study; responses: Study[] }) {
+  const headline = framingLead(study)
+  const { lead, sections } = studyOutline(study.findingSummary)
+  // The opening is clipped as one piece rather than paragraph by paragraph,
+  // so a record written as four short paragraphs does not produce four
+  // "and the rest" rows.
+  const opening = clipParagraph(lead.join('\n\n'))
+
+  // A record with no conclusion sentence and no unlabelled opening would
+  // otherwise be a card of closed rows with nothing readable on it, so its
+  // first section starts open.
+  const nothingVisible = !headline && opening.head.length === 0
+
   return (
     <div
       style={{
@@ -402,83 +447,68 @@ function StudyCard({ study, responses }: { study: Study; responses: Study[] }) {
         borderRadius: layout.radius,
       }}
     >
-      <StudyBody study={study} />
-
-      {/* Responses to this finding, attached to it rather than beside it. */}
-      {responses.length > 0 && (
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {responses.map((r) => (
-            <div
-              key={r.id}
-              style={{
-                boxSizing: 'border-box',
-                padding: '11px 13px',
-                background: colors.panel,
-                borderRadius: 6,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.07em',
-                  textTransform: 'uppercase',
-                  color: colors.ink2,
-                  marginBottom: 7,
-                }}
-              >
-                {POSITION_LABEL[r.positionType] ?? 'Response'}
-              </div>
-              <StudyBody study={r} nested />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// nested: drawn inside a response panel, which already uses the panel tint,
-// so its tags and boxes switch to white to stay visible.
-function StudyBody({ study, nested }: { study: Study; nested?: boolean }) {
-  const lead = framingLead(study)
-  return (
-    <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <Tag nested={nested}>{STUDY_TYPE_LABEL[study.studyType] ?? study.studyType}</Tag>
-        <Tag nested={nested}>{CONSENSUS_LABEL[study.consensusStatus] ?? study.consensusStatus}</Tag>
-        <Tag nested={nested}>{FUNDING_LABEL[study.fundingBasis] ?? study.fundingBasis}</Tag>
+        <Tag>{STUDY_TYPE_LABEL[study.studyType] ?? study.studyType}</Tag>
+        {/* Who paid is the one tag that stays on the condensed card. It is
+            the thing this site was built to show, and it changes how the
+            sentence above it should be read. The consensus rating moved to
+            the research page: it mostly restates the conclusion line. */}
+        <Tag>{FUNDING_LABEL[study.fundingBasis] ?? study.fundingBasis}</Tag>
       </div>
 
-      {lead && (
-        <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, fontWeight: 600 }}>{lead}</p>
-      )}
-      <p style={{ margin: lead ? '6px 0 0' : '10px 0 0', fontSize: 14, lineHeight: 1.6 }}>{study.findingSummary}</p>
-
-      <div style={{ marginTop: 9, fontSize: 12.5, lineHeight: 1.55, color: colors.ink2 }}>{study.citation}</div>
-
-      {/* Who paid, and what the authors declared. "Could not be determined"
-          is printed as such — blank would read as "no conflict". */}
-      {study.conflictOfInterestNote && (
-        <div
+      {headline && (
+        <p
           style={{
-            marginTop: 9,
-            boxSizing: 'border-box',
-            padding: '9px 12px',
-            background: nested ? colors.card : colors.panel,
-            borderRadius: 6,
-            fontSize: 12.5,
-            lineHeight: 1.55,
-            color: colors.ink2,
+            margin: '11px 0 0',
+            fontFamily: font.display,
+            fontSize: 17,
+            lineHeight: 1.4,
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
           }}
         >
-          <strong style={{ color: colors.ink }}>Declared interests: </strong>
-          {study.conflictOfInterestNote}
+          {headline}
+        </p>
+      )}
+
+      {opening.head.length > 0 && (
+        <div style={{ marginTop: headline ? 8 : 11 }}>
+          <Paragraphs text={opening.head} />
         </div>
       )}
 
+      <div style={{ marginTop: 12 }}>
+        {opening.rest.length > 0 && (
+          <MiniCollapse label="The rest of this record">
+            <Paragraphs text={opening.rest} />
+          </MiniCollapse>
+        )}
+        {sections.map((section, i) => (
+          <MiniCollapse
+            key={section.label}
+            label={section.label}
+            open={nothingVisible && opening.rest.length === 0 && i === 0}
+          >
+            <Paragraphs text={section.body} />
+          </MiniCollapse>
+        ))}
+        {/* A dissent, replication or critique stays attached to the finding
+            it answers rather than sitting beside it as a second opinion of
+            equal weight. There are none in the database today; the row is
+            here so the first one that lands is not silently dropped. */}
+        {responses.map((r) => (
+          <MiniCollapse key={r.id} label={`${POSITION_LABEL[r.positionType] ?? 'Response'}`}>
+            <Paragraphs text={r.findingSummary} />
+            <div style={{ marginTop: 9, fontSize: 12.5, lineHeight: 1.55, color: colors.ink2 }}>
+              {r.citation}
+            </div>
+            <SourceLine url={r.sourceUrl} label="Source" />
+          </MiniCollapse>
+        ))}
+      </div>
+
       <SourceLine url={study.sourceUrl} label="Source" />
-    </>
+    </div>
   )
 }
 
@@ -515,7 +545,7 @@ function Authorities({ assessments }: { assessments: AuthorityAssessment[] }) {
     <section>
       <SectionHead
         id="authorities"
-        title="What authorities have classified it as"
+        title="Authority classifications"
         source="Published authority decisions"
       />
       <div style={{ marginTop: 14 }}>
@@ -636,7 +666,7 @@ function AssessmentRow({ a, first }: { a: AuthorityAssessment; first: boolean })
 function Rules({ rules }: { rules: Ingredient['regulatoryStatuses'] }) {
   return (
     <section>
-      <SectionHead id="rules" title="How countries regulate it" source="Regulator publications" />
+      <SectionHead id="rules" title="Global regulation comparison" source="Regulator publications" />
       <div style={{ marginTop: 14 }}>
         {rules.length === 0 ? (
           <Callout state="nothingOnFile">No country rules recorded for this ingredient yet.</Callout>
@@ -684,157 +714,12 @@ function Rules({ rules }: { rules: Ingredient['regulatoryStatuses'] }) {
   )
 }
 
-function Products({
-  count,
-  sample,
-}: {
-  count: number
-  sample: {
-    id: string
-    name: string
-    category: string | null
-    productType: string
-    imageUrl: string | null
-    imageSource: string | null
-    imageSourceUrl: string | null
-    company: { id: string; legalName: string }
-  }[]
-}) {
-  return (
-    <section>
-      <SectionHead
-        id="products"
-        title="Products that list it"
-        source={count > sample.length ? `${sample.length} of ${count.toLocaleString()} shown` : undefined}
-      />
-      <div style={{ marginTop: 14 }}>
-        {count === 0 ? (
-          <Callout state="nothingOnFile">No product in our database lists this ingredient.</Callout>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: 9,
-            }}
-          >
-            {sample.map((p) => (
-              <Link
-                key={p.id}
-                href={`/products/${p.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  boxSizing: 'border-box',
-                  padding: '11px 14px',
-                  background: colors.card,
-                  border: `1px solid ${colors.line}`,
-                  borderRadius: layout.radius,
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  minWidth: 0,
-                }}
-              >
-                {/* ProductThumb falls back to the aisle glyph when there is
-                    no photograph, so a card can never render blank, and it
-                    carries the CC-BY-SA credit contract with it. */}
-                <ProductThumb
-                  product={p}
-                  category={p.category}
-                  productType={p.productType}
-                  size={52}
-                  intrinsic={120}
-                  label={p.name}
-                />
-                <span style={{ flexGrow: 1, minWidth: 0 }}>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontFamily: font.display,
-                      fontSize: 15,
-                      fontWeight: 600,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {p.name}
-                  </span>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12.5,
-                      color: colors.ink3,
-                      marginTop: 3,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {p.company.legalName}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
 // ------------------------------------------------------------------ wording
 
-// How a finding is phrased depends on evidenceFraming (see the schema): a
-// regulator's action is stated as fact; an unproven concern is never worded
-// as harm.
-function framingLead(s: Study): string | null {
-  // A record about a law (e.g. what "natural flavor" lets a label leave out)
-  // is not a study, so the study wording would misdescribe it. Its summary
-  // speaks for itself unless a regulator acted.
-  if (s.studyType === 'regulatory_framework' && s.evidenceFraming !== 'regulator_confirmed') return null
-  switch (s.evidenceFraming) {
-    case 'regulator_confirmed':
-      return s.regulatoryAction ? `Regulator action: ${s.regulatoryAction}` : 'A regulator has taken formal action.'
-    case 'potential_concern_unproven':
-      return 'Studies raise questions; harm in humans has not been established.'
-    case 'generally_recognized_safe':
-      return 'Reviewed; no significant concern found.'
-    case 'insufficient_research':
-      return 'Too little research to draw a conclusion.'
-    default:
-      return null
-  }
-}
 
-const STUDY_TYPE_LABEL: Record<string, string> = {
-  RCT: 'Randomized trial',
-  observational: 'Observational study',
-  review: 'Review',
-  'meta-analysis': 'Meta-analysis',
-  regulatory_framework: 'Regulation',
-}
 
-const CONSENSUS_LABEL: Record<string, string> = {
-  'well-established': 'Well established',
-  'mixed evidence': 'Mixed evidence',
-  'limited evidence': 'Limited evidence',
-  disputed: 'Disputed',
-}
 
-const FUNDING_LABEL: Record<string, string> = {
-  independent: 'Independent funding',
-  industry_funded: 'Industry funded',
-  mixed: 'Mixed funding',
-  undetermined: 'Funding could not be determined',
-}
 
-const POSITION_LABEL: Record<string, string> = {
-  dissenting_view: 'Disputed by',
-  replication: 'Replication',
-  critique: 'Critique of the methods',
-}
 
 const RULE_LABEL: Record<string, string> = {
   permitted_no_limit: 'Permitted, no limit set',
@@ -868,64 +753,4 @@ type Ingredient = {
 // ------------------------------------------------------------------ pieces
 // Same as the product page's helpers, so the two pages look identical.
 
-function SectionHead({ title, source, id }: { title: string; source?: string; id?: string }) {
-  return (
-    <div
-      id={id}
-      style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        gap: 16,
-        borderBottom: `2px solid ${colors.ink}`,
-        paddingBottom: 9,
-        scrollMarginTop: 16,
-      }}
-    >
-      <h2 style={{ margin: 0, fontFamily: font.display, fontSize: 22, fontWeight: 600 }}>{title}</h2>
-      {source && <span style={{ fontSize: 12, color: colors.ink3 }}>{source}</span>}
-    </div>
-  )
-}
 
-function Callout({ state, children }: { state: keyof typeof status; children: React.ReactNode }) {
-  const s = status[state]
-  return (
-    <div
-      style={{
-        boxSizing: 'border-box',
-        padding: '12px 15px',
-        background: s.bg,
-        border: `1px solid ${s.border}`,
-        borderRadius: 7,
-        fontSize: 13,
-        lineHeight: 1.6,
-        color: colors.ink2,
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-// A plain label for a fact about a study (type, consensus, funding). Neutral
-// on purpose: these are descriptions, not statuses, so they get no colour.
-function Tag({ children, nested }: { children: React.ReactNode; nested?: boolean }) {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '3px 8px',
-        background: nested ? colors.card : '#EFEADD',
-        borderRadius: 5,
-        fontSize: 11.5,
-        fontWeight: 600,
-        color: colors.ink2,
-        lineHeight: 1.35,
-      }}
-    >
-      {children}
-    </span>
-  )
-}
