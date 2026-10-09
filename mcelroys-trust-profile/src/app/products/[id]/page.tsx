@@ -9,7 +9,9 @@ import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import {
   companyDisplayName,
+  headingWithBrand,
   isShortened,
+  productBrand,
   productDisplayName,
   shortProductName,
 } from '@/lib/productName'
@@ -20,7 +22,7 @@ import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecall
 import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, BackLink, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalTable, SignalTableNote, StatusChip } from '@/components/StatusChip'
 
 // Everything on this page in one query. The product page is the place a
@@ -109,9 +111,19 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${title} — ${companyDisplayName(product.company.legalName)}` }
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  // Only `from` is read here, and only to offer a way back to the list the
+  // reader came from. Nothing on this page varies by query string.
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   // In Next.js 15+ the dynamic part of the URL arrives as a Promise.
   const { id } = await params
+  const sp = searchParams ? await searchParams : {}
+  const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from
 
   const product = await prisma.product.findUnique({ where: { id }, select: PRODUCT_FIELDS })
 
@@ -208,13 +220,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           product header about 40 pixels below this bar, which is the natural
           place to go up to the company from. One route up, not two, and no
           row that looks like a history entry nobody created. */}
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: 'Search', href: '/search' },
-          { label: title },
-        ]}
-      />
+      {/* Renders nothing unless the reader arrived from a list. See BackLink
+          in SiteChrome.tsx for why the breadcrumb is gone. */}
+      <BackLink from={fromParam} />
 
       {/* HEADER */}
       <div
@@ -239,9 +247,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           // The one place a product's photograph is shown large, so it gets
           // the most room — and fluid, so it does not take over a phone.
           // Same em-based sizing as the search row; see ProductThumb.
-          size="clamp(104px, 12vw, 168px)"
-          intrinsic={256}
+          size="clamp(112px, 13vw, 184px)"
+          intrinsic={320}
           label={title}
+          // Portrait frame, so a package photograph fills it instead of
+          // shrinking to fit a square. See the note on `tall` in
+          // ProductThumb.tsx.
+          tall
         />
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <div
@@ -269,6 +281,20 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             </Link>
           </div>
 
+          {/* BRAND, THEN A CONCISE NAME. Michael, 2026-10-08, on CROPP
+              Cooperative's "1% Lowfat Milk": "this should say 'Organic Valley
+              1% Lowfat Milk'. it should be 'brand, then, concise product
+              name'. then the full product name can go below this title."
+
+              Both halves of that are now true:
+              - headingWithBrand adds the shelf brand when it differs from the
+                legal company name, and adds nothing when the company name IS
+                the brand (the common case, and it is already printed above).
+              - shortProductName strips a leading stack of label claims before
+                any tail cut, so "A2/A2 100% Grass-fed Regenerative Organic
+                Probiotic Kefir" reads "Probiotic Kefir" rather than losing the
+                word "Kefir" off the end — which is what it did before.
+              The stored name in full is on the line below. */}
           <h1
             style={{
               margin: '7px 0 0',
@@ -279,7 +305,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               letterSpacing: '-0.015em',
             }}
           >
-            {shortProductName(title)}
+            {headingWithBrand(
+              shortProductName(title),
+              productBrand(product.company.legalName, product.company.dbaNames)
+            )}
           </h1>
 
           {/* The stored name in full, whenever the heading is showing less
@@ -613,28 +642,28 @@ function Flagged({
 
             {classifiedOnly.length > 0 && (
               <div style={{ marginTop: withStudies.length > 0 || withAuthority.length > 0 ? 20 : 0 }}>
-                {/* THE HONEST HEADING. This is the to-do list, and saying so
-                    is the whole point — a reader who clicks one of these and
-                    finds an empty page has been misled, not informed. */}
-                <div
-                  style={{
-                    boxSizing: 'border-box',
-                    padding: '11px 14px',
-                    background: colors.panel,
-                    border: `1px solid ${colors.line}`,
-                    borderRadius: 7,
-                    fontSize: 12.5,
-                    lineHeight: 1.6,
-                    color: colors.ink2,
-                    maxWidth: 760,
-                  }}
-                >
-                  <strong style={{ color: colors.ink }}>
-                    Classified as worth checking, not yet researched.
-                  </strong>{' '}
-                  A gap in our records, not a finding either way.
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 11 }}>
+                {/* THE HEADING STAYS, THE PANEL AND THE CAVEAT GO.
+                    Michael, 2026-10-08, pointing at this box: "remove this.
+                    all disclaimers go to the disclaimer page, not included in
+                    the browsing experience."
+
+                    The sentence he is objecting to was "A gap in our records,
+                    not a finding either way" — a caveat about what the list
+                    does not mean, which is exactly the kind of line he has
+                    now twice asked to collect in one place. It is on
+                    /disclaimer.
+
+                    "Classified as worth checking, not yet researched" is not
+                    a caveat, it is the heading, and round 14 settled that the
+                    heading is the claim: a reader must be able to tell which
+                    of the three lists they are looking at without hovering.
+                    So it stays — and now it is a plain bold line like the two
+                    headings above it instead of a boxed grey panel, which is
+                    how it should have looked from the start. */}
+                <p style={{ margin: '0 0 9px', fontSize: 13, fontWeight: 600, color: colors.ink }}>
+                  Classified as worth checking, not yet researched
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {classifiedOnly.map((pi) => (
                     <Link
                       key={pi.ingredient.id}
@@ -854,7 +883,15 @@ function Recalls({
             // any product of ours", which is NOT the same as "names no
             // product" — it also catches notices that name products we failed
             // to match. So the wording now says what is true of both cases.
-            preamble="These concern how food was made or handled at this company or its parent. None is matched to this product, and some name other products the company makes — so they cannot tell you whether this one was affected."
+            /* TIGHTENED, NOT REMOVED. 42 words to 10. The fact it carries
+                cannot go: every notice in this bucket names the company, not
+                this product, and a list of recalls under a product heading
+                reads as "this product was recalled" without saying so. That
+                would be a false statement about a named company, which is the
+                exact exposure the sourcing rules exist to prevent. This is
+                not a caveat about our opinion; it is which fact is on screen.
+                Flagged to Michael in thread. */
+            preamble="These name this company or its parent, not this product."
           />
         )}
       </div>
@@ -1111,12 +1148,21 @@ function Related({ set }: { set: RelatedSet }) {
           </Callout>
         ) : (
           <>
-            <p style={{ margin: '0 0 12px', fontSize: 13.5, lineHeight: 1.6, color: colors.ink2, maxWidth: 760 }}>
-              Other products in the same category, made by a different company, whose ingredient
-              list overlaps this one. The percentage is how much of the two lists coincide &mdash;
-              it is a measure of similarity, not of quality, and the order says nothing about which
-              is better.
-            </p>
+            {/* THE PARAGRAPH THAT WAS HERE IS GONE. Michael, 2026-10-08:
+                "we dont need to disclaim on the actual website. we will have
+                a separate page for disclaimers. please take all disclaimers
+                out everywhere that isnt the specific disclaimer page."
+
+                It explained that the percentage measures similarity rather
+                than quality and that the order implies no ranking. That
+                commitment has NOT been dropped — it is the no-scoring rule
+                this whole site is built on, and it is now stated once on
+                /disclaimer and once on /sourcing instead of restated on
+                every product page.
+                What replaces it is the cards doing their own work: each one
+                reads "28% overlap · 7 of 25 ingredients shared", which is a
+                figure a reader can check against the two labels. A statistic
+                that explains itself needs no paragraph defending it. */}
             <Shelf products={set.similar} />
 
             {/* THE SECOND SHELF. Michael, 2026-10-07: "maybe any products
@@ -1128,22 +1174,22 @@ function Related({ set }: { set: RelatedSet }) {
                 additives" yet. */}
             {set.shorter.length > 0 && (
               <div style={{ marginTop: set.similar.length > 0 ? 20 : 0 }}>
+                {/* Michael, 2026-10-08: "this description is too wordy.
+                    exclude the number of the list."
+                    Three sentences became one line. The count he objected to
+                    ("this product lists 21") is gone from the prose; each
+                    card still carries "12 ingredients vs 21 here", which is
+                    where a comparison belongs — next to the thing being
+                    compared, not in a preamble above all of them. */}
                 <p
                   style={{
                     margin: '0 0 11px',
                     fontSize: 13.5,
-                    lineHeight: 1.6,
-                    color: colors.ink2,
-                    maxWidth: 760,
+                    color: colors.ink,
+                    fontWeight: 600,
                   }}
                 >
-                  <strong style={{ color: colors.ink }}>
-                    Same kind of product, shorter ingredient list.
-                  </strong>{' '}
-                  These share much of what is in this one but list fewer
-                  ingredients overall &mdash; this product lists {set.myTotal}. A shorter list is
-                  not automatically better, and we are not saying it is; it is simply a different
-                  label to read.
+                  Same kind of product, shorter ingredient list
                 </p>
                 <Shelf products={set.shorter} myTotal={set.myTotal} />
               </div>
@@ -1360,7 +1406,6 @@ function filterHref(category: string): string {
 // uses for "there is research to read", and a row with nothing on file is
 // plain, not green.
 function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
-  const flagged = pi.ingredient.flaggedForResearch
   const studies = pi.ingredient._count.studies
   const authorities = pi.ingredient.authorityAssessments.length
 
@@ -1368,14 +1413,29 @@ function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
   // authority classifications are counted separately and never added
   // together: a classification is a committee reading evidence we may not
   // hold, which is the distinction /sourcing exists to explain.
+  //
+  // Michael, 2026-10-08: "if there is nothing on file it shouldn't be
+  // highlighted. also, remove the 'nothing on file' subtext and leave the
+  // 'undisclosed flavorin' subtext."
+  //
+  // Both halves are right, and the first one is the three-state rule rather
+  // than a style preference. Amber on this site means "there is research to
+  // read". A flagged row with nothing on file wore the amber and then had
+  // nothing behind it — a promise the page could not keep, on the ingredient
+  // most likely to be clicked. The classification still shows: the category
+  // line under the name says "undisclosed flavoring", which is the fact, and
+  // is what he asked to keep.
   const holding =
     studies > 0
       ? `${studies} research ${studies === 1 ? 'record' : 'records'}`
       : authorities > 0
         ? `${authorities} authority ${authorities === 1 ? 'ruling' : 'rulings'}`
-        : flagged
-          ? 'nothing on file yet'
-          : null
+        : null
+
+  // Highlighted only when there is something to open. `flagged` still drives
+  // the flagged-ingredients section below, which counts and explains the
+  // classification; it no longer colours a row on its own.
+  const holdsSomething = holding !== null
 
   return (
     <Link
@@ -1386,9 +1446,9 @@ function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
         gap: 9,
         boxSizing: 'border-box',
         padding: '7px 10px 7px 9px',
-        borderLeft: `3px solid ${flagged ? status.openResearch.fg : 'transparent'}`,
+        borderLeft: `3px solid ${holdsSomething ? status.openResearch.fg : 'transparent'}`,
         borderBottom: `1px solid ${colors.line}`,
-        background: flagged ? status.openResearch.bg : 'transparent',
+        background: holdsSomething ? status.openResearch.bg : 'transparent',
         textDecoration: 'none',
         color: 'inherit',
       }}
@@ -1412,8 +1472,8 @@ function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
         <span
           style={{
             fontSize: 13.5,
-            fontWeight: flagged ? 600 : 400,
-            color: flagged ? status.openResearch.fg : colors.ink,
+            fontWeight: holdsSomething ? 600 : 400,
+            color: holdsSomething ? status.openResearch.fg : colors.ink,
           }}
         >
           {sentenceCase(pi.ingredient.name)}

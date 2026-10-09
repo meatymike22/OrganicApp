@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { companyDisplayName } from '@/lib/productName'
 import { colors, font, isoDate, layout } from '@/lib/design'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 import { SourceLine } from '@/components/PageParts'
 import { plainReason } from '@/lib/plainRecall'
@@ -154,15 +154,12 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          {
-            label: companyDisplayName(action.company.legalName),
-            href: `/companies/${action.company.id}`,
-          },
-          { label: `${action.sourceAgency} notice` },
-        ]}
+      {/* A notice is reachable from the company page and from any affected
+          product, so there is no single parent to name. The company is the
+          one link that is always right, so it is the one link. */}
+      <BackTo
+        href={`/companies/${action.company.id}`}
+        label={companyDisplayName(action.company.legalName)}
       />
 
       {/* HEADER */}
@@ -308,9 +305,15 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
             evidence and a reader is entitled to tell them apart. */}
         <Block title="Products we matched to this notice">
           {linkedProducts.length === 0 ? (
+            /* KEPT, deliberately, and tightened rather than removed.
+                Without the second clause this paragraph reads as "no product
+                was affected" — a false statement about a real recall, which
+                is the single most damaging thing this page could say. That is
+                not a disclaimer about our opinions; it is the difference
+                between two facts. Flagged to Michael in thread. */
             <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: colors.ink3 }}>
-              We have not matched this notice to any product in our database. That usually means the
-              notice named no barcode we hold &mdash; it does not mean no product was affected.
+              We have not matched this notice to any product in our database &mdash; usually because
+              it named no barcode we hold. Products may still have been affected.
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout } from '@/lib/design'
 import { VETTED_COMPANIES } from '@/lib/vetting'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 import { Callout, Monogram } from '@/components/PageParts'
 
@@ -67,13 +67,18 @@ export default async function CompaniesListPage({
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          q ? { label: 'Companies', href: '/companies' } : { label: 'Companies' },
-          ...(q ? [{ label: `“${q}”` }] : []),
-        ]}
-      />
+      {/* Breadcrumb removed 2026-10-08 with the other eight; see BackLink in
+          SiteChrome.tsx for why. This page is a top-level index reached from
+          the nav, so there is no parent to name and nothing to go back to —
+          the same situation as /ingredients, and it loses nothing.
+
+          The one case with an argument for a link was a search within this
+          page (q set), where the trail offered "Companies" to clear it. The
+          search box on the page already does that.
+
+          NOTE: this file is CRLF while the rest of src/ is LF. Pre-existing,
+          left alone deliberately — converting it would show the whole file as
+          changed in the diff for no reason. */}
 
       {/* PAGE HEADER */}
       <div

@@ -184,6 +184,7 @@ export function CategoryGlyph({
   // The accessible name. Passed the product's name by its caller so a screen
   // reader announces "Frosted Cherry Toaster Pastries", not "breakfast icon".
   label,
+  tall = false,
 }: {
   category: string | null | undefined
   productType?: string | null
@@ -196,6 +197,10 @@ export function CategoryGlyph({
   // clamp() you cannot, and this component has to support both because a
   // search row wants a fluid thumbnail and a dense list wants a fixed one.
   size?: number | string
+  // Must track ProductThumb's `tall`. Over half our products have no photo,
+  // so if the frame and the fallback disagreed the product hero would change
+  // height depending on whether a photograph happened to exist.
+  tall?: boolean
   label?: string
 }) {
   const glyph = pick(category, productType)
@@ -208,7 +213,7 @@ export function CategoryGlyph({
         // The square is 1em on a side, so `fontSize` IS the size.
         fontSize: typeof size === 'number' ? `${size}px` : size,
         width: '1em',
-        height: '1em',
+        height: tall ? 'calc(1em * 4 / 3)' : '1em',
         flexShrink: 0,
         background: thumbTint[glyph.tint],
         border: `1px solid ${colors.line}`,

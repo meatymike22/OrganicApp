@@ -240,6 +240,99 @@ export function productDisplayName(
   return cleaned
 }
 
+// ------------------------------------------------------------- the brand
+
+// THE NAME ON THE SHELF, when it is not the name of the company.
+//
+// Michael, 2026-10-08, on CROPP Cooperative's "1% Lowfat Milk": "this should
+// say 'Organic Valley 1% Lowfat Milk'. it should be 'brand, then, concise
+// product name'."
+//
+// He is right that the page was unreadable: the header said "CROPP
+// Cooperative" over "1% Lowfat Milk", and nothing anywhere said Organic
+// Valley — the only words actually printed on the carton. CROPP is the
+// co-operative that owns the brand, which is a fact worth having and not the
+// fact a shopper is holding.
+//
+// There is no brand column on Product. What there is, is Company.dbaNames,
+// and CROPP's is exactly ["Organic Valley"].
+//
+// THE TRAP, and why this is not just dbaNames[0]: for most companies
+// dbaNames holds spelling variants of their own legal name, not a distinct
+// brand. Alexandre Family Farm has ["Alexandra Family Farm", "Alexandre
+// Family Farms", "Alexandre Farms"]; Mars has ["Mars Candy", "Mars Wrigley",
+// ...]; Nature's Path has ["Nature path", "Nature's Path Organic"]. Prefixing
+// any of those would print the company's name twice with one of them
+// misspelled.
+//
+// So a dbaName qualifies as a brand only when it shares NO significant word
+// with the legal name. "Organic Valley" vs "CROPP Cooperative" shares
+// nothing and qualifies. Every variant above shares its distinguishing word
+// and does not. Corporate-form words are not significant — two companies
+// both called "Inc" are not related — so they are dropped before comparing.
+const CORPORATE_WORDS = new Set([
+  'inc', 'incorporated', 'llc', 'llp', 'ltd', 'limited', 'co', 'company',
+  'corp', 'corporation', 'gmbh', 'sa', 'ag', 'nv', 'bv', 'plc', 'holdings',
+  'group', 'brands', 'foods', 'food', 'farms', 'farm', 'cooperative', 'coop',
+  'the', 'and', 'of', 'north', 'america', 'usa', 'us', 'international',
+])
+
+function significantWords(name: string): Set<string> {
+  const out = new Set<string>()
+  for (const w of name.toLowerCase().split(/[^a-z0-9]+/)) {
+    if (w.length < 2) continue
+    if (CORPORATE_WORDS.has(w)) continue
+    out.add(w)
+  }
+  return out
+}
+
+export function productBrand(legalName: string, dbaNames: string[]): string | undefined {
+  const legal = significantWords(companyDisplayName(legalName))
+  // Shortest first: given several distinct candidates, the shortest is the
+  // most likely to be the plain brand rather than a divisional name.
+  const candidates = [...dbaNames]
+    .map((d) => companyDisplayName(d))
+    .filter((d) => d.length > 0)
+    .sort((a, b) => a.length - b.length)
+
+  for (const cand of candidates) {
+    const words = significantWords(cand)
+    if (words.size === 0) continue
+    let shares = false
+    for (const w of words) {
+      if (legal.has(w)) {
+        shares = true
+        break
+      }
+    }
+    if (!shares) return cand
+  }
+  return undefined
+}
+
+// Prepends the brand to a heading, unless the name already carries it.
+// Returns the heading unchanged when there is no distinct brand — which is
+// the common case, because for most products the company name IS the brand
+// and is already printed directly above the heading.
+export function headingWithBrand(heading: string, brand: string | undefined): string {
+  if (!brand) return heading
+  const h = heading.toLowerCase()
+  const b = brand.toLowerCase()
+  if (h.startsWith(b)) return heading
+  // Any significant brand word already in the heading means the label is
+  // already identifying itself; do not say it twice.
+  //
+  // No escaping needed: significantWords splits on /[^a-z0-9]+/, so every
+  // word it yields is alphanumeric and cannot carry regex syntax.
+  for (const w of significantWords(brand)) {
+    if (new RegExp(`\\b${w}\\b`, 'i').test(heading)) {
+      return heading
+    }
+  }
+  return `${brand} ${heading}`
+}
+
 // ------------------------------------------------- a name you can take in
 
 // HOW LONG A NAME HAS TO BE before it is worth shortening, and how far in a
@@ -289,8 +382,92 @@ function toCeiling(text: string): string {
   return head.length >= EARLIEST_CUT ? head : text
 }
 
+// LEADING CLAIMS, stripped so the noun survives.
+//
+// Michael, 2026-10-08, on "A2/A2 100% Grass-fed Regenerative Organic
+// Probiotic Kefir": "the title should have less and be more concise to what
+// the product actually is."
+//
+// That name is 57 characters, so the ceiling fired and cut from the END —
+// which removed "Kefir", the only word that says what the product is, and
+// kept five claims that could describe a dozen different foods. The shape is
+// common on premium labels: a stack of marketing claims, then the noun, last.
+// Cutting the tail is exactly backwards for it.
+//
+// So a recognised run of claims is removed from the FRONT first. Each entry
+// is a claim about how the food was made or what it does not contain, never
+// a word that says what the food IS.
+const LEADING_CLAIM = new RegExp(
+  '^(?:' +
+    [
+      String.raw`\d+(?:\.\d+)?\s*%`,                 // 100%, 2%
+      String.raw`a[12](?:\s*/\s*a[12])?`,              // A2, A1/A2, A2/A2
+      'grass[\\s-]?fed',
+      'pasture[\\s-]?raised',
+      'free[\\s-]?range',
+      'cage[\\s-]?free',
+      'regenerative(?:ly\\s+grown)?',
+      'certified',
+      'usda',
+      'organic',
+      'non[\\s-]?gmo(?:\\s+project\\s+verified)?',
+      'gluten[\\s-]?free',
+      'dairy[\\s-]?free',
+      'sugar[\\s-]?free',
+      'all[\\s-]?natural',
+      'natural',
+      'raw',
+      'whole[\\s-]?30',
+      'keto(?:\\s+friendly)?',
+      'paleo',
+      'vegan',
+      'kosher',
+      'halal',
+      'premium',
+      'artisan(?:al)?',
+      'small[\\s-]?batch',
+      'cold[\\s-]?pressed',
+      'unsweetened',
+      'no\\s+sugar\\s+added',
+      'fair[\\s-]?trade',
+      'heritage',
+      'ultra[\\s-]?filtered',
+      'grade\\s+a',
+    ].join('|') +
+  ')(?:[\\s,/&-]+|$)',
+  'i'
+)
+
+// The remainder has to still be a name, not a fragment. Two words or ~10
+// characters is the floor; below that the claims WERE the name and the stored
+// version is the better answer.
+const CLAIMS_FLOOR = 10
+
+// Peels recognised claims off the front, one at a time, stopping as soon as
+// the remainder would drop below the floor. Returns the input unchanged when
+// nothing was recognised — so an unfamiliar label shape is left alone rather
+// than guessed at.
+function stripLeadingClaims(text: string): string {
+  let out = text
+  for (;;) {
+    const m = LEADING_CLAIM.exec(out)
+    if (!m || m[0].length === 0) break
+    const rest = out.slice(m[0].length).trim()
+    // Never strip down to nothing, and never strip the last word away: a
+    // product genuinely called "Organic" has "Organic" as its name.
+    if (rest.length < CLAIMS_FLOOR || !/[a-z]/i.test(rest)) break
+    out = rest
+  }
+  return out
+}
+
 export function shortProductName(name: string): string {
-  const full = name.trim()
+  const raw = name.trim()
+  if (raw.length <= LONG_ENOUGH_TO_SHORTEN) return raw
+
+  // Claims come off the front BEFORE any tail cut, so the ceiling is spent on
+  // the part of the name that identifies the product.
+  const full = stripLeadingClaims(raw)
   if (full.length <= LONG_ENOUGH_TO_SHORTEN) return full
 
   const m = SPEC_LIST_STARTS.exec(full)

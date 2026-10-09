@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, type StatusKey } from '@/lib/design'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { getProductRecalls, groupRecalls } from '@/lib/recalls'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 
@@ -184,14 +184,7 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: 'Search', href: '/search' },
-          { label: shortProductName(name), href: `/products/${product.id}` },
-          { label: 'Sources' },
-        ]}
-      />
+      <BackTo href={`/products/${product.id}`} label={shortProductName(name)} />
 
       <div
         style={{

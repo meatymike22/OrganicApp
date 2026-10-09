@@ -17,7 +17,7 @@ import {
 import { plainReason } from '@/lib/plainRecall'
 import { companyDisplayName, productDisplayName } from '@/lib/productName'
 import { ProductThumb } from '@/components/ProductThumb'
-import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 import { Callout, Eyebrow, Monogram, SectionHead, SourceLine } from '@/components/PageParts'
@@ -136,13 +136,6 @@ export default async function CompanyPage({
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: 'Companies', href: '/companies' },
-          { label: companyDisplayName(company.legalName) },
-        ]}
-      />
 
       {/* HEADER */}
       <div

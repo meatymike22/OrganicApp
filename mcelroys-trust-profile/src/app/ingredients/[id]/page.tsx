@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
-import { AisleBar, Breadcrumb, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { StatusChip } from '@/components/StatusChip'
 // The shared one. This file used to carry its own copy, which drifted: when
 // the "not yet checked by a person" line was removed from PageParts it
@@ -165,14 +165,6 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: 'Search', href: '/search' },
-          { label: 'Ingredients', href: '/ingredients' },
-          { label: capitalize(ingredient.name) },
-        ]}
-      />
 
       {/* HEADER */}
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0` }}>
@@ -235,7 +227,7 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
                   title={
                     onFile > 0
                       ? 'This is an additive or processing ingredient rather than a whole food, which is why we research it. The records we hold on it are below.'
-                      : 'This is an additive or processing ingredient rather than a whole food, which is why it is on our research list. It does not mean anything has been found — we hold no studies, authority rulings or country rules on it yet, and that is a gap in our records.'
+                      : 'This is an additive or processing ingredient rather than a whole food, which is why it is on our research list. We hold no studies, authority rulings or country rules on it yet.'
                   }
                 >
                   {onFile > 0 ? 'On our research list' : 'On our research list — nothing on file yet'}
@@ -548,13 +540,15 @@ function Authorities({ assessments }: { assessments: AuthorityAssessment[] }) {
       />
       <div style={{ marginTop: 14 }}>
         {assessments.length === 0 ? (
+          /* The first sentence is the record and stays: "we hold none" is
+              not the same statement as "there are none", and collapsing those
+              two is the one error this whole project is built to avoid. The
+              caveat that followed it is on /disclaimer. */
           <Callout state="nothingOnFile">
-            No authority has published a classification for this ingredient that we hold. That is a
-            gap in our records, not a finding either way —{' '}
+            We hold no authority classification for this ingredient.{' '}
             <Link href="/sourcing" style={{ color: colors.link }}>
-              what we check and what we do not
+              What we check, and what we do not
             </Link>
-            .
           </Callout>
         ) : (
           <>

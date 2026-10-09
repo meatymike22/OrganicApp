@@ -287,15 +287,28 @@ export const STATUS_MEANINGS: { state: StatusKey; term: string; note: string; ti
 // sits on the white card and not the warm panel on purpose: on `colors.panel`
 // the clay drops to a 4.41 contrast ratio and the grey to 4.58, and on white
 // the worst of the five is 5.21 — all above the 4.5 threshold.
-export function StatusKeyPanel() {
+// `bar` lays the key out as one horizontal strip instead of a column.
+//
+// Michael, 2026-10-08: "put this color legend at the top of the page instead
+// of to the left." As a rail card it was a five-row column, which is the
+// right shape for a 224px column and the wrong shape above the results — five
+// stacked rows across the full width would push the first product most of a
+// screen down, which is the opposite of what moving it up is for.
+//
+// So in bar mode the rows wrap along a line and the heading sits inline with
+// them. Same data, same colours, same hover titles; only the axis changes.
+export function StatusKeyPanel({ bar }: { bar?: boolean } = {}) {
   return (
     <div
       style={{
         boxSizing: 'border-box',
-        padding: '13px 15px',
+        padding: bar ? '10px 14px' : '13px 15px',
         background: colors.card,
         border: `1px solid ${colors.line}`,
         borderRadius: layout.radius,
+        ...(bar
+          ? { display: 'flex', flexWrap: 'wrap' as const, alignItems: 'baseline', gap: '7px 18px' }
+          : {}),
       }}
     >
       <div
@@ -317,7 +330,13 @@ export function StatusKeyPanel() {
 
           The full sentence is on `title`, so the precise meaning is a hover
           away. Nothing was removed; it stopped being in the way. */}
-      <dl style={{ margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <dl
+        style={
+          bar
+            ? { margin: 0, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '6px 18px' }
+            : { margin: '10px 0 0', display: 'flex', flexDirection: 'column', gap: 7 }
+        }
+      >
         {STATUS_MEANINGS.map((e) => (
           // Michael, 2026-10-07, on the Recalls row: the phrase "should be
           // vertically under 'Recalls'. Right now it is placed to the right,

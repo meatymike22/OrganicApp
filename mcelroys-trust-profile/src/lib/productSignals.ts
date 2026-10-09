@@ -388,13 +388,23 @@ export function ownerSignal(p: ProductForSignals): Signal {
     column: 'owner',
     state: 'ownership',
     label: parent ? companyDisplayName(parent.legalName) : companyDisplayName(p.company.legalName),
+    // Michael, 2026-10-08: "no need to explain that we dont have a parent
+    // company. this is TMI."
+    //
+    // He is right, and this is not the three-state rule losing a state. The
+    // tile's VALUE already states who owns the product: with a parent it
+    // names the parent, without one it names the company itself. The sentence
+    // explaining the absence was explaining the absence of a second name the
+    // reader had not asked about and could not see was missing.
+    //
+    // Where the ownership chain genuinely is unknown rather than absent, that
+    // is a different statement and it is on the company page, which is where
+    // someone reading about ownership has gone.
     detail: parent
       ? `${companyDisplayName(p.company.legalName)} is owned by ${companyDisplayName(
           parent.legalName
         )}.`
-      : `${companyDisplayName(
-          p.company.legalName
-        )}. We hold no record of a parent company above it.`,
+      : `${companyDisplayName(p.company.legalName)}.`,
     href: `/companies/${parent ? parent.id : p.company.id}`,
   }
 }

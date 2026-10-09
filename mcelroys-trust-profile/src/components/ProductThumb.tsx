@@ -46,6 +46,7 @@ export function ProductThumb({
   intrinsic = 160,
   label,
   credit = false,
+  tall = false,
 }: {
   product: ProductImageFields
   category: string | null | undefined
@@ -55,6 +56,32 @@ export function ProductThumb({
   // it sounds: well over half our products have no photo, so if the two
   // disagreed, a list would have thumbnails of two different sizes.
   size?: number | string
+  // PORTRAIT FRAME. Michael, 2026-10-08, on the product hero: "the entire
+  // picture doesnt fit the profile here. make sure photos fit the frame and
+  // are legible."
+  //
+  // The frame was a square and the image is `contain`, which is the right
+  // combination for a list and the wrong one for the hero: almost every
+  // front-of-pack photograph is portrait, so inside a square it shrank to fit
+  // the HEIGHT and left empty bands down both sides. A 168px square showed a
+  // package about 110px wide — the complaint exactly.
+  //
+  // `cover` would fill the frame and is not available to us: cropping a
+  // package photo can cut off a seal, a flavour or a "no added sugar" claim,
+  // and a cropped label is a misleading one. That rule is older than this
+  // comment and it stands.
+  //
+  // So the frame changes shape instead of the image. 3:4 portrait, which is
+  // roughly the shape of a grocery package, so a portrait photo now fills
+  // most of it and a landscape one still letterboxes a little rather than
+  // being cropped. Lists keep the square, because rows of equal height is
+  // worth more there than a few extra pixels of package.
+  //
+  // The real fix is to store each image's dimensions and match the frame to
+  // the photograph exactly — the Open Food Facts `images` object carries
+  // width and height per revision, so it costs a column and a backfill
+  // rather than a request. Logged as features-to-add item 32.
+  tall?: boolean
   // What `next/image` is told to fetch, in pixels. Separate from `size`
   // because a fluid square has no single pixel width to hand the optimiser,
   // and because asking for a slightly larger image than the biggest rendered
@@ -70,7 +97,9 @@ export function ProductThumb({
   // No photo, or a photo whose source we cannot describe. The second case is
   // deliberate: an image we cannot credit is an image we do not show.
   if (!product.imageUrl || !source) {
-    return <CategoryGlyph category={category} productType={productType} size={size} label={label} />
+    return (
+      <CategoryGlyph category={category} productType={productType} size={size} label={label} tall={tall} />
+    )
   }
 
   const attribution = `Photo: ${source.label}, ${source.licence}`
@@ -83,7 +112,8 @@ export function ProductThumb({
         // number or a clamp().
         fontSize: typeof size === 'number' ? `${size}px` : size,
         width: '1em',
-        height: '1em',
+        // 4/3 of the width in `tall` mode; see the note on the prop.
+        height: tall ? 'calc(1em * 4 / 3)' : '1em',
         flexShrink: 0,
         position: 'relative',
         overflow: 'hidden',

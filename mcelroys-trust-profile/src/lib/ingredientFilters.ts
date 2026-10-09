@@ -65,7 +65,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No seed oils',
     short: 'no seed oils',
     what:
-      'Seed and vegetable oils: soybean (on ~23,800 products), canola (~18,600), plain "vegetable oil" (~16,300), sunflower (~15,000), corn (~2,600), safflower (~1,900), and hydrogenated versions of them. About 1,470 ingredient names in all. Palm oil is not in this category — palm is pressed from the fruit, not the seed.',
+      'Seed and vegetable oils: soybean, canola, plain "vegetable oil", sunflower, corn, safflower, and hydrogenated versions of them. Palm oil is not in this category — palm is pressed from the fruit, not the seed.',
     categories: ['seed oil'],
   },
   {
@@ -76,7 +76,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No added colors',
     short: 'no added colors',
     what:
-      'Colourings added to the food: caramel color (~13,500 products), red 40 (~12,100), yellow 5 (~11,200), blue 1 (~9,700), yellow 6 (~7,900), titanium dioxide (~4,500), and their lake forms. About 820 names in all.',
+      'Colourings added to the food: caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide, and their lake forms.',
     categories: ['artificial dye'],
   },
   {
@@ -90,7 +90,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No sugar substitutes',
     short: 'no sugar substitutes',
     what:
-      'Anything sweet that is not sugar: sucralose (~8,100 products), acesulfame potassium (~5,000), aspartame (~2,300), sorbitol (~2,800), stevia (~3,900 across its spellings), erythritol (~1,600), monk fruit (~2,100), maltitol, xylitol, allulose, steviol glycoside, saccharin. Sugar, honey and fruit juice are not in this category.',
+      'Anything sweet that is not sugar: sucralose, acesulfame potassium, aspartame, sorbitol, stevia (across its spellings), erythritol, monk fruit, maltitol, xylitol, allulose, steviol glycoside, saccharin. Sugar, honey and fruit juice are not in this category.',
     categories: ['artificial sweetener', 'sugar substitute'],
   },
   {
@@ -98,7 +98,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No preservatives',
     short: 'no preservatives',
     what:
-      'Added preservatives: potassium sorbate (~14,500 products), sodium benzoate (~9,900), sodium nitrite (~5,800), calcium propionate (~4,400), sorbic acid (~4,400), sodium erythorbate (~4,100), natamycin (~2,400), potassium benzoate (~2,200), BHT, BHA, TBHQ, propyl gallate, and the parabens. Salt, sugar and vinegar are not in this category even where they preserve.',
+      'Added preservatives: potassium sorbate, sodium benzoate, sodium nitrite, calcium propionate, sorbic acid, sodium erythorbate, natamycin, potassium benzoate, BHT, BHA, TBHQ, propyl gallate, and the parabens. Salt, sugar and vinegar are not in this category even where they preserve.',
     // Three separate category values, all of which are preservatives. Mapping
     // only 'preservative' would quietly let every paraben through.
     categories: ['preservative', 'paraben preservative', 'antimicrobial preservative'],
@@ -112,7 +112,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No emulsifiers or gums',
     short: 'no emulsifiers or gums',
     what:
-      'Ingredients that thicken a mixture or hold it together: soy lecithin (~31,000 products), xanthan gum (~22,200), guar gum (~15,300), carrageenan (~10,700), mono- and diglycerides (~7,100), cellulose gum (~6,700), locust bean gum (~6,200), gum arabic (~4,300), polysorbates, DATEM, gellan gum.',
+      'Ingredients that thicken a mixture or hold it together: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, cellulose gum, locust bean gum, gum arabic, polysorbates, DATEM, gellan gum.',
     categories: ['emulsifier'],
   },
   {
@@ -120,7 +120,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No undisclosed flavoring',
     short: 'no undisclosed flavoring',
     what:
-      'Flavour listed as a blend the label does not break down: "natural flavor" (~82,700 products), "spices" (~36,400), "artificial flavor" (~30,900), "flavoring", "seasoning". About 2,200 names in all. This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. A named spice like allspice or cinnamon is not in this category, because it discloses itself.',
+      'Flavour listed as a blend the label does not break down: "natural flavor", "spices", "artificial flavor", "flavoring", "seasoning". This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. A named spice like allspice or cinnamon is not in this category, because it discloses itself.',
     categories: ['undisclosed flavoring'],
   },
 ]
@@ -171,63 +171,63 @@ export const ALLERGEN_FILTERS: {
     label: 'No milk',
     short: 'no milk',
     what:
-      'Dairy in any form: milk (on ~18,100 products), cream (~15,500), whey (~15,500), cheese and cheese cultures (~14,000), butter (~9,800), lactose, casein and caseinates, yogurt, ghee, curd. Cocoa butter, peanut butter, coconut milk, almond milk and cream of tartar are NOT counted — they are not dairy.',
+      'Dairy in any form: milk, cream, whey, cheese and cheese cultures, butter, lactose, casein and caseinates, yogurt, ghee, curd. Cocoa butter, peanut butter, coconut milk, almond milk and cream of tartar are NOT counted — they are not dairy.',
   },
   {
     key: 'egg',
     label: 'No eggs',
     short: 'no eggs',
     what:
-      'Egg in any form: egg (~10,300 products), yolk (~5,100), white (~4,500), albumen, mayonnaise, meringue, lysozyme. Eggplant is not counted.',
+      'Egg in any form: egg, yolk, white, albumen, mayonnaise, meringue, lysozyme. Eggplant is not counted.',
   },
   {
     key: 'peanut',
     label: 'No peanuts',
     short: 'no peanuts',
     what:
-      'Peanut in any form: peanut (~7,600 products), peanut oil (~2,900), peanut butter (~2,300), peanut flour, groundnut. Peanuts are legumes, so they are counted separately from tree nuts — filtering one does not filter the other.',
+      'Peanut in any form: peanut, peanut oil, peanut butter, peanut flour, groundnut. Peanuts are legumes, so they are counted separately from tree nuts — filtering one does not filter the other.',
   },
   {
     key: 'tree nut',
     label: 'No tree nuts',
     short: 'no tree nuts',
     what:
-      'Almond (~9,200 products), cashew (~3,800), pecan (~2,800), walnut (~2,000), hazelnut, pistachio, macadamia, brazil nut, pine nut, chestnut, praline, marzipan, nougat. COCONUT IS INCLUDED, because FDA’s tree-nut list for labelling includes it — that is FDA’s classification and not ours, and it means coconut oil (~6,900 products) is filtered out too. Nutmeg, water chestnut and nutritional yeast are not tree nuts and are not counted.',
+      'Almond, cashew, pecan, walnut, hazelnut, pistachio, macadamia, brazil nut, pine nut, chestnut, praline, marzipan, nougat. COCONUT IS INCLUDED, because FDA’s tree-nut list for labelling includes it — that is FDA’s classification and not ours, and it means coconut oil is filtered out too. Nutmeg, water chestnut and nutritional yeast are not tree nuts and are not counted.',
   },
   {
     key: 'wheat',
     label: 'No wheat',
     short: 'no wheat',
     what:
-      'Wheat flour (~31,100 products), wheat (~7,800), wheat gluten (~6,300), wheat starch, semolina, durum, spelt, kamut, couscous, bulgur, seitan, matzo. An unqualified "flour" or "enriched flour" counts, because under 21 CFR 137.105 that means wheat flour on a US label — about 16,000 more products. Rice, corn, oat, almond, chickpea and malted barley flours do not count, and neither does buckwheat. This is a WHEAT filter, not a gluten-free filter: barley and rye contain gluten and are not here.',
+      'Wheat flour, wheat, wheat gluten, wheat starch, semolina, durum, spelt, kamut, couscous, bulgur, seitan, matzo. An unqualified "flour" or "enriched flour" counts, because under 21 CFR 137.105 that means wheat flour on a US label. Rice, corn, oat, almond, chickpea and malted barley flours do not count, and neither does buckwheat. This is a WHEAT filter, not a gluten-free filter: barley and rye contain gluten and are not here.',
   },
   {
     key: 'soy',
     label: 'No soy',
     short: 'no soy',
     what:
-      'Soy lecithin (~31,000 products), soybean oil (~23,800), soybean (~8,100), soy protein, soy sauce, soya, tofu, tempeh, miso, edamame, tamari. Highly refined soybean oil and soy lecithin are exempt from FALCPA allergen labelling and many soy-allergic people tolerate them — they are still counted here, because that is not our call to make for you. Tamarind and annatto are not soy.',
+      'Soy lecithin, soybean oil, soybean, soy protein, soy sauce, soya, tofu, tempeh, miso, edamame, tamari. Highly refined soybean oil and soy lecithin are exempt from FALCPA allergen labelling and many soy-allergic people tolerate them — they are still counted here, because that is not our call to make for you. Tamarind and annatto are not soy.',
   },
   {
     key: 'sesame',
     label: 'No sesame',
     short: 'no sesame',
     what:
-      'Sesame seed (~3,200 products), sesame oil (~1,600), sesame (~1,100), tahini, halva. Sesame became the ninth US major allergen under the FASTER Act on 1 January 2023.',
+      'Sesame seed, sesame oil, sesame, tahini, halva. Sesame became the ninth US major allergen under the FASTER Act on 1 January 2023.',
   },
   {
     key: 'fish',
     label: 'No fish',
     short: 'no fish',
     what:
-      'Anchovy (~850 products), Worcestershire sauce (~840, which is made with anchovies and says so nowhere in its name), sardine, tuna, salmon, cod, pollock, tilapia, surimi, fish oil, fish sauce, bonito, caviar, roe.',
+      'Anchovy, Worcestershire sauce (which is made with anchovies and says so nowhere in its name), sardine, tuna, salmon, cod, pollock, tilapia, surimi, fish oil, fish sauce, bonito, caviar, roe.',
   },
   {
     key: 'shellfish',
     label: 'No shellfish',
     short: 'no shellfish',
     what:
-      'Crustaceans — shrimp (~1,200 products), crab, lobster, crayfish, krill, langoustine — AND molluscs: clam, oyster, mussel, scallop, squid, octopus, abalone, snail. FDA’s major-allergen list names crustacean shellfish only; molluscs are included here because someone avoiding shellfish is usually avoiding both. Oyster mushroom and scalloped potatoes are not counted.',
+      'Crustaceans — shrimp, crab, lobster, crayfish, krill, langoustine — AND molluscs: clam, oyster, mussel, scallop, squid, octopus, abalone, snail. FDA’s major-allergen list names crustacean shellfish only; molluscs are included here because someone avoiding shellfish is usually avoiding both. Oyster mushroom and scalloped potatoes are not counted.',
   },
 ]
 

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
 // isNonLatinName keeps the 515 Ukrainian, Bulgarian, Chinese and Korean
 // ingredient names out of the English browse list without deleting them.
 // See the header of that file for why they are kept.
@@ -119,7 +119,6 @@ export default async function IngredientsPage({
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb trail={[{ label: 'Rootify', href: '/' }, { label: 'Ingredients' }]} />
 
       <div
         style={{
@@ -328,10 +327,16 @@ export default async function IngredientsPage({
                 maxWidth: '78ch',
               }}
             >
-              <strong style={{ color: colors.ink }}>This flag is a to-do list, not a finding.</strong>{' '}
+              {/* Trimmed 2026-10-08 under Michael's "all disclaimers go to
+                  the disclaimer page" rule. What is said here now is what the
+                  flag IS — a classification rule, and a to-do list. What was
+                  cut is what it is NOT ("not a claim that anything is wrong"),
+                  which is on /disclaimer. Stating the mechanism plainly does
+                  the same work without the page arguing with itself. */}
+              <strong style={{ color: colors.ink }}>This flag is a to-do list.</strong>{' '}
               It is set by a classification rule — an additive or a processing ingredient rather than
-              a whole food — to mark what is worth reading up on. It is not a claim that anything is
-              wrong with the ingredient, and most of these have no study on file at all.
+              a whole food — to mark what is worth reading up on. Most of these have no study on
+              file yet.
             </div>
           </div>
 

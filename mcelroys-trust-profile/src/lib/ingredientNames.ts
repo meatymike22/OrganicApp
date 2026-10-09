@@ -86,6 +86,59 @@ const NOT_INGREDIENTS = new Set([
   'unknown',
   'no',
   'yes',
+
+  // ADDED 2026-10-08 (round 15), from a live query rather than a guess.
+  //
+  // Michael, on a Danone "activia" product: "this product and the ingredient
+  // list make no sense. We need to do a database check for things like this."
+  // Its seven ingredients were: cultured reduced fat milk | cane serv | than
+  // | natural flavor | modified corn sugar | water | modified food starch.
+  //
+  // "than" and "cane serv" are not junk characters — they are FRAGMENTS of
+  // sentences the importer split on commas: "...less than 2% of..." and
+  // "...cane sugar ... per serving". Round 14's cleanup handled names that
+  // CONTAIN boilerplate; it did not handle a stray preposition that became
+  // its own row.
+  //
+  // Every name below was confirmed present in the live Ingredient table with
+  // ZERO research records attached, product reach 1 to 109, about 387 links
+  // in total. Exact-match only, so "one" cannot touch "onion" and "in"
+  // cannot touch "inulin".
+  'each',
+  'less',
+  'one',
+  'two',
+  'serv',
+  'serving',
+  'per',
+  'per serving',
+  'cane serv',
+  'daily',
+  'value',
+  'daily value',
+  'an',
+  'a',
+  'the',
+  'to',
+  'at',
+  'by',
+  'in',
+  'on',
+  'of',
+  'for',
+  'it',
+  'is',
+  'as',
+  'are',
+  'that',
+  'this',
+  'than',
+  'from',
+  'with',
+  'made',
+  'added',
+  'not',
+  'may',
 ])
 
 // Nutrition-panel and packaging boilerplate that was parsed as an

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { colors, font, layout, status, type StatusKey } from '@/lib/design'
 import { AUTHORITIES, type AuthorityKey } from '@/lib/authorities'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 
@@ -178,7 +178,6 @@ export default function SourcingPage() {
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb trail={[{ label: 'Rootify', href: '/' }, { label: 'How we source' }]} />
 
       <div
         style={{

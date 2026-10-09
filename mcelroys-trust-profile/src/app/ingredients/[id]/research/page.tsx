@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
-import { AisleBar, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Callout, Paragraphs, SectionHead, SourceLine, Tag } from '@/components/PageParts'
 import {
   CONSENSUS_LABEL,
@@ -128,14 +128,7 @@ export default async function IngredientResearchPage({
     <>
       <TopNav />
       <AisleBar />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: 'Ingredients', href: '/ingredients' },
-          { label: capitalize(ingredient.name), href: `/ingredients/${ingredient.id}` },
-          { label: 'Research record' },
-        ]}
-      />
+      <BackTo href={`/ingredients/${ingredient.id}`} label={capitalize(ingredient.name)} />
 
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0`, maxWidth: 860 }}>
         <div

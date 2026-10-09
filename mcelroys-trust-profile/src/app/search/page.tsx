@@ -6,7 +6,13 @@ import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { getRecallsListingProducts } from '@/lib/recalls'
-import { companyDisplayName, productDisplayName, shortProductName } from '@/lib/productName'
+import {
+  companyDisplayName,
+  headingWithBrand,
+  productBrand,
+  productDisplayName,
+  shortProductName,
+} from '@/lib/productName'
 import { normalizeUpc } from '@/lib/upc'
 import { brandLookupWhere, pickBrand, searchWhere, tokenise } from '@/lib/productSearch'
 // Only a confirmed company gets a page worth linking an example card to.
@@ -27,7 +33,7 @@ import {
 } from '@/lib/ingredientFilters'
 import { ProductThumb } from '@/components/ProductThumb'
 import { IngredientExcludeBox } from '@/components/IngredientExcludeBox'
-import { AISLES, AisleBar, aisleCategories, aisleLabel, Breadcrumb, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AISLES, AisleBar, aisleCategories, aisleLabel, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalHeader, SignalStrip, StatusKeyPanel } from '@/components/StatusChip'
 
 export const metadata = { title: 'Search' }
@@ -345,6 +351,21 @@ export default async function SearchPage({
     unchecked: countWhere(loaded, (s) => s.some((x) => x.state === 'unchecked')),
   }
 
+  // WHERE THE READER IS, serialised once so a result row can hand it to the
+  // product page as ?from=. That is what makes "back to your filtered
+  // results" possible on a server-rendered product page, which otherwise has
+  // no way to know where anyone came from. Same keys and same order as
+  // FilterRail's linkTo, so the string round-trips to the identical page.
+  const here = (() => {
+    const u = new URLSearchParams()
+    if (q) u.set('q', q)
+    if (aisle) u.set('aisle', aisle)
+    for (const [k, v] of Object.entries(ingredientFilterParams(filters))) u.set(k, v)
+    if (per !== DEFAULT_PAGE_SIZE) u.set('per', String(per))
+    if (page > 1) u.set('page', String(page))
+    return u.toString()
+  })()
+
   // Null when there is no exact count; the pager then goes by hasMore.
   const lastPage =
     loaded === null || loaded.total === null ? null : Math.max(1, Math.ceil(loaded.total / per))
@@ -359,12 +380,6 @@ export default async function SearchPage({
     <>
       <TopNav query={q} />
       <AisleBar active={aisle} />
-      <Breadcrumb
-        trail={[
-          { label: 'Rootify', href: '/' },
-          { label: q ? `Search: ${q}` : aisle ? `Aisle: ${aisleLabel(aisle)}` : 'Products' },
-        ]}
-      />
 
       {/* PAGE HEADER. Same furniture whether or not anything has been asked,
           so searching does not rearrange the page under the reader. */}
@@ -380,6 +395,17 @@ export default async function SearchPage({
         >
           {q ? `“${q}”` : aisle ? aisleLabel(aisle) : 'Products'}
         </h1>
+
+        {/* THE COLOUR KEY, now above the results rather than beside them.
+            Michael, 2026-10-08: "put this color legend at the top of the page
+            instead of to the left." Previously it was the first card in the
+            left rail — which was itself a fix from 2026-10-07, when it sat
+            third and landed level with the fourth result.
+            Full width and one line deep in `bar` mode, so it reads before the
+            first product without pushing it off the screen. */}
+        <div style={{ marginTop: 14 }}>
+          <StatusKeyPanel bar />
+        </div>
       </div>
 
       {/* BODY: filter rail on the left, results on the right */}
@@ -446,7 +472,7 @@ export default async function SearchPage({
                 <>
                   <SignalHeader thumbWidth={THUMB} />
                   {loaded.results.map(({ product, signals }) => (
-                    <ResultRow key={product.id} product={product} signals={signals} />
+                    <ResultRow key={product.id} product={product} signals={signals} from={here} />
                   ))}
                   <Pagination
                     page={page}
@@ -790,7 +816,11 @@ function Tally({ color, text }: { color: string; text: string }) {
 function ResultRow({
   product,
   signals,
+  from,
 }: {
+  // The search this row was listed on, so the product page can offer a way
+  // back to it. Empty string when nothing was asked.
+  from?: string
   product: {
     id: string
     name: string
@@ -825,7 +855,7 @@ function ResultRow({
 
   return (
     <Link
-      href={`/products/${product.id}`}
+      href={from ? `/products/${product.id}?from=${encodeURIComponent(from)}` : `/products/${product.id}`}
       style={{
         display: 'flex',
         gap: 15,
@@ -890,7 +920,10 @@ function ResultRow({
               the same reason: a 90-character label name turns a scannable
               list into a wall. The full name is on the product page, under
               "On the label". See shortProductName in productName.ts. */}
-          {shortProductName(title)}
+          {headingWithBrand(
+            shortProductName(title),
+            productBrand(product.company.legalName, product.company.dbaNames)
+          )}
         </div>
 
         <IngredientPreview product={product} />
@@ -992,8 +1025,6 @@ function FilterRail({
   per: number
   filters: IngredientFilterState
 }) {
-  const base = q ? `?q=${encodeURIComponent(q)}` : '?'
-
   // Every filter link is built from the CURRENT state with one thing changed,
   // so the rail composes: turning on "no seed oils" keeps the search term,
   // the aisle, the page size and any typed exclusions. Page is deliberately
@@ -1023,15 +1054,6 @@ function FilterRail({
 
   return (
     <aside style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* THE COLOUR KEY COMES FIRST.
-          Michael, 2026-10-07: "make sure the colors are at the very top,
-          vertically above the products." It was third in the rail, below the
-          filters and the aisle box, which put it level with the fourth or
-          fifth result — so the one thing a first-time reader needs in order
-          to read anything else was the last thing they reached.
-          Its descriptions were also cut to phrases; see STATUS_MEANINGS. */}
-      <StatusKeyPanel />
-
       {/* WHAT'S NOT IN IT.
           Michael asked to filter by ingredient, broad categories and typed-in
           names both. These are the broad ones, and every one is an EXCLUSION:
@@ -1172,34 +1194,14 @@ function FilterRail({
         )}
       </RailSection>
 
-      <div
-        style={{
-          boxSizing: 'border-box',
-          padding: '14px 15px',
-          background: colors.card,
-          border: `1px solid ${colors.line}`,
-          borderRadius: layout.radius,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-            color: colors.ink2,
-          }}
-        >
-          Aisle
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 10, fontSize: 13.5 }}>
-          {aisle ? (
-            <Link href={base === '?' ? '/search' : `/search${base}`}>Clear aisle filter</Link>
-          ) : (
-            <span style={{ color: colors.ink3 }}>Pick one from the bar above.</span>
-          )}
-        </div>
-      </div>
+      {/* THE AISLE BOX IS GONE. Michael, 2026-10-08: "remove this window.
+          not needed."
+          He is right, and it was mostly empty by design: with no aisle
+          chosen its entire content was "Pick one from the bar above", which
+          is a card explaining a control that is already on screen. With one
+          chosen it held a single "Clear aisle filter" link — and the aisle
+          bar already shows which aisle is active and offers "All aisles",
+          which clears it. A whole panel for a link that exists 200px higher. */}
 
 
       <div
@@ -1215,9 +1217,13 @@ function FilterRail({
         }}
       >
         <strong style={{ color: colors.ink }}>How this list is ordered</strong>
+        {/* "It is not a ranking of which products are better." removed
+            2026-10-08 — see /disclaimer, where the no-scoring commitment now
+            lives in full. What is left states the order positively, which is
+            useful to a reader and claims nothing that needs walking back. */}
         <p style={{ margin: '6px 0 0' }}>
           Most to read about first: recalls, then ingredients with open research, then products we
-          have not been able to check. It is not a ranking of which products are better.
+          have not been able to check.
         </p>
       </div>
     </aside>

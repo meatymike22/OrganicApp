@@ -366,9 +366,73 @@ export function AisleBar({ active }: { active?: string }) {
   )
 }
 
-// The breadcrumb strip. Kept as its own component so the separator and the
-// colour of the current page are identical on every screen.
-export function Breadcrumb({ trail }: { trail: { label: string; href?: string }[] }) {
+// THE BREADCRUMB IS GONE. Michael, across rounds 12, 14 and 15:
+// "why is it that if i click on a product in search, the company page shows
+// up as history when it was never clicked on?", "why am i getting the
+// campbells company in the tab history bar here? i never clicked on the
+// campbells page", "again i never clicked on the ingredients page. why is
+// this present in the tab history?", and — on the same bar — "this doesnt go
+// back to the dairy and eggs filter i applied, it just generally goes back to
+// the generic search".
+//
+// Four complaints, one diagnosis. A breadcrumb shows where a page SITS in a
+// hierarchy; he has read it as where he has BEEN every single time. Round 14
+// trimmed one entry out of the product trail and the complaint came straight
+// back on the next page that had one. The component was not mislabelled or
+// mis-ordered — it was answering a question nobody asked, on nine pages.
+//
+// What he actually wants is the last line: take me back to the list I came
+// from, with my filters still on. That is knowable, but not from the current
+// URL — a server component cannot see where the reader has been. So the
+// origin travels in the link: a search result row links to
+// /products/<id>?from=<its own querystring>, and the product page renders
+// BackLink from that. No `from`, no link, because arriving from a bookmark
+// means there is genuinely nowhere to go back to.
+//
+// This is deliberately NOT a trail. One link, one destination, and it is the
+// destination he asked for.
+export function BackLink({ from, fallbackLabel }: { from?: string; fallbackLabel?: string }) {
+  if (!from) return null
+
+  // `from` is a querystring we minted ourselves on the originating page, but
+  // it arrives through the URL where anyone can retype it, so it is treated
+  // as untrusted: parsed, filtered to the parameters Search actually reads,
+  // and rebuilt. That makes an open-redirect or a javascript: href
+  // impossible — the href is always /search plus known keys.
+  let params: URLSearchParams
+  try {
+    params = new URLSearchParams(from.startsWith('?') ? from.slice(1) : from)
+  } catch {
+    return null
+  }
+
+  // Exactly the keys /search reads, and no others: q, aisle, free (category
+  // filters), without (typed exclusions), no (allergens), per, page. Anything
+  // else in `from` is dropped rather than forwarded.
+  const ALLOWED = ['q', 'aisle', 'free', 'without', 'no', 'per', 'page'] as const
+  const FILTER_KEYS = ['free', 'without', 'no'] as const
+  const clean = new URLSearchParams()
+  for (const key of ALLOWED) {
+    const v = params.get(key)
+    if (v) clean.set(key, v)
+  }
+
+  const qs = clean.toString()
+  const href = qs ? `/search?${qs}` : '/search'
+
+  // The label names the list rather than the action, so it reads as a place
+  // instead of a browser button.
+  const q = clean.get('q') ?? ''
+  const aisleName = aisleLabel(clean.get('aisle') ?? undefined)
+  const filters = FILTER_KEYS.reduce((n, k) => n + (clean.get(k) ? 1 : 0), 0)
+  const label = q
+    ? `Back to \u201c${q}\u201d`
+    : aisleName
+      ? `Back to ${aisleName}`
+      : filters > 0
+        ? 'Back to your filtered results'
+        : (fallbackLabel ?? 'Back to results')
+
   return (
     <div
       style={{
@@ -378,22 +442,73 @@ export function Breadcrumb({ trail }: { trail: { label: string; href?: string }[
         padding: `0 ${layout.gutter}px`,
         display: 'flex',
         alignItems: 'center',
-        gap: 9,
         fontSize: 12.5,
-        color: colors.ink3,
         borderBottom: `1px solid #EBE6DA`,
       }}
     >
-      {trail.map((t, i) => (
-        <span key={`${t.label}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-          {i > 0 && (
-            <span aria-hidden style={{ color: '#C9C2B2' }}>
-              /
-            </span>
-          )}
-          {t.href ? <Link href={t.href}>{t.label}</Link> : <span style={{ color: colors.ink }}>{t.label}</span>}
-        </span>
-      ))}
+      <Link href={href} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+        <svg
+          aria-hidden
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M8 2L3 6l5 4" />
+        </svg>
+        {label}
+      </Link>
+    </div>
+  )
+}
+
+// The other half of the breadcrumb's job, kept because it is the half that
+// was never wrong.
+//
+// Two pages have exactly ONE way in: /products/<id>/sources is reached from
+// that product, and /ingredients/<id>/research is reached from that
+// ingredient. For those, "where this page sits" and "where you came from"
+// are the same answer, so a back link there is honest page history rather
+// than a guess — which is what the trail was on every other page.
+//
+// Same chrome as BackLink so the bar does not change height or style between
+// pages; different component because the two carry different guarantees and
+// collapsing them would invite someone to use this one where the parent is
+// not actually deterministic.
+export function BackTo({ href, label }: { href: string; label: string }) {
+  return (
+    <div
+      style={{
+        height: 44,
+        flexShrink: 0,
+        boxSizing: 'border-box',
+        padding: `0 ${layout.gutter}px`,
+        display: 'flex',
+        alignItems: 'center',
+        fontSize: 12.5,
+        borderBottom: `1px solid #EBE6DA`,
+      }}
+    >
+      <Link href={href} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+        <svg
+          aria-hidden
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M8 2L3 6l5 4" />
+        </svg>
+        {label}
+      </Link>
     </div>
   )
 }
@@ -477,6 +592,25 @@ export function SignalTile({
 // Attribution required by Open Food Facts' licence (ODbL for the database,
 // DbCL for its contents): credit Open Food Facts, link to it, and name the
 // licence wherever its data is shown. See compliance/ in the repo.
+// NOT A DISCLAIMER. DO NOT MOVE THIS TO /disclaimer.
+//
+// The 2026-10-08 sweep took every caveat off the browsing pages at Michael's
+// request. This text survived it and has to keep surviving it, because it is
+// not a statement about what our records mean — it is the attribution clause
+// of two licences we rely on:
+//
+//   ODbL / DbCL  — the Open Food Facts data: names, ingredients, nutrition.
+//   CC BY-SA 3.0 — the product photographs.
+//
+// Both require the credit to accompany the material. A credit on a separate
+// page that the material does not link to is not attribution, so relocating
+// this would put the site in breach of the licence on roughly 180,000 product
+// photographs and the entire product catalogue. Removing the photographs
+// instead is the only alternative.
+//
+// ProductThumb already refuses to render an image whose source it cannot
+// name, for the same reason. Flag the arrangement at legal review; do not
+// quietly tidy it away.
 export function OpenFoodFactsNotice({ style }: { style?: React.CSSProperties }) {
   return (
     <p style={{ margin: 0, fontSize: 12, lineHeight: 1.5, color: colors.ink3, ...style }}>
@@ -504,6 +638,10 @@ export function OpenFoodFactsNotice({ style }: { style?: React.CSSProperties }) 
 export function SiteFooter() {
   const links = [
     { label: 'How we source', href: '/sourcing' },
+    // Added 2026-10-08. Every caveat swept off the browsing pages this round
+    // landed here, so the link has to be on every page or the sweep would
+    // have simply deleted things.
+    { label: 'Disclaimer', href: '/disclaimer' },
     { label: 'Corrections', href: '/corrections' },
     { label: 'Privacy', href: '/privacy' },
     { label: 'Terms', href: '/terms' },
@@ -527,7 +665,13 @@ export function SiteFooter() {
     >
       <div>
         <span style={{ fontFamily: font.display, fontSize: 16, fontWeight: 700, color: colors.ink }}>Rootify</span>
-        <span style={{ marginLeft: 10 }}>We report public records — not health advice.</span>
+        {/* Michael, 2026-10-08: "please take all disclaimers out everywhere
+            that isnt the specific disclaimer page." This said "We report
+            public records — not health advice", which is a disclaimer in the
+            furniture of every page. The first half is what Rootify IS and is
+            worth saying; the second half is now one of the headings on
+            /disclaimer, linked to the right. */}
+        <span style={{ marginLeft: 10 }}>We report public records.</span>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {links.map((l) => (
