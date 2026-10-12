@@ -294,7 +294,39 @@ function HeaderLink({
   )
 }
 
-export function AisleBar({ active }: { active?: string }) {
+// CLICKING AN AISLE NO LONGER THROWS YOUR FILTERS AWAY.
+//
+// Michael, 2026-10-09, twice in one round, once on each filter panel:
+// "if i click an aisle filter, this filter is cleared. this also needs to
+// be fixed."
+//
+// He was right and the cause was one line: every aisle link was built as
+// `/search?aisle=<x>`, a brand-new URL with nothing else on it. So picking
+// an aisle silently discarded the search term, the six ingredient filters,
+// any typed exclusions, the allergen selections and the page size. A
+// shopper who had set up "no seed oils, no peanuts" and then tapped Pantry
+// got plain Pantry and no indication anything had been dropped.
+//
+// `keep` is the current query state, which only the search page has. It is
+// optional because this bar is also on product, company and ingredient
+// pages, where there are no filters to preserve and the aisle link should
+// start a fresh search.
+//
+// `page` is deliberately NOT carried over: a different aisle is a different
+// result set, and page 7 of the old one means nothing. Same reasoning as
+// linkTo() in the search page's rail.
+export function AisleBar({ active, keep }: { active?: string; keep?: string }) {
+  // Built once per render rather than per link. Returns "/search" with the
+  // kept parameters plus this aisle, or without one for "All aisles".
+  const aisleHref = (q?: string) => {
+    const params = new URLSearchParams(keep ?? '')
+    params.delete('aisle')
+    params.delete('page')
+    if (q) params.set('aisle', q)
+    const qs = params.toString()
+    return qs ? `/search?${qs}` : '/search'
+  }
+
   return (
     <nav
       aria-label="Grocery aisles"
@@ -312,7 +344,7 @@ export function AisleBar({ active }: { active?: string }) {
       }}
     >
       <Link
-        href="/search"
+        href={aisleHref()}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -338,7 +370,7 @@ export function AisleBar({ active }: { active?: string }) {
         return (
           <Link
             key={a.q}
-            href={`/search?aisle=${a.q}`}
+            href={aisleHref(a.q)}
             aria-current={isActive ? 'page' : undefined}
             style={{
               display: 'inline-flex',
@@ -566,7 +598,22 @@ export function SignalTile({
   const style: React.CSSProperties = {
     flexGrow: 1,
     flexBasis: 0,
-    minWidth: 0,
+    // WHY THIS IS 132 AND NOT 0. Measured on the live company page at 375px
+    // on 2026-10-11: with `min-width: 0` the four tiles each took about
+    // **31 pixels** and their text was clipped — "Products we list" needed
+    // 68px, the number 565 needed 49px.
+    //
+    // `flex-basis: 0` asks every tile to start from zero width and share
+    // the row equally, which is right on a desktop. But a flex item can
+    // only wrap once it refuses to shrink any further, and `min-width: 0`
+    // told it to shrink indefinitely — so the parent's `flex-wrap: wrap`
+    // never engaged and four tiles stayed on one unreadable line.
+    //
+    // 132px is a floor, not a width: wide enough for the longest label and
+    // a five-digit count, narrow enough that two sit side by side on a
+    // 375px phone. On a desktop nothing changes, because flex-grow still
+    // divides the row equally well above this.
+    minWidth: 132,
     boxSizing: 'border-box',
     padding: '14px 16px',
     background: colors.card,

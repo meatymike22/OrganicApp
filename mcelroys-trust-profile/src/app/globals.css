@@ -206,3 +206,63 @@ a:hover {
     column-count: 1;
   }
 }
+
+/* ---------------------------------------------------------------- MOBILE
+
+   THE SEARCH PAGE ON A PHONE. Added 2026-10-11, the day the site went
+   public on rootify.app, after measuring it at 375px in a real browser.
+
+   WHAT WAS WRONG, measured rather than guessed. On a 375px viewport the
+   search body was a flex row holding a 224px rail with `flex-shrink: 0`
+   beside the results. After the 18px gutters that left the results column
+   **89 pixels wide**, and each result row needs about 830px — the status
+   chip strip alone is a five-column grid at 504px. The page scrolled to
+   1098px, nearly three screens, and a shopper searching "peanut butter"
+   saw two filter panels and a sliver of the first product.
+
+   Every other page measured clean at 375px. This was the one real break,
+   and it was on the page the site is for.
+
+   Why CSS and not an inline style: a layout rule that changes with the
+   viewport cannot be expressed in a style prop. Same reason .rt-inglist
+   and .rt-collapse-meta live here.
+
+   900px rather than 640px because the failure is not phone-specific — it
+   is "the rail plus a readable result row does not fit", which is true of
+   a small tablet and a half-width desktop window too. */
+.rt-searchbody {
+  display: flex;
+  gap: 26px;
+  align-items: flex-start;
+}
+
+.rt-searchrail {
+  width: 224px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .rt-searchbody {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .rt-searchrail {
+    width: 100%;
+  }
+
+  /* The two filter panels stay above the results, because a filter you
+     cannot find is a filter you do not have. They are collapsed by
+     default (round 14), so together they cost about 110px.
+
+     "How this list is ordered" is the bulky one — a heading and four
+     lines of explanation — and it is explanatory rather than functional.
+     It is hidden here rather than moved: the ordering it describes is
+     still visible in the colour key directly above the results, and this
+     round has been cutting explanatory text, not relocating it. */
+  .rt-railnote {
+    display: none;
+  }
+}

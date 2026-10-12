@@ -379,7 +379,11 @@ export default async function SearchPage({
   return (
     <>
       <TopNav query={q} />
-      <AisleBar active={aisle} />
+      {/* `keep` hands the aisle bar the current query state so picking an
+          aisle no longer discards the filters — see AisleBar in
+          SiteChrome.tsx. This is the same `here` string the result rows use
+          for their ?from= back-link, built once above. */}
+      <AisleBar active={aisle} keep={here} />
 
       {/* PAGE HEADER. Same furniture whether or not anything has been asked,
           so searching does not rearrange the page under the reader. */}
@@ -396,28 +400,40 @@ export default async function SearchPage({
           {q ? `“${q}”` : aisle ? aisleLabel(aisle) : 'Products'}
         </h1>
 
-        {/* THE COLOUR KEY, now above the results rather than beside them.
+        {/* THE COLOUR KEY, above the results rather than beside them.
             Michael, 2026-10-08: "put this color legend at the top of the page
-            instead of to the left." Previously it was the first card in the
-            left rail — which was itself a fix from 2026-10-07, when it sat
-            third and landed level with the fourth result.
-            Full width and one line deep in `bar` mode, so it reads before the
-            first product without pushing it off the screen. */}
-        <div style={{ marginTop: 14 }}>
-          <StatusKeyPanel bar />
-        </div>
+            instead of to the left." Full width and one line deep in `bar`
+            mode, so it reads before the first product without pushing it off
+            the screen.
+
+            ONLY WHEN THERE ARE COLOURS TO EXPLAIN. Michael, 2026-10-11:
+            "this legend should only show up when there are colors being
+            shown. for example, on the search landing page, this does not
+            apply."
+
+            Right, and `loaded` is the exact test: it is null when nothing
+            has been asked, which is the one state where no product rows —
+            and therefore no status colours — are on the page. A key to
+            colours that are not on screen is a glossary for a page you have
+            not reached. */}
+        {loaded !== null && (
+          <div style={{ marginTop: 14 }}>
+            <StatusKeyPanel bar />
+          </div>
+        )}
       </div>
 
       {/* BODY: filter rail on the left, results on the right */}
+      {/* .rt-searchbody carries the flex row AND the rule that turns it
+          into a column below 900px. See globals.css — on a 375px phone this
+          row left the results 89px wide. */}
       <div
+        className="rt-searchbody"
         style={{
           flexGrow: 1,
           boxSizing: 'border-box',
           ...SHELL,
           padding: `18px clamp(18px, 4vw, ${layout.gutter}px) 0`,
-          display: 'flex',
-          gap: 26,
-          alignItems: 'flex-start',
         }}
       >
         <FilterRail q={q} aisle={aisle} per={per} filters={filters} />
@@ -1053,7 +1069,10 @@ function FilterRail({
   if (per !== DEFAULT_PAGE_SIZE) carry.per = String(per)
 
   return (
-    <aside style={{ width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    /* Width, flex-shrink and the column layout are all in .rt-searchrail
+       rather than here, because an inline width would override the media
+       query that makes this full-width on a phone. */
+    <aside className="rt-searchrail">
       {/* WHAT'S NOT IN IT.
           Michael asked to filter by ingredient, broad categories and typed-in
           names both. These are the broad ones, and every one is an EXCLUSION:
@@ -1205,6 +1224,7 @@ function FilterRail({
 
 
       <div
+        className="rt-railnote"
         style={{
           boxSizing: 'border-box',
           padding: '14px 15px',
