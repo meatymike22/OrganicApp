@@ -82,7 +82,24 @@ const RULES: {
     kind: 'allergen',
     // The big one: 4,297 notices. Naming the allergen is the whole value.
     match: /undeclared|undisclosed|not declared|allergen|does not declare|fails to declare/i,
-    text: 'Contains something the label does not mention, which matters if you are allergic.',
+    // "SOMETHING" WAS THE PROBLEM. Michael, 2026-10-09, on an FSIS notice:
+    // "contains something?? what is that something? this is too vague."
+    //
+    // Fair, and the honest answer is that the agency did not say. That
+    // notice's entire reason field reads "Misbranding,Unreported
+    // Allergens" — no allergen is named anywhere in the record, so
+    // `extract` below finds nothing and this fallback runs.
+    //
+    // The old wording made our gap look like our choice: "something" reads
+    // as though we know and are not telling. This names the category we DO
+    // know (an allergen) and says plainly why we cannot name the substance.
+    // The agency's own sentence prints directly beneath it, so a reader can
+    // see there is genuinely nothing more in the record.
+    //
+    // Where the notice DOES name the allergen — 4,297 of them do — extract
+    // replaces this entirely with "Contains milk without saying so…".
+    text:
+      'Contains an allergen the label does not mention. The notice does not say which one.',
     extract: {
       pattern:
         /\b(milk|dairy|egg|eggs|peanut|peanuts|tree nut|tree nuts|almond|almonds|cashew|cashews|walnut|walnuts|pecan|pecans|pistachio|pistachios|hazelnut|hazelnuts|macadamia|soy|soya|wheat|gluten|fish|anchovy|anchovies|shellfish|shrimp|crab|lobster|sesame|mustard|sulfite|sulfites|sulphite|sulphites|coconut|lupin|celery)\b/i,
@@ -210,6 +227,16 @@ const CASES: { reason: string; expectKind: string | null; expectIn?: string }[] 
   { reason: 'Undeclared peanuts and tree nuts', expectKind: 'allergen', expectIn: 'peanut' },
   // Allergen with no allergen we recognise: must fall back, not invent one.
   { reason: 'Product contains an undeclared ingredient', expectKind: 'allergen', expectIn: 'does not mention' },
+  // THE REAL ONE Michael found, 2026-10-09, on a Campbell's FSIS notice.
+  // Two things it pins down: the allergen rule must beat the misbranding
+  // rule further down the list (the hazard is the hazard), and with no
+  // allergen named the summary must say the notice does not say which —
+  // not "contains something".
+  {
+    reason: 'Misbranding,Unreported Allergens',
+    expectKind: 'allergen',
+    expectIn: 'does not say which',
+  },
   { reason: 'May contain small metal fragments from wire mesh sifter.', expectKind: 'foreign-material', expectIn: 'metal' },
   { reason: 'Potential presence of food-grade rubber pieces.', expectKind: 'foreign-material', expectIn: 'rubber' },
   { reason: 'Possible presence of stones in product', expectKind: 'foreign-material', expectIn: 'stone' },

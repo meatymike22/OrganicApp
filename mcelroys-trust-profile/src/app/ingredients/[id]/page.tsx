@@ -244,6 +244,11 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
           padding: `22px ${layout.gutter}px 0`,
           display: 'flex',
           gap: 12,
+          // Added 2026-10-11. The company page's identical row already had
+          // this; without it the three tiles here stayed on one line on a
+          // phone and "Rules by country" was clipped. SignalTile's new
+          // 132px floor is what makes the wrap actually happen.
+          flexWrap: 'wrap',
         }}
       >
         <SignalTile
