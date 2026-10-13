@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status } from '@/lib/design'
-import { AisleBar, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+// The product name, spelled the way the product page spells it, so the back
+// link reads as the page it returns to rather than as a database row.
+import { productDisplayName, shortProductName } from '@/lib/productName'
 import { StatusChip } from '@/components/StatusChip'
 // The shared one. This file used to carry its own copy, which drifted: when
 // the "not yet checked by a person" line was removed from PageParts it
@@ -44,6 +47,41 @@ import { assessmentWeight, authority, classificationMeaning } from '@/lib/author
 // copies and should go the same way.
 
 
+// THE WAY BACK TO A PRODUCT. Michael, 2026-10-12, after clicking sorbitol
+// from a Snickers page: "when i click this ingredient after being on the
+// product page, i can't go back: this tab/page history is gone. What
+// happened?"
+//
+// An ingredient page is reached from a product, from search, and from the
+// ingredients index, so where you came from is not knowable from this URL —
+// it has to be carried. The product page now appends `from=p:<id>` (and
+// `pfrom`, its own origin) to every ingredient link it renders; see
+// ingredientOrigin there.
+//
+// NOTHING FROM THE URL IS PRINTED. `from` is accepted only as `p:` plus a
+// uuid, the label is read from our own Product row, and a value naming a
+// product that does not exist produces no link at all rather than a dead
+// one. `pfrom` is passed straight back into a /products URL, where BackLink
+// parses and filters it exactly as it does on arrival from search — so the
+// whole chain (search, product, ingredient) walks backwards without any of
+// it being trusted as given.
+async function backToProduct(
+  from: string | undefined,
+  pFrom: string | undefined,
+): Promise<{ href: string; label: string } | null> {
+  if (!from || !from.startsWith('p:')) return null
+  const id = from.slice(2)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { name: true, company: { select: { legalName: true, dbaNames: true } } },
+  })
+  if (!product) return null
+  const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
+  const qs = pFrom ? `?from=${encodeURIComponent(pFrom)}` : ''
+  return { href: `/products/${id}${qs}`, label: shortProductName(title) }
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const ingredient = await prisma.ingredient.findUnique({ where: { id }, select: { name: true } })
@@ -51,9 +89,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: capitalize(ingredient.name) }
 }
 
-export default async function IngredientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function IngredientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   // In Next.js 15+ the dynamic part of the URL arrives as a Promise.
   const { id } = await params
+  const sp = searchParams ? await searchParams : {}
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
+  const cameFrom = await backToProduct(one(sp.from), one(sp.pfrom))
 
   const ingredient = await prisma.ingredient.findUnique({
     where: { id },
@@ -165,6 +212,8 @@ export default async function IngredientPage({ params }: { params: Promise<{ id:
     <>
       <TopNav />
       <AisleBar />
+      {/* Renders nothing unless the reader arrived from a product page. */}
+      {cameFrom && <BackTo href={cameFrom.href} label={cameFrom.label} />}
 
       {/* HEADER */}
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0` }}>
@@ -466,14 +515,48 @@ function FindingCard({ study, responses }: { study: Study; responses: Study[] })
         </p>
       )}
 
-      {opening.head.length > 0 && (
-        <div style={{ marginTop: headline ? 8 : 11 }}>
+      {/* THE PROSE IS BEHIND THE CHEVRON WHEN THERE IS A HEADLINE.
+          Michael, 2026-10-12, on the aspartame card: "this needs to be more
+          concise. again we need to be communicating this to lets say 18 year
+          olds who have a low attention span. Even I am getting bored reading
+          this."
+
+          What he was reading: two tags, the one-line conclusion, and then
+          265 characters of — "classified aspartame as possibly carcinogenic
+          to humans (Group 2B), citing LIMITED evidence for hepatocellular
+          carcinoma (a liver cancer) in humans, limited evidence in animals,
+          and limited mechanistic evidence". That sentence is the record's
+          first and it was already the shortest clip the budget allows, so
+          trimming the budget would have changed nothing — a whole sentence
+          is always shown, and this record's sentences are long.
+
+          So when the record carries its own conclusion line, that line IS
+          the card: four lines of reading, with every character of the prose
+          one tap below it. A record with no stored conclusion (framingLead
+          returns null for those) still shows its opening, because a card
+          that is nothing but a closed row is worse than a long one.
+
+          NOTHING IS SUMMARISED, as ever. The headline is the stored
+          evidenceFraming value and the prose is untouched; what changed is
+          which of the two is open when the page loads. */}
+      {opening.head.length > 0 && !headline && (
+        <div style={{ marginTop: 11 }}>
           <Paragraphs text={opening.head} />
         </div>
       )}
 
       <div style={{ marginTop: 12 }}>
-        {opening.rest.length > 0 && (
+        {headline && opening.head.length > 0 && (
+          <MiniCollapse label="What the record says">
+            <Paragraphs text={opening.head} />
+            {opening.rest.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <Paragraphs text={opening.rest} />
+              </div>
+            )}
+          </MiniCollapse>
+        )}
+        {!headline && opening.rest.length > 0 && (
           <MiniCollapse label="The rest of this record">
             <Paragraphs text={opening.rest} />
           </MiniCollapse>

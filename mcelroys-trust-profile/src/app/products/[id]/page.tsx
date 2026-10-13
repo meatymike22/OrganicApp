@@ -154,7 +154,38 @@ export default async function ProductPage({
   ])
 
   const flagged = flaggedSignal(forSignals)
-  const recall = recallSignal(forSignals, listed.get(product.id))
+
+  // HOW MANY NOTICES THE SECTION BELOW WILL LIST THAT ARE NOT ABOUT THIS
+  // PRODUCT. Grouped the same way the section groups them, so the chip's
+  // sentence and the section's count are one number arrived at once
+  // (Michael, 2026-10-12: "this says no recalls but below it says there are
+  // 3 recalls or notices"). Cheap: these rows are already in memory.
+  const otherNotices = recalls
+    ? groupRecalls(recalls.brand.items).length + groupRecalls(recalls.process.items).length
+    : 0
+  const recall = recallSignal(forSignals, listed.get(product.id), otherNotices)
+
+  // WHERE A CLICK ON AN INGREDIENT CAME FROM, so the ingredient page can
+  // offer a way back. Michael, 2026-10-12: "when i click this ingredient
+  // after being on the product page, i can't go back: this tab/page history
+  // is gone. What happened?"
+  //
+  // Nothing happened to it — the ingredient page has never had a back link.
+  // The product page got one in round 15 (BackLink, built from the search
+  // row's own querystring) and the chain stopped there, so product to
+  // ingredient was a one-way door.
+  //
+  // Same mechanism as BackLink, one step further along: the origin travels
+  // in the URL, because a server component cannot see where the reader has
+  // been. `from` names this product; `pfrom` carries THIS page's own origin
+  // unchanged, so "back to Snickers" lands on a Snickers page that still
+  // knows the way back to "peanut butter". Both are re-parsed and filtered
+  // where they are read and neither is ever printed to the page.
+  const ingredientOrigin = (() => {
+    const params = new URLSearchParams({ from: `p:${product.id}` })
+    if (fromParam) params.set('pfrom', fromParam)
+    return `?${params.toString()}`
+  })()
   const organic = organicSignal(forSignals)
   const nonGmo = nonGmoSignal(forSignals)
   const owner = ownerSignal(forSignals)
@@ -428,8 +459,19 @@ export default async function ProductPage({
             the one section that is about the product itself rather than
             about its maker's record, and the one a shopper standing in an
             aisle actually came for. */}
-        <Ingredients ingredients={ingredients} product={product} hasOrder={hasOrder} signal={flagged} />
-        <Flagged ingredients={ingredients} signal={flagged} productId={product.id} />
+        <Ingredients
+          ingredients={ingredients}
+          product={product}
+          hasOrder={hasOrder}
+          signal={flagged}
+          origin={ingredientOrigin}
+        />
+        <Flagged
+          ingredients={ingredients}
+          signal={flagged}
+          productId={product.id}
+          origin={ingredientOrigin}
+        />
         <Recalls recalls={recalls} product={product} />
         {/* WHERE THE CERTIFICATES SECTION WAS. Michael, 2026-10-07:
             "Honestly I am not sure how much immediate value this section
@@ -519,8 +561,10 @@ type IngredientRows = {
 // this flagged but then there are no studies?" And: "are you really telling
 // me there are no studies against enriched pasta?"
 //
-// The numbers: 6,250 ingredients carry `flaggedForResearch` and 16 have a
-// study on file. The flag is set by a classification rule in
+// The numbers, re-counted 2026-10-12: 9,090 ingredients carry
+// `flaggedForResearch`, 15 have a study on file and NONE has an authority
+// ruling — there are 20 IngredientStudy rows and 0 authority rows in the
+// whole database. The flag is set by a classification rule in
 // ingredientClassification.ts — an additive or processing ingredient rather
 // than a whole food — and has never meant "research exists".
 //
@@ -547,10 +591,13 @@ function Flagged({
   ingredients,
   signal,
   productId,
+  origin,
 }: {
   ingredients: IngredientRows
   signal: Signal
   productId: string
+  // The querystring that tells the ingredient page how to get back here.
+  origin: string
 }) {
   const flagged = ingredients.filter((pi) => pi.ingredient.flaggedForResearch)
   const withStudies = flagged.filter((pi) => pi.ingredient._count.studies > 0)
@@ -618,7 +665,7 @@ function Flagged({
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {withStudies.map((pi) => (
-                    <FlaggedRow key={pi.ingredient.id} pi={pi} />
+                    <FlaggedRow key={pi.ingredient.id} pi={pi} origin={origin} />
                   ))}
                 </div>
               </>
@@ -634,7 +681,7 @@ function Flagged({
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {withAuthority.map((pi) => (
-                    <AuthorityRow key={pi.ingredient.id} pi={pi} />
+                    <AuthorityRow key={pi.ingredient.id} pi={pi} origin={origin} />
                   ))}
                 </div>
               </div>
@@ -667,7 +714,7 @@ function Flagged({
                   {classifiedOnly.map((pi) => (
                     <Link
                       key={pi.ingredient.id}
-                      href={`/ingredients/${pi.ingredient.id}`}
+                      href={`/ingredients/${pi.ingredient.id}${origin}`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -712,10 +759,10 @@ function Flagged({
 }
 
 // One flagged ingredient we actually hold research on.
-function FlaggedRow({ pi }: { pi: IngredientRows[number] }) {
+function FlaggedRow({ pi, origin }: { pi: IngredientRows[number]; origin: string }) {
   return (
     <Link
-      href={`/ingredients/${pi.ingredient.id}`}
+      href={`/ingredients/${pi.ingredient.id}${origin}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -761,7 +808,7 @@ function FlaggedRow({ pi }: { pi: IngredientRows[number] }) {
 // we hold but have not written a plain-English reading for still gets a row;
 // it just gets a neutral chip saying a classification exists, because the
 // alternative is hiding a record we have.
-function AuthorityRow({ pi }: { pi: IngredientRows[number] }) {
+function AuthorityRow({ pi, origin }: { pi: IngredientRows[number]; origin: string }) {
   const codes = [...pi.ingredient.authorityAssessments].sort(
     (a, b) => assessmentWeight(a.classificationCode) - assessmentWeight(b.classificationCode),
   )
@@ -770,7 +817,7 @@ function AuthorityRow({ pi }: { pi: IngredientRows[number] }) {
 
   return (
     <Link
-      href={`/ingredients/${pi.ingredient.id}#authorities`}
+      href={`/ingredients/${pi.ingredient.id}${origin}#authorities`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -872,7 +919,7 @@ function Recalls({
         />
         {processed.length > 0 && (
           <Group
-            heading="Notices about how food was made or handled"
+            heading="Other recalls by this company"
             empty=""
             groups={processed}
             state="unchecked"
@@ -890,8 +937,27 @@ function Recalls({
                 would be a false statement about a named company, which is the
                 exact exposure the sourcing rules exist to prevent. This is
                 not a caveat about our opinion; it is which fact is on screen.
-                Flagged to Michael in thread. */
-            preamble="These name this company or its parent, not this product."
+
+                THE HEADING ABOVE CHANGED, 2026-10-12. Michael: "again, a
+                skittles recall is not a notice regarding snickers. This
+                section could instead say 'related recalls this company has
+                had' not 'Notices about how food was made or handled' but the
+                title of this section is misleading."
+
+                It was. The bucket's rule is "a process-related food recall
+                issued by this company or a parent, matched to no product of
+                ours" — which describes how we FOUND the notice, not what a
+                reader is looking at. The Skittles notice sitting under it
+                names three product lines, none of them this one, and a
+                heading about how food was handled told the reader nothing
+                about that.
+                The heading is now his wording, shortened. The limit it does
+                not state — that this list is the process-related ones, not
+                every notice the company has — is why the second sentence
+                below points at the company page, which holds all of them. */
+            preamble={`These name ${companyDisplayName(
+              product.company.legalName
+            )} or a parent company, not this product. Its full record is on the company page.`}
           />
         )}
       </div>
@@ -967,9 +1033,49 @@ function Group({
 // Native <details> again: no JavaScript, no hydration, and the nested
 // .rt-collapse rules are all direct-child selectors so this sits inside the
 // section's own <details> without the two fighting.
+// WHICH PRODUCTS A NOTICE COVERED, SHORT ENOUGH FOR THE COLLAPSED ROW.
+//
+// Two comments from Michael, 2026-10-12, and one line answers both:
+//   "again, a skittles recall is not a notice regarding snickers."
+//   "2 recalls that contain the same exact information are here. This is too
+//    redundant. Either don't omit too much information so there is a
+//    meaningful difference, or take out one to avoid too much redundancy"
+//
+// He was on a Snickers page whose two brand notices summarised to the SAME
+// sentence — "Contains peanuts that the label does not mention" — because
+// both are peanut misbranding recalls: Combos in 2016, M&M's in 2014. The
+// one fact that tells them apart was behind the chevron, in "What it
+// covered". Dropping either card was the other option he offered and it is
+// the wrong one: both are real notices against the named company, and
+// choosing which government record a reader may see to cut repetition is
+// not a thing this site does.
+//
+// So the distinguishing fact moves up. It is a VERBATIM EXCERPT of the
+// agency's own productDescription, clipped at a word boundary — NOT a
+// product name parsed out of it. The strings are inconsistent enough
+// ("COMBOS  SNACK BUFFALO BLUE CHEESE PRETZEL - Net Wt. 1.80 (51 g)  oz",
+// 'SKITTLES" Gummies  " Original  " Wild Berry') that any parser would
+// eventually print the wrong product name on a recall, which is the one
+// mistake here that actually matters. Only runs of whitespace are collapsed;
+// the full text is two lines below, unchanged.
+const COVERED_CHARS = 56
+
+function coveredExcerpt(desc: string | null | undefined): string | null {
+  if (!desc) return null
+  const flat = desc.replace(/\s+/g, ' ').trim()
+  if (!flat) return null
+  if (flat.length <= COVERED_CHARS) return flat
+  const cut = flat.slice(0, COVERED_CHARS)
+  const space = cut.lastIndexOf(' ')
+  // A 56-character run with no space in it has no boundary to cut on, and a
+  // hard cut beats printing the whole string.
+  return `${(space > 24 ? cut.slice(0, space) : cut).trim()}\u2026`
+}
+
 function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof status }) {
   const item = g.lead
   const note = evidenceNote(item)
+  const covered = coveredExcerpt(item.productDescription)
   // PLAIN WORDS IN THE SUMMARY, THE AGENCY'S IN THE BODY. Michael,
   // 2026-10-07: "these recalls and notices need to be heavily condensed and
   // explained to a 5 year old (not in baby talk but in concise simple
@@ -1020,6 +1126,12 @@ function RecallItemCard({ g, state }: { g: RecallGroup; state: keyof typeof stat
       <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.6, color: colors.ink }}>
         {plain ? plain.text : item.reason}
       </p>
+      {covered && (
+        <p style={{ margin: '7px 0 0', fontSize: 12, lineHeight: 1.5, color: colors.ink3 }}>
+          <strong style={{ fontWeight: 600, color: colors.ink2 }}>Covered: </strong>
+          {covered}
+        </p>
+      )}
     </>
   )
 
@@ -1270,11 +1382,14 @@ function Ingredients({
   product,
   hasOrder,
   signal,
+  origin,
 }: {
   ingredients: IngredientRows
   product: { id: string; ingredientSource: string | null; ingredientDisclosureStatus: string }
   hasOrder: boolean
   signal: Signal
+  // The querystring that tells the ingredient page how to get back here.
+  origin: string
 }) {
   // COLLAPSIBLE, like every other section.
   //
@@ -1303,7 +1418,7 @@ function Ingredients({
             <IngredientSummary ingredients={ingredients} />
             <div className="rt-inglist" style={{ marginTop: 13 }}>
               {ingredients.map((pi) => (
-                <IngredientRow key={pi.ingredient.id} pi={pi} />
+                <IngredientRow key={pi.ingredient.id} pi={pi} origin={origin} />
               ))}
             </div>
             <SourceNote productId={product.id} what="This ingredient list" />
@@ -1405,7 +1520,7 @@ function filterHref(category: string): string {
 // scored — the amber on a flagged row is the same amber the rest of the site
 // uses for "there is research to read", and a row with nothing on file is
 // plain, not green.
-function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
+function IngredientRow({ pi, origin }: { pi: IngredientRows[number]; origin: string }) {
   const studies = pi.ingredient._count.studies
   const authorities = pi.ingredient.authorityAssessments.length
 
@@ -1437,16 +1552,40 @@ function IngredientRow({ pi }: { pi: IngredientRows[number] }) {
   // classification; it no longer colours a row on its own.
   const holdsSomething = holding !== null
 
+  // FLAGGED, BUT NOTHING TO READ. Michael, 2026-10-12: "the flagged
+  // ingredient isn't being highlighted." On that page the flagged
+  // ingredient is sorbitol, which has no study, no ruling and no country
+  // rule on file.
+  //
+  // This is the other side of his round-15 instruction — "if there is
+  // nothing on file it shouldn't be highlighted" — and both complaints are
+  // right. Amber here means "there is research to read", so a row with
+  // nothing behind it must not wear it; but the row was then pixel-identical
+  // to a row of salt, which is what he is objecting to now.
+  //
+  // So it gets the neutral marker rather than the amber one: the same 3px
+  // rule, in the grey that already means "nothing on file" everywhere else
+  // on the site. No background, no bold, nothing that reads as a warning —
+  // the row says "this is an additive we have not researched", which is
+  // exactly what is true of it.
+  const flaggedOnly = !holdsSomething && pi.ingredient.flaggedForResearch
+
   return (
     <Link
-      href={`/ingredients/${pi.ingredient.id}`}
+      href={`/ingredients/${pi.ingredient.id}${origin}`}
       style={{
         display: 'flex',
         alignItems: 'baseline',
         gap: 9,
         boxSizing: 'border-box',
         padding: '7px 10px 7px 9px',
-        borderLeft: `3px solid ${holdsSomething ? status.openResearch.fg : 'transparent'}`,
+        borderLeft: `3px solid ${
+          holdsSomething
+            ? status.openResearch.fg
+            : flaggedOnly
+              ? status.nothingOnFile.fg
+              : 'transparent'
+        }`,
         borderBottom: `1px solid ${colors.line}`,
         background: holdsSomething ? status.openResearch.bg : 'transparent',
         textDecoration: 'none',

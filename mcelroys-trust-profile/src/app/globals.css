@@ -266,3 +266,28 @@ a:hover {
     display: none;
   }
 }
+
+/* THE STATUS CHIPS ON A SEARCH ROW.
+
+   Second half of the 2026-10-11 mobile fix, measured on the deployed
+   preview rather than assumed. Stacking the filter rail took the page from
+   723px of horizontal overflow down to 512px — better, and still broken.
+   What was left is this: SIGNAL_COLUMNS is five fixed columns totalling
+   504px before any gap, so every result row was 869px wide on a 375px
+   screen no matter how much room the column around it had.
+
+   Two columns rather than one: five stacked chips would make each result
+   row about 200px tall, and twenty-five of those is a page nobody scrolls.
+   Two keeps a row scannable and fits inside 339px with room to spare.
+
+   minmax(0, 1fr) rather than 1fr — without the zero minimum a grid track
+   refuses to shrink below its content, which is the same mistake that made
+   SignalTile squeeze to 31px instead of wrapping. */
+@media (max-width: 900px) {
+  .rt-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .rt-signalhead {
+    display: none;
+  }
+}

@@ -186,7 +186,7 @@ export default function HomePage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", boxSizing: "border-box", padding: "10px 11px", background: "#FFFFFF", border: "1px solid #E6E1D6", borderLeft: "3px solid #1D4D3C", borderRadius: "8px" }}>
                   <span style={{ width: "22px", display: "flex", justifyContent: "center" }} aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1D4D3C" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg></span>
-                  <span style={{ fontSize: "11.5px", fontWeight: "600", lineHeight: "1.3", color: "#1D4D3C" }}>No recalls on record</span>
+                  <span style={{ fontSize: "11.5px", fontWeight: "600", lineHeight: "1.3", color: "#1D4D3C" }}>No recalls for this product</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", boxSizing: "border-box", padding: "10px 11px", background: "#FFFFFF", border: "1px solid #E6E1D6", borderLeft: "3px solid #6B3F6E", borderRadius: "8px" }}>
                   <span style={{ width: "22px", display: "flex", justifyContent: "center" }} aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6B3F6E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V9l5-3 5 3v11M14 20V13l6-3v10M3 20h18" /></svg></span>

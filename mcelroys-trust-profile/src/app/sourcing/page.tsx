@@ -126,10 +126,14 @@ const GLOSSARY: {
   },
   {
     question: 'Recalls',
-    answer: 'No recalls',
-    state: 'nothingOnFile',
+    // RENAMED WITH THE CHIP, 2026-10-12, and the state corrected with it.
+    // This row had drifted twice over: the chip has returned `confirmed`
+    // while this table said `nothingOnFile`, and the words claimed more
+    // than the chip checks. Both now give one answer.
+    answer: 'None for this product',
+    state: 'confirmed',
     means:
-      'No government notice in the records we hold — FDA, FSIS, CPSC and CBP — lists this product\u2019s barcode.',
+      'No government notice in the records we hold — FDA, FSIS, CPSC and CBP — lists this product\u2019s barcode. A notice naming the company without naming this product is counted on the product page under recalls and government notices, not here.',
     notMeans:
       'That the product has never been recalled. We hold what those four agencies publish, going back as far as each one publishes, and a notice that never named a barcode cannot be matched to a product at all.',
   },

@@ -188,7 +188,27 @@ export function flaggedSignal(p: ProductForSignals): Signal {
 // notices whose own text lists this product's barcode. Nothing weaker counts
 // as a recall OF this product — a brand-level notice is a recall of the
 // brand, and it is shown separately on the product page.
-export function recallSignal(p: ProductForSignals, listed: RecallItem[] | undefined): Signal {
+// `otherNotices` is how many notice EVENTS the product page's recalls section
+// will list that do NOT list this product: notices naming the company, and
+// process notices naming no product of ours. It is optional because the
+// search rows have no section below them to disagree with.
+//
+// IT EXISTS BECAUSE THE CHIP AND THE SECTION CONTRADICTED EACH OTHER.
+// Michael, 2026-10-12, on the Snickers page: "this says no recalls but below
+// it says there are 3 recalls or notices. this is a bad discrepancy and needs
+// to be fixed."
+//
+// Both numbers were right about different questions. Nothing lists that
+// product's barcode, so this function said "No recalls"; three notices name
+// Mars or its plants, so the section counted 3. A reader does not hold two
+// questions in mind — they read the chip as the page's answer. So the chip
+// now answers the narrow question in words that ADMIT it is narrow, and says
+// out loud that there is more below.
+export function recallSignal(
+  p: ProductForSignals,
+  listed: RecallItem[] | undefined,
+  otherNotices = 0,
+): Signal {
   if (listed && listed.length > 0) {
     const newest = listed[0]
     const year = isoYear(newest.actionDate)
@@ -217,11 +237,20 @@ export function recallSignal(p: ProductForSignals, listed: RecallItem[] | undefi
     }
   }
 
+  // "NONE FOR THIS PRODUCT", NOT "NO RECALLS". The scope is in the label
+  // because the label is what gets read, and the old one claimed the whole
+  // page. Still `confirmed`: we did check, and the barcode is not on any
+  // notice we hold — which is a fact, just a narrower one than it looked.
   return {
     column: 'recalls',
     state: 'confirmed',
-    label: 'No recalls',
-    detail: 'No government notice we hold lists this product.',
+    label: 'None for this product',
+    detail:
+      otherNotices > 0
+        ? `No government notice we hold lists this product. ${otherNotices} ${
+            otherNotices === 1 ? 'notice names' : 'notices name'
+          } this company or its plants without naming this product; they are listed under recalls and government notices below.`
+        : 'No government notice we hold lists this product.',
     asOf: null,
   }
 }

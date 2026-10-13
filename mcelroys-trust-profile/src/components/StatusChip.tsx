@@ -149,7 +149,12 @@ export const SIGNAL_COLUMNS = '126px 126px 126px 126px 1fr'
 
 export function SignalStrip({ signals }: { signals: Signal[] }) {
   return (
+    // .rt-signals re-lays this as two columns below 900px. Measured on the
+    // live site at 375px: these five fixed columns are 504px before any gap,
+    // which made every search result row 869px wide and scrolled the page
+    // sideways by 512px even after the filter rail was fixed. See globals.css.
     <div
+      className="rt-signals"
       style={{
         display: 'grid',
         gridTemplateColumns: SIGNAL_COLUMNS,
@@ -177,7 +182,12 @@ export function SignalStrip({ signals }: { signals: Signal[] }) {
 // slot is organic — the header is what makes the column self-describing.
 export function SignalHeader({ thumbWidth = 66 }: { thumbWidth?: number | string }) {
   return (
+    // Hidden below 900px by .rt-signalhead. These are column headers, and
+    // below that width the chips stop being columns — they wrap into two.
+    // Headers for columns that no longer exist would be worse than none, and
+    // the colour key above the results already names every state.
     <div
+      className="rt-signalhead"
       style={{
         display: 'flex',
         gap: 15,
