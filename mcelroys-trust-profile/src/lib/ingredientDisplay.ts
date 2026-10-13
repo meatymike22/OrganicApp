@@ -81,6 +81,10 @@ const FAMILY_OF: Record<string, AdditiveKey> = {
   emulsifier: 'emulsifier',
 
   'seed oil': 'oil',
+  // Added 2026-10-13 with the classifier rule. Shares the oil family rather
+  // than taking a ninth hue, because every name in it contains the word
+  // "hydrogenated" and the row already says so. See design.ts.
+  'hydrogenated fat': 'oil',
 
   // Cosmetic-product categories. Real records, far too rare to earn a hue.
   'sulfate surfactant': 'other',
@@ -181,6 +185,12 @@ export type FamilyGloss = {
   // Verbatim, where a Codex functional class maps cleanly. Attributed in the
   // UI to GLOSSARY_SOURCE, never shown as ours.
   codex?: string
+  // A regulatory fact about this class, where one exists, naming the agency
+  // in the sentence itself. Deliberately NOT merged with `codex`, which is a
+  // DEFINITION: this is an ACTION a named regulator took, and the two must
+  // not read as the same kind of statement. Same rule that keeps a study and
+  // an authority classification apart.
+  note?: string
 }
 
 const GLOSSARY: Record<AdditiveKey, FamilyGloss> = {
@@ -214,7 +224,14 @@ const GLOSSARY: Record<AdditiveKey, FamilyGloss> = {
   },
   oil: {
     plain:
-      'An oil pressed from seeds rather than from a fruit or an animal. An ingredient in its own right, not an additive.',
+      'An oil or fat, an ingredient in its own right rather than an additive. Two kinds sit here: oils pressed from seeds, and fats hardened by hydrogenation \u2014 which the name always says.',
+    // Not a Codex functional class, so no `codex` line: an oil is an
+    // ingredient, not an additive, and no additive class defines one.
+    // What there IS is a US federal line around the PROCESS, and it is the
+    // one entry in this glossary that is a regulatory action rather than a
+    // definition, so it names the agency that took it.
+    note:
+      'The FDA determined in June 2015 that partially hydrogenated oils are no longer Generally Recognized as Safe for any human food use, with a final compliance date of 1 January 2021. That is a finding about the process, not about seed oils, which carry no such determination.',
   },
   other: {
     plain: 'An additive we have classified, in a class too uncommon to have its own colour here.',
@@ -229,9 +246,16 @@ export function glossFor(key: AdditiveKey): FamilyGloss {
 // an ingredient row, so the two can never word it differently.
 export function familyHelp(key: AdditiveKey): string {
   const g = GLOSSARY[key]
-  return g.codex
-    ? `${g.plain}\n\n${GLOSSARY_SOURCE.label}: “${g.codex}”`
-    : g.plain
+  // Three paragraphs at most, each a different kind of statement: ours, a
+  // standards body's definition, a regulator's action. Any that is absent
+  // is omitted rather than left as an empty line.
+  return [
+    g.plain,
+    g.codex ? `${GLOSSARY_SOURCE.label}: “${g.codex}”` : null,
+    g.note,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
 
 // The same thing for an ingredient's stored category, which is what a row
@@ -362,6 +386,18 @@ if (process.argv[1]?.includes('ingredientDisplay')) {
   eq('a dye quotes Codex', (glossFor('dye').codex ?? '').startsWith('A food additive'), true)
   eq('help text carries the attribution', familyHelp('dye').includes('Codex Alimentarius'), true)
   eq('help text omits attribution when there is no quote', familyHelp('oil').includes('Codex'), false)
+  // The oil family carries a regulatory NOTE rather than a Codex definition.
+  // One is what a class is; the other is what a regulator did.
+  eq('the oil family has no Codex definition', glossFor('oil').codex, undefined)
+  eq('but it does carry a regulatory note', (glossFor('oil').note ?? '').includes('FDA'), true)
+  eq('and the note reaches the help text', familyHelp('oil').includes('2015'), true)
+  eq('a hydrogenated fat is in the oil family', familyFor('hydrogenated fat'), 'oil')
+  eq('a seed oil is still in the oil family', familyFor('seed oil'), 'oil')
+  eq(
+    'both oil categories give one legend entry',
+    familiesPresent(['seed oil', 'hydrogenated fat']),
+    ['oil']
+  )
   eq('a stored category resolves to help', (categoryHelp('emulsifier') ?? '').length > 20, true)
   eq('no category means no help', categoryHelp(null), null)
 

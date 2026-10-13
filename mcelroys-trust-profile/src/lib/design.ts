@@ -136,7 +136,14 @@ export const additive = {
   sweetener: { label: 'Sweetener added', fg: '#0F6E7A', bg: '#E2EFF1' },
   preservative: { label: 'Preservative', fg: '#3F4DA8', bg: '#E7E9F6' },
   emulsifier: { label: 'Emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },
-  oil: { label: 'Seed oil', fg: '#1F6FA0', bg: '#E3EEF4' },
+  // RELABELLED 2026-10-13 from "Seed oil". The family now holds two stored
+  // categories, `seed oil` and `hydrogenated fat`, and "Seed oil" would be a
+  // false label on hydrogenated palm, which is not pressed from a seed.
+  // A ninth hue was the alternative and was rejected: the two are told apart
+  // by the ingredient's own name, which contains the word "hydrogenated" in
+  // every case, so a colour would be carrying information the row already
+  // has. See the oil entry in the glossary.
+  oil: { label: 'Oil or fat added', fg: '#1F6FA0', bg: '#E3EEF4' },
   // Categories too rare to earn a hue, and any category a later
   // classification pass invents. Deliberately NOT the same grey as
   // status.nothingOnFile: this one means "an additive we have classified",

@@ -216,6 +216,57 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     // subject of ongoing safety discussion, particularly for infant products.
     keywords: ['benzalkonium chloride', 'benzethonium chloride', 'chlorhexidine'],
   },
+  {
+    // HYDROGENATION IS A PROCESS. SEED OIL IS A SOURCE. They are different
+    // questions, and this rule sits AFTER the seed-oil rule on purpose.
+    //
+    // Michael, 2026-10-13: "sure hydrogenated fats and seed oils can be
+    // separate if there is a standard that exists for separating them."
+    //
+    // THERE IS, and it is stronger than the one "seed oil" rests on. In June
+    // 2015 the FDA made a final determination that PARTIALLY HYDROGENATED
+    // OILS are no longer Generally Recognized as Safe for any human food
+    // use, with a final compliance date of 1 January 2021, and completed the
+    // administrative actions in 2023 (Federal Register document 2023-16725,
+    // "Revocation of Uses of Partially Hydrogenated Oils in Foods"). That is
+    // a federal regulatory line drawn around a PROCESS. "Seed oil" by
+    // contrast is a botanical grouping with no regulatory status at all.
+    //
+    // WHY THIS IS NOT A CATEGORY SWAP, and the database settles it. Counted
+    // 2026-10-13, names containing "hydrogenat":
+    //
+    //   already `seed oil`   214 names,  7,935 product links
+    //   no category at all   366 names,  5,087 product links
+    //   other categories      12 names
+    //
+    // `partially hydrogenated soybean oil` is BOTH a seed oil and a
+    // hydrogenated fat. One `category` column cannot hold two independent
+    // facts, so filing hydrogenation as a category would have moved those
+    // 214 names out of `seed oil` and silently dropped 7,935 links out of
+    // the "no seed oils" filter. First-match-wins ordering is what avoids
+    // that: a name whose SOURCE we can identify keeps its source, and this
+    // rule catches only the 366 that had nothing.
+    //
+    // THE PROPER FIX IS TWO AXES — a source category and a processing
+    // attribute — which needs a column, and belongs with the Phase 1
+    // migration rather than ahead of it. This closes the visible half of
+    // item 34 without pre-empting that shape.
+    //
+    // THIS RULE MUST STAY LAST IN THE ARRAY. classifyIngredient() is
+    // first-match-wins, and 'hydrogenated' is a substring of names that
+    // belong to other categories: 7 emulsifiers, 2 preservatives, 2 dyes
+    // and 1 flavouring contain it. Placed anywhere above those rules it
+    // shadows them — which the first draft of this change did, moving 12
+    // names and 27 links out of categories that were already right.
+    category: 'hydrogenated fat',
+    // ONLY 'hydrogenated'. Interesterified fats are the industry
+    // replacement for PHOs and arguably belong in the same processing
+    // category, but the FDA determination cited above does not cover them,
+    // and adding a keyword on the strength of a standard that does not
+    // mention it is the kind of quiet over-reach the sourcing rules exist to
+    // stop. Logged as a question instead.
+    keywords: ['hydrogenated'],
+  },
 ]
 
 // Ingredient names that should be flagged on an EXACT match only. Substring
