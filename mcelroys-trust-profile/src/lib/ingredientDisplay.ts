@@ -63,7 +63,12 @@ const FAMILY_OF: Record<string, AdditiveKey> = {
   'artificial dye': 'dye',
 
   'undisclosed flavoring': 'flavour',
-  'undisclosed fragrance': 'flavour',
+  // Separated 2026-10-13 at Michael's instruction: "separate flavor and
+  // fragrance". Scale, so the change is not mistaken for a big one: 16
+  // ingredient names carry `undisclosed fragrance`, across 115 product
+  // links, and all of them are non-food products. It is the right shape and
+  // it will almost never appear on a grocery label.
+  'undisclosed fragrance': 'fragrance',
 
   'sugar substitute': 'sweetener',
   'artificial sweetener': 'sweetener',
@@ -95,6 +100,7 @@ export function familyFor(category: string | null | undefined): AdditiveKey | nu
 const LEGEND_ORDER: AdditiveKey[] = [
   'dye',
   'flavour',
+  'fragrance',
   'sweetener',
   'preservative',
   'emulsifier',
@@ -184,7 +190,11 @@ const GLOSSARY: Record<AdditiveKey, FamilyGloss> = {
   },
   flavour: {
     plain:
-      'Something added for taste or smell. The label is allowed to say only "natural flavor" or "artificial flavor", so the actual substances are not published.',
+      'Something added for taste. The label is allowed to say only "natural flavor" or "artificial flavor", so the actual substances are not published.',
+  },
+  fragrance: {
+    plain:
+      'Something added for smell. As with flavour, the label may say only "fragrance", so the actual substances are not published. In our data this appears on non-food products.',
   },
   sweetener: {
     plain: 'Something added to make the food taste sweet in place of, or alongside, sugar.',
@@ -298,7 +308,12 @@ if (process.argv[1]?.includes('ingredientDisplay')) {
   }
 
   eq('a dye is a dye', familyFor('artificial dye'), 'dye')
-  eq('preservative and emulsifier share a family', familyFor('preservative'), familyFor('emulsifier'))
+  // DELETED 2026-10-13, and this note is why. This line asserted that
+  // preservative and emulsifier SHARE a family, which was true when round 18
+  // wrote it. Round 19 split them at Michael's instruction and added the
+  // opposite assertion below without removing this one, so the suite spent a
+  // round asserting both. The split is covered by 'preservative and
+  // emulsifier are separate now' and by the two-legend-entries case.
   eq('no category means no family', familyFor(null), null)
   eq('an empty string is not a family', familyFor(''), null)
   // A category the classifier invents later must still get a colour rather
@@ -335,6 +350,14 @@ if (process.argv[1]?.includes('ingredientDisplay')) {
   // The near-miss this file exists to avoid: a flavouring is not a flavour
   // enhancer, so no Codex line may be attached to it.
   eq('no borrowed Codex line on flavourings', glossFor('flavour').codex, undefined)
+  eq('nor on fragrances', glossFor('fragrance').codex, undefined)
+  // The r20 split: these two must not collapse back together.
+  eq('flavour and fragrance are separate', familyFor('undisclosed fragrance'), 'fragrance')
+  eq(
+    'and they are two legend entries',
+    familiesPresent(['undisclosed fragrance', 'undisclosed flavoring']),
+    ['flavour', 'fragrance']
+  )
   eq('no Codex line on seed oil', glossFor('oil').codex, undefined)
   eq('a dye quotes Codex', (glossFor('dye').codex ?? '').startsWith('A food additive'), true)
   eq('help text carries the attribution', familyHelp('dye').includes('Codex Alimentarius'), true)

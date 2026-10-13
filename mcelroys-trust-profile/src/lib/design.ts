@@ -125,7 +125,14 @@ export type StatusKey = keyof typeof status
 // brown rather than next to each other.
 export const additive = {
   dye: { label: 'Colour added', fg: '#A0357A', bg: '#F6E8F1' },
-  flavour: { label: 'Flavour or fragrance added', fg: '#7A3FA0', bg: '#F0E8F7' },
+  flavour: { label: 'Flavour added', fg: '#7A3FA0', bg: '#F0E8F7' },
+  // SPLIT FROM FLAVOUR 2026-10-13: "separate flavor and fragrance". They
+  // were one entry because the two stored categories are rare together and
+  // read as a pair; they are not one. A flavouring is eaten and a fragrance
+  // is smelled, and `undisclosed fragrance` appears only on non-food
+  // products in our data. Close in hue to flavour on purpose — they are
+  // adjacent facts, and the legend labels carry the difference.
+  fragrance: { label: 'Fragrance added', fg: '#A34A86', bg: '#F7E9F2' },
   sweetener: { label: 'Sweetener added', fg: '#0F6E7A', bg: '#E2EFF1' },
   preservative: { label: 'Preservative', fg: '#3F4DA8', bg: '#E7E9F6' },
   emulsifier: { label: 'Emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },

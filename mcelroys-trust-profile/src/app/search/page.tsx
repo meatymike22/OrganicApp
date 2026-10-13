@@ -945,7 +945,16 @@ function ResultRow({
         <IngredientPreview product={product} />
 
         <div style={{ marginTop: 7 }}>
-          <SignalStrip signals={signals} />
+          {/* GLYPHS ON A RESULT ROW, WORDS ON A PRODUCT PAGE. Michael,
+              2026-10-13: "Maybe just put an X here instead of all this text.
+              no words, just symbols or numbers for all of these."
+
+              A result row is for scanning twenty products; the product page
+              is for reading one. So the row carries the mark and any number
+              the label held, and the product page's table keeps its words.
+              The colour key above these results shows each mark beside its
+              term, which is what makes the row readable at all. */}
+          <SignalStrip signals={signals} glyphs />
         </div>
       </div>
 

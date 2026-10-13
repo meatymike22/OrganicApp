@@ -24,6 +24,7 @@ import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible, InfoDot } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
 import { AisleBar, BackLink, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { VisitTrail } from '@/components/VisitTrail'
 import { SignalTable, SignalTableNote, StatusChip } from '@/components/StatusChip'
 
 // WHAT A "GOVERNMENT NOTICE" IS, written once.
@@ -332,9 +333,20 @@ export default async function ProductPage({
           product header about 40 pixels below this bar, which is the natural
           place to go up to the company from. One route up, not two, and no
           row that looks like a history entry nobody created. */}
-      {/* Renders nothing unless the reader arrived from a list. See BackLink
-          in SiteChrome.tsx for why the breadcrumb is gone. */}
-      <BackLink from={fromParam} />
+      {/* THE TRAIL, WITH THE ONE-STEP BACK LINK AS ITS FALLBACK.
+          Michael, 2026-10-13: "why isnt the tab history here? i should be
+          able to know exactly what tabs i have clicked through this section."
+
+          He was on this page having arrived from a related-products card,
+          which carries no `?from=`, so BackLink rendered nothing at all.
+
+          VisitTrail shows the pages he has actually opened in this tab, and
+          falls back to BackLink when there is only one stop, so there is one
+          bar and never two. See the long note in VisitTrail.tsx for why this
+          is not the breadcrumb returning. */}
+      <VisitTrail label={title}>
+        <BackLink from={fromParam} />
+      </VisitTrail>
 
       {/* HEADER */}
       <div

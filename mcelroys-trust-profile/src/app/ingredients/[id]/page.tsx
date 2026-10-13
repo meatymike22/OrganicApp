@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { additive, colors, font, layout, status } from '@/lib/design'
 import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { VisitTrail } from '@/components/VisitTrail'
 // The product name, spelled the way the product page spells it, so the back
 // link reads as the page it returns to rather than as a database row.
 import { productDisplayName, shortProductName } from '@/lib/productName'
@@ -244,8 +245,11 @@ export default async function IngredientPage({
     <>
       <TopNav />
       <AisleBar />
-      {/* Renders nothing unless the reader arrived from a product page. */}
-      {cameFrom && <BackTo href={cameFrom.href} label={cameFrom.label} />}
+      {/* Same trail as the product page, with the product back link as its
+          fallback for a first visit. See VisitTrail.tsx. */}
+      <VisitTrail label={capitalize(ingredient.name)}>
+        {cameFrom ? <BackTo href={cameFrom.href} label={cameFrom.label} /> : null}
+      </VisitTrail>
 
       {/* HEADER */}
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0` }}>

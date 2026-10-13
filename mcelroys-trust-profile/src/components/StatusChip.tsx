@@ -34,19 +34,50 @@ function Icon({ state }: { state: StatusKey }) {
     // A dash: we looked, and there is nothing on file. Deliberately the
     // quietest mark in the set — an absence, not a cross.
     case 'nothingOnFile':
-    case 'notApplicable':
       return (
         <svg {...common} strokeWidth={3.5} strokeLinecap="round">
           <path d="M6 12h12" />
         </svg>
       )
+    // A CIRCLE WITH A SLASH: the question cannot apply to this product.
+    //
+    // SPLIT OUT OF THE DASH 2026-10-13, and the reason is the whole point of
+    // the icon set. Michael asked for the chips on a search row to lose
+    // their words: "Maybe just put an X here instead of all this text. no
+    // words, just symbols or numbers for all of these."
+    //
+    // That is only safe if each state has its OWN mark. These two shared a
+    // dash, and their colours are deliberately close (a true grey and a warm
+    // stone), so with the labels gone "Not on file" and "Doesn't apply"
+    // would have been indistinguishable — which is the single distinction
+    // design.ts argues hardest to protect. "We checked and found nothing" and
+    // "this question cannot apply" are different statements about a product.
+    case 'notApplicable':
+      return (
+        <svg {...common} strokeWidth={2.4} strokeLinecap="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M6 18L18 6" />
+        </svg>
+      )
     // An exclamation in a circle: there is something here to read.
     case 'openResearch':
-    case 'recall':
       return (
         <svg {...common} strokeWidth={2.6} strokeLinecap="round">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7.5v5M12 16.5h.01" />
+        </svg>
+      )
+    // AN EXCLAMATION IN A TRIANGLE: a recall is on the public record. Split
+    // from openResearch in the same change and for the same reason — with
+    // the labels gone, "Flagged" and "Recalled" cannot share a mark. The
+    // triangle is the one piece of borrowed iconography on the site, and it
+    // is borrowed on purpose: it is the shape a reader already reads as
+    // "this is the serious one" without being taught.
+    case 'recall':
+      return (
+        <svg {...common} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3.8L21.5 20H2.5L12 3.8z" />
+          <path d="M12 9.5v4.5M12 17.4h.01" />
         </svg>
       )
     // A question mark: we could not look. Not a judgement on the product.
@@ -83,18 +114,24 @@ export function StatusChip({
   bold?: boolean
 }) {
   const s = status[state]
+  // A GLYPH-ONLY CHIP IS NOW A SUPPORTED SHAPE. When SignalStrip runs in
+  // `glyphs` mode a chip can have no children at all, and an empty <span>
+  // left a stray 4px gap after the mark.
+  const hasText = children !== null && children !== undefined && children !== ''
   const inner = (
     <>
       <Icon state={state} />
-      <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {children}
-      </span>
+      {hasText && (
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {children}
+        </span>
+      )}
     </>
   )
 
@@ -148,7 +185,47 @@ export function StatusChip({
 // ellipsised. A status chip that truncates is worse than a wide column.
 export const SIGNAL_COLUMNS = '126px 126px 126px 126px 1fr'
 
-export function SignalStrip({ signals }: { signals: Signal[] }) {
+// THE SAME GRID FOR A ROW OF GLYPHS. Added 2026-10-13 with the glyph mode:
+// a mark plus at most a short number needs about a third of the width a
+// phrase does, and keeping 126px columns would have left four chips floating
+// in white space.
+//
+// Still FIXED columns, for the reason the note above gives: a shopper reads
+// down a result list, not across, so the third cell has to be the organic
+// answer on every row whatever it says. Glyphs make that stronger, not
+// weaker — a column of identical marks with one odd one out is the easiest
+// thing on this site to scan.
+//
+// A SIDE EFFECT WORTH RECORDING: this is 190px of chips rather than 504px,
+// which is what round 16 had to stack into two rows below 900px to stop the
+// search page scrolling sideways. The glyph row fits a phone outright.
+export const SIGNAL_COLUMNS_GLYPH = '44px 44px 44px 44px 1fr'
+
+// NUMBERS SURVIVE, WORDS DO NOT. Michael, 2026-10-13, on a search result
+// row: "Maybe just put an X here instead of all this text. no words, just
+// symbols or numbers for all of these."
+//
+// So `glyphs` renders the mark alone, plus any NUMBER the label carried,
+// with the full label moved onto the hover. A number is the one piece of a
+// label that a symbol cannot replace: "6" flagged ingredients and
+// "Recalled 2016" are facts, not phrasing.
+//
+// TWO THINGS DELIBERATELY KEEP THEIR WORDS.
+//
+// The OWNER column, because a company name is the datum. There is no symbol
+// for "Mars, Incorporated", and a building glyph on its own would say only
+// "this product has an owner", which every product does.
+//
+// And the colour key above the results, which now shows each mark beside its
+// term. A row of bare glyphs is only readable if the glyphs are learnable
+// somewhere on the same page, and that key is where. Without it this change
+// would trade clutter for a puzzle.
+function numberIn(label: string): string | null {
+  const m = label.match(/\d[\d,]*/)
+  return m ? m[0] : null
+}
+
+export function SignalStrip({ signals, glyphs }: { signals: Signal[]; glyphs?: boolean }) {
   return (
     // .rt-signals re-lays this as two columns below 900px. Measured on the
     // live site at 375px: these five fixed columns are 504px before any gap,
@@ -158,22 +235,31 @@ export function SignalStrip({ signals }: { signals: Signal[] }) {
       className="rt-signals"
       style={{
         display: 'grid',
-        gridTemplateColumns: SIGNAL_COLUMNS,
+        gridTemplateColumns: glyphs ? SIGNAL_COLUMNS_GLYPH : SIGNAL_COLUMNS,
         gap: 6,
         alignItems: 'center',
       }}
     >
-      {signals.map((sig) => (
-        <StatusChip
-          key={sig.column}
-          state={sig.state}
-          href={sig.href}
-          title={[sig.detail, sig.asOf ? `Read ${sig.asOf}` : null].filter(Boolean).join(' ')}
-          bold={sig.state !== 'nothingOnFile' && sig.state !== 'notApplicable'}
-        >
-          {sig.label}
-        </StatusChip>
-      ))}
+      {signals.map((sig) => {
+        // The owner column keeps its text; see the note above.
+        const asGlyph = glyphs && sig.column !== 'owner'
+        const num = asGlyph ? numberIn(sig.label) : null
+        return (
+          <StatusChip
+            key={sig.column}
+            state={sig.state}
+            href={sig.href}
+            // The label is not lost, it moved. It leads the hover, because
+            // "Recalled 2016" is what the reader is trying to recover.
+            title={[asGlyph ? sig.label : null, sig.detail, sig.asOf ? `Read ${sig.asOf}` : null]
+              .filter(Boolean)
+              .join(' \u2014 ')}
+            bold={sig.state !== 'nothingOnFile' && sig.state !== 'notApplicable'}
+          >
+            {asGlyph ? num : sig.label}
+          </StatusChip>
+        )
+      })}
     </div>
   )
 }
@@ -373,19 +459,25 @@ export function StatusKeyPanel({ bar }: { bar?: boolean } = {}) {
               color: status[e.state].fg,
             }}
           >
+            {/* THE MARK, NOT A SWATCH, as of 2026-10-13. It was a coloured
+                square, which was enough while every chip also carried its
+                words. Now that a search row's chips are glyphs alone, this
+                key is the only place the glyphs are taught — so it has to
+                show the same mark the row shows. The colour still comes
+                through: the icon is drawn in currentColor, which this row
+                already sets to the state's own foreground. */}
             <span
               aria-hidden
               style={{
+                display: 'inline-flex',
                 width: 10,
-                height: 10,
-                borderRadius: 3,
-                background: status[e.state].fg,
+                justifyContent: 'center',
                 flexShrink: 0,
-                // Nudged down so a square sits on the text baseline rather
-                // than hanging off the cap height.
-                transform: 'translateY(1px)',
+                transform: 'translateY(2px)',
               }}
-            />
+            >
+              <Icon state={e.state} />
+            </span>
             <dt style={{ fontWeight: 700 }}>{e.term}</dt>
             {/* Column 2 of row 2: under the term, never under the swatch. */}
             <dd style={{ gridColumn: 2, margin: 0, opacity: 0.85 }}>{e.note}</dd>
