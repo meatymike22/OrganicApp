@@ -6,6 +6,7 @@ import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/S
 // The product name, spelled the way the product page spells it, so the back
 // link reads as the page it returns to rather than as a database row.
 import { productDisplayName, shortProductName } from '@/lib/productName'
+import { baseDyeOf } from '@/lib/ingredientDisplay'
 import { StatusChip } from '@/components/StatusChip'
 // The shared one. This file used to carry its own copy, which drifted: when
 // the "not yet checked by a person" line was removed from PageParts it
@@ -208,6 +209,32 @@ export default async function IngredientPage({
       ),
   )
 
+  // A LAKE POINTS AT ITS DYE RATHER THAN COPYING ITS RECORD.
+  //
+  // Michael, 2026-10-13: "why are the lake variants not highligheted?" The
+  // product page now shows the base dye's research on a lake's row, marked
+  // "studied as Yellow 6". This page is the other half of that: arrive from
+  // such a row and the page has to say where the record actually is.
+  //
+  // IT LINKS RATHER THAN RE-RENDERING THE DYE'S CARDS. A research record
+  // printed on two ingredient pages is two places for it to drift, and the
+  // record belongs to the dye — rendering it under this page's heading
+  // would read as a study of the lake itself.
+  //
+  // Only consulted when this page has nothing of its own, so a lake that
+  // gains its own record is never overruled by its dye's. It has to sit
+  // after `rules` and `assessments` are built, because it reads both.
+  const baseName =
+    studyCount === 0 && assessments.length === 0 && rules.length === 0
+      ? baseDyeOf(ingredient.name)
+      : null
+  const baseDye = baseName
+    ? await prisma.ingredient.findFirst({
+        where: { name: baseName },
+        select: { id: true, name: true, _count: { select: { studies: true } } },
+      })
+    : null
+
   return (
     <>
       <TopNav />
@@ -350,6 +377,7 @@ export default async function IngredientPage({
           responses={responses}
           flagged={ingredient.flaggedForResearch}
           ingredientId={ingredient.id}
+          baseDye={baseDye && baseDye._count.studies > 0 ? baseDye : null}
         />
         <Authorities assessments={assessments} />
         <Rules rules={rules} />
@@ -416,11 +444,15 @@ function Studies({
   responses,
   flagged,
   ingredientId,
+  baseDye,
 }: {
   findings: Study[]
   responses: Map<string, Study[]>
   flagged: boolean
   ingredientId: string
+  // Set only when this ingredient is a colour lake that has no record of its
+  // own and the dye it is made from has one. See where it is computed.
+  baseDye: { id: string; name: string; _count: { studies: number } } | null
 }) {
   return (
     <section>
@@ -431,7 +463,20 @@ function Studies({
       />
       <div style={{ marginTop: 14 }}>
         {findings.length === 0 ? (
-          flagged ? (
+          baseDye ? (
+            <Callout state="openResearch">
+              This is a lake of {capitalize(baseDye.name)} — the same colour additive,
+              fixed onto a substrate. We hold no study on the lake itself, and{' '}
+              {baseDye._count.studies === 1
+                ? '1 research record'
+                : `${baseDye._count.studies} research records`}{' '}
+              on{' '}
+              <Link href={`/ingredients/${baseDye.id}`} style={{ color: colors.link, fontWeight: 600 }}>
+                {capitalize(baseDye.name)}
+              </Link>
+              .
+            </Callout>
+          ) : flagged ? (
             <Callout state="unchecked">
               This ingredient is on our research list. No studies have been added yet.
             </Callout>

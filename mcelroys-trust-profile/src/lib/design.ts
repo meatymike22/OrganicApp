@@ -7,14 +7,36 @@
 // (a Tailwind config) where the same value is written slightly differently.
 //
 // THE ONE RULE THAT MATTERS
-// Colour means STATUS — what the public record says. It never means "good"
-// or "bad", and there is NO RED anywhere in this palette. That is not a
-// styling preference: Rootify publishes records, not verdicts, and a red
-// badge is a verdict. Grey is not a mark against a product; it means we
-// looked and there was nothing on file.
+// Colour never means "good" or "bad", and there is NO RED and no traffic
+// light anywhere in this palette. That is not a styling preference: Rootify
+// publishes records, not verdicts, and a red badge is a verdict. Grey is not
+// a mark against a product; it means we looked and there was nothing on file.
 //
-// Category (which aisle a product is in) has no colour of its own — it is
-// carried by a glyph and a plain label. See CategoryGlyph.tsx.
+// Which AISLE a product is in still has no colour of its own — it is carried
+// by a glyph and a plain label. See CategoryGlyph.tsx.
+//
+// THIS RULE WAS AMENDED 2026-10-13, and the amendment is written here rather
+// than worked around quietly. It used to read "colour means STATUS", full
+// stop. It now has a second, deliberately narrow job: the `additive` scale
+// below names which CLASS OF ADDITIVE an ingredient is, on the ingredient
+// list of a product page. Michael asked for it twice in one round — "we
+// should categorize ingredients based on color", "preservatives and
+// emulsifiers should get their own text highlight color" — and chose, from
+// three options, a hue per class with NO ordering between them rather than a
+// concern ramp.
+//
+// What keeps that inside the rule rather than outside it:
+//   - "This is a dye" is a fact read off the label. The hues are unordered,
+//     so no family reads as worse than another, and none of them is red or
+//     green.
+//   - The two scales never meet on one element. `status` is chips, rules and
+//     tiles; `additive` appears only on an ingredient row's left rule and in
+//     the legend directly above that list.
+//   - Amber (openResearch) stays out of the additive scale entirely, because
+//     it already means "there is research to read" on these same rows.
+// If a later round wants to order these hues by concern, that is the scoring
+// system this project refuses to build, and it needs a different argument
+// than this comment.
 
 export const colors = {
   // Surfaces and text
@@ -69,6 +91,38 @@ export const status = {
 } as const
 
 export type StatusKey = keyof typeof status
+
+// WHICH CLASS OF ADDITIVE AN INGREDIENT IS. Read the amended rule at the top
+// of this file before adding to this.
+//
+// UNORDERED BY CONSTRUCTION. There is no red and no green in here, so the
+// set cannot be read as a ramp from bad to good: red would mark a verdict,
+// and green would mark the uncoloured rows as the bad ones by contrast.
+// Amber is absent because it means "research to read" on these same rows.
+// `fg` is the row's left rule and the legend's text; `bg` is the legend
+// swatch, and the pairing is what was contrast-checked.
+//
+// `label` is the legend wording and it is a description, never a warning.
+// "Colour added" says what the ingredient does. "Artificial colour" would
+// smuggle in a judgement about artificial things that the record does not
+// make.
+export const additive = {
+  dye: { label: 'Colour added', fg: '#A0357A', bg: '#F6E8F1' },
+  flavour: { label: 'Flavour or fragrance added', fg: '#6B3FA0', bg: '#EFE8F7' },
+  sweetener: { label: 'Sweetener added', fg: '#0F6E7A', bg: '#E2EFF1' },
+  // One hue for the pair, at Michael's wording: "preservatives and
+  // emulsifiers ... are add ons". The exact category is still on the row's
+  // tooltip.
+  shelfLife: { label: 'Preservative or emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },
+  oil: { label: 'Seed oil', fg: '#2F5EA8', bg: '#E4EAF4' },
+  // Categories too rare to earn a hue, and any category a later
+  // classification pass invents. Deliberately NOT the same grey as
+  // status.nothingOnFile: this one means "an additive we have classified",
+  // which is the opposite of nothing on file.
+  other: { label: 'Other additive', fg: '#5A5F62', bg: '#ECEDEE' },
+} as const
+
+export type AdditiveKey = keyof typeof additive
 
 // The three thumbnail tints. Category gets no status colour, but a food
 // product and a dish brush should not look identical at a glance.

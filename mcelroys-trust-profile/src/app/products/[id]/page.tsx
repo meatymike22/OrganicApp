@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma'
 // The filter catalogue, so a category chip on this page links to the search
 // filter that means the same thing by the same word.
 import { INGREDIENT_FILTERS } from '@/lib/ingredientFilters'
-import { colors, font, isoDate, layout, status } from '@/lib/design'
+import { additive, colors, font, isoDate, layout, status } from '@/lib/design'
+import { baseDyeOf, familiesPresent, familyFor } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import {
@@ -18,7 +19,7 @@ import {
 import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
 import { plainReason } from '@/lib/plainRecall'
 import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
-import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, type RecallGroup } from '@/lib/recalls'
+import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, noticeNamesBrand, type RecallGroup } from '@/lib/recalls'
 import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
@@ -196,6 +197,63 @@ export default async function ProductPage({
   // positions were never recorded says so rather than showing a list in
   // whatever order the database returned.
   const hasOrder = product.productIngredients.every((pi) => pi.listPosition !== null)
+
+  // A LAKE BORROWS ITS DYE'S RECORD. Michael, 2026-10-13: "why are the lake
+  // variants not highligheted?"
+  //
+  // One extra indexed query, and only when the label actually carries a lake.
+  // See the long note on LAKE_BASE in ingredientDisplay.ts for why the set of
+  // lakes is an explicit list rather than a "strip trailing lake" rule.
+  const lakeBases = [
+    ...new Set(
+      product.productIngredients
+        .map((pi) => baseDyeOf(pi.ingredient.name))
+        .filter((n): n is string => n !== null)
+    ),
+  ]
+  const baseDyeRows = lakeBases.length
+    ? await prisma.ingredient.findMany({
+        where: { name: { in: lakeBases } },
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { studies: true } },
+          authorityAssessments: { select: { classificationCode: true } },
+        },
+      })
+    : []
+  const baseByName = new Map(baseDyeRows.map((r) => [r.name, r]))
+
+  // WHAT WE HOLD ON EACH ROW, decided once for the whole page.
+  //
+  // Computed here rather than inside the row component so the ingredient
+  // list and the flagged-ingredients section below it cannot disagree about
+  // which ingredients have research. Two components asking the same question
+  // separately is how this codebase has drifted three times before.
+  const researchByIngredient = new Map<string, Research>()
+  for (const pi of product.productIngredients) {
+    const own: Research = {
+      studies: pi.ingredient._count.studies,
+      authorities: pi.ingredient.authorityAssessments.length,
+    }
+    if (own.studies > 0 || own.authorities > 0) {
+      researchByIngredient.set(pi.ingredient.id, own)
+      continue
+    }
+    const baseName = baseDyeOf(pi.ingredient.name)
+    const base = baseName ? baseByName.get(baseName) : undefined
+    const borrowed = base
+      ? { studies: base._count.studies, authorities: base.authorityAssessments.length }
+      : { studies: 0, authorities: 0 }
+    researchByIngredient.set(
+      pi.ingredient.id,
+      base && (borrowed.studies > 0 || borrowed.authorities > 0)
+        // `via` is what makes this honest: the row says the record belongs to
+        // the base dye, so nobody reads it as a study of the lake itself.
+        ? { ...borrowed, viaName: base.name, viaId: base.id }
+        : own
+    )
+  }
 
   // THE INGREDIENT ROW OF THE TABLE, as a Signal like the others.
   //
@@ -465,12 +523,14 @@ export default async function ProductPage({
           hasOrder={hasOrder}
           signal={flagged}
           origin={ingredientOrigin}
+          research={researchByIngredient}
         />
         <Flagged
           ingredients={ingredients}
           signal={flagged}
           productId={product.id}
           origin={ingredientOrigin}
+          research={researchByIngredient}
         />
         <Recalls recalls={recalls} product={product} />
         {/* WHERE THE CERTIFICATES SECTION WAS. Michael, 2026-10-07:
@@ -592,21 +652,26 @@ function Flagged({
   signal,
   productId,
   origin,
+  research,
 }: {
   ingredients: IngredientRows
   signal: Signal
   productId: string
   // The querystring that tells the ingredient page how to get back here.
   origin: string
+  // The same map the ingredient list above uses. These three lists answer
+  // the same question that list's amber dot answers, so they must come from
+  // one place, or a colour lake reads as researched in one section and not
+  // the other on the same page.
+  research: Map<string, Research>
 }) {
+  const held = (pi: IngredientRows[number]): Research =>
+    research.get(pi.ingredient.id) ?? { studies: 0, authorities: 0 }
+
   const flagged = ingredients.filter((pi) => pi.ingredient.flaggedForResearch)
-  const withStudies = flagged.filter((pi) => pi.ingredient._count.studies > 0)
-  const withAuthority = flagged.filter(
-    (pi) => pi.ingredient._count.studies === 0 && pi.ingredient.authorityAssessments.length > 0,
-  )
-  const classifiedOnly = flagged.filter(
-    (pi) => pi.ingredient._count.studies === 0 && pi.ingredient.authorityAssessments.length === 0,
-  )
+  const withStudies = flagged.filter((pi) => held(pi).studies > 0)
+  const withAuthority = flagged.filter((pi) => held(pi).studies === 0 && held(pi).authorities > 0)
+  const classifiedOnly = flagged.filter((pi) => held(pi).studies === 0 && held(pi).authorities === 0)
 
   return (
     <Collapsible
@@ -665,7 +730,7 @@ function Flagged({
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {withStudies.map((pi) => (
-                    <FlaggedRow key={pi.ingredient.id} pi={pi} origin={origin} />
+                    <FlaggedRow key={pi.ingredient.id} pi={pi} origin={origin} research={held(pi)} />
                   ))}
                 </div>
               </>
@@ -707,8 +772,20 @@ function Flagged({
                     So it stays — and now it is a plain bold line like the two
                     headings above it instead of a boxed grey panel, which is
                     how it should have looked from the start. */}
+                {/* JUST THE WORD. Michael, 2026-10-13: "just say
+                    Researching. No need for this giant sentence."
+
+                    It read "Classified as worth checking, not yet
+                    researched". Round 14 argued for that length on the
+                    grounds that a heading is the claim and a reader must be
+                    able to tell the three lists apart without hovering.
+                    That held when the heading was all a reader had. It does
+                    not hold now: the section's tooltip carries the full
+                    explanation of what the flag means, and the two headings
+                    above this one state what they hold, so this list is the
+                    remainder by elimination. */}
                 <p style={{ margin: '0 0 9px', fontSize: 13, fontWeight: 600, color: colors.ink }}>
-                  Classified as worth checking, not yet researched
+                  Researching
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {classifiedOnly.map((pi) => (
@@ -759,7 +836,15 @@ function Flagged({
 }
 
 // One flagged ingredient we actually hold research on.
-function FlaggedRow({ pi, origin }: { pi: IngredientRows[number]; origin: string }) {
+function FlaggedRow({
+  pi,
+  origin,
+  research,
+}: {
+  pi: IngredientRows[number]
+  origin: string
+  research: Research
+}) {
   return (
     <Link
       href={`/ingredients/${pi.ingredient.id}${origin}`}
@@ -787,13 +872,16 @@ function FlaggedRow({ pi, origin }: { pi: IngredientRows[number]; origin: string
             pi.listPosition !== null ? `#${pi.listPosition} on the label` : null,
             pi.isTrace ? 'listed as a trace amount' : null,
             pi.concentrationNote,
+            // Named here for the same reason the ingredient row names it:
+            // the record belongs to the base dye, not to this lake.
+            research.viaName ? `studied as ${sentenceCase(research.viaName)}` : null,
           ]
             .filter(Boolean)
             .join(' · ')}
         </div>
       </div>
       <StatusChip state="openResearch">
-        {pi.ingredient._count.studies === 1 ? '1 study' : `${pi.ingredient._count.studies} studies`}
+        {research.studies === 1 ? '1 study' : `${research.studies} studies`}
       </StatusChip>
       <span style={{ fontSize: 20, color: colors.link }} aria-hidden>
         &rsaquo;
@@ -873,17 +961,35 @@ function Recalls({
   product,
 }: {
   recalls: Awaited<ReturnType<typeof getProductRecalls>>
-  product: { id: string; company: { legalName: string } }
+  product: { id: string; name: string; company: { legalName: string } }
 }) {
   if (!recalls) return null
   const { thisProduct, brand, process } = recalls
+
+  // THE MIDDLE BUCKET IS NOW BRAND-SCOPED. Michael, 2026-10-13: "one of the
+  // recalls is for not M&Ms. The recalls should ONLY be for M&Ms in this
+  // recall section, and others should be in 'other recalls by this
+  // company'."
+  //
+  // `noticeNamesBrand` returns null when no brand could be derived from the
+  // product name, and null means do not split — every company notice stays
+  // here, which is the old behaviour. So a product whose name starts with a
+  // generic word loses nothing. See the long note in recalls.ts.
+  const sameBrand = brand.items.filter((it) => noticeNamesBrand(product.name, it) !== false)
+  const otherBrands = brand.items.filter((it) => noticeNamesBrand(product.name, it) === false)
 
   // Grouped before counting, so the number in the collapsed header is the
   // number of recall EVENTS a reader would recognise, not the number of
   // enforcement records the agency happened to file.
   const listed = groupRecalls(thisProduct.items)
-  const named = groupRecalls(brand.items)
-  const processed = groupRecalls(process.items)
+  const named = groupRecalls(sameBrand)
+  // Re-sorted after the merge: the two source lists were each newest-first,
+  // and concatenating two sorted lists does not give a sorted list.
+  const processed = groupRecalls(
+    [...otherBrands, ...process.items].sort(
+      (a, b) => (b.actionDate?.getTime() ?? 0) - (a.actionDate?.getTime() ?? 0)
+    )
+  )
   const total = listed.length + named.length + processed.length
 
   return (
@@ -955,9 +1061,16 @@ function Recalls({
                 not state — that this list is the process-related ones, not
                 every notice the company has — is why the second sentence
                 below points at the company page, which holds all of them. */
-            preamble={`These name ${companyDisplayName(
+            // REWORDED 2026-10-13 with the brand split above. It used to
+            // say these name the company "not this product", which was true
+            // of the process notices but is now also home to notices that
+            // DO name a product — another of the company's brands. The
+            // sentence has to cover both, and still has to point at the
+            // company page, because this list is the process-related
+            // notices plus the other brands, not every notice the firm has.
+            preamble={`Notices against ${companyDisplayName(
               product.company.legalName
-            )} or a parent company, not this product. Its full record is on the company page.`}
+            )} or a parent company that do not name this product. Its full record is on the company page.`}
           />
         )}
       </div>
@@ -1345,7 +1458,7 @@ function Shelf({ products, myTotal }: { products: RelatedProduct[]; myTotal?: nu
                     productType={p.productType}
                     size={48}
                     intrinsic={120}
-                    label={p.name}
+                    label={relatedTitle(p)}
                   />
                   <span style={{ flexGrow: 1, minWidth: 0 }}>
                     <span
@@ -1357,7 +1470,7 @@ function Shelf({ products, myTotal }: { products: RelatedProduct[]; myTotal?: nu
                         color: colors.ink,
                       }}
                     >
-                      {p.name}
+                      {relatedTitle(p)}
                     </span>
                     <span style={{ display: 'block', fontSize: 11.5, color: colors.ink3, marginTop: 3 }}>
                       {companyDisplayName(p.company.legalName)}
@@ -1377,12 +1490,26 @@ function Shelf({ products, myTotal }: { products: RelatedProduct[]; myTotal?: nu
   )
 }
 
+// WHAT WE HOLD ON ONE INGREDIENT, after the lake-to-dye step.
+//
+// `viaName` is set only when the record belongs to a DIFFERENT ingredient
+// than the row — a colour lake showing its base dye's research. When it is
+// set, the row must print it. The whole defence of borrowing the record is
+// that the reader can see whose record it is.
+type Research = {
+  studies: number
+  authorities: number
+  viaName?: string
+  viaId?: string
+}
+
 function Ingredients({
   ingredients,
   product,
   hasOrder,
   signal,
   origin,
+  research,
 }: {
   ingredients: IngredientRows
   product: { id: string; ingredientSource: string | null; ingredientDisclosureStatus: string }
@@ -1390,6 +1517,9 @@ function Ingredients({
   signal: Signal
   // The querystring that tells the ingredient page how to get back here.
   origin: string
+  // Decided once in the page component, so this list and the flagged
+  // section below it cannot disagree. Keyed by ingredient id.
+  research: Map<string, Research>
 }) {
   // COLLAPSIBLE, like every other section.
   //
@@ -1416,9 +1546,15 @@ function Ingredients({
         ) : (
           <>
             <IngredientSummary ingredients={ingredients} />
-            <div className="rt-inglist" style={{ marginTop: 13 }}>
+            <AdditiveLegend ingredients={ingredients} />
+            <div className="rt-inglist" style={{ marginTop: 11 }}>
               {ingredients.map((pi) => (
-                <IngredientRow key={pi.ingredient.id} pi={pi} origin={origin} />
+                <IngredientRow
+                  key={pi.ingredient.id}
+                  pi={pi}
+                  origin={origin}
+                  research={research.get(pi.ingredient.id) ?? { studies: 0, authorities: 0 }}
+                />
               ))}
             </div>
             <SourceNote productId={product.id} what="This ingredient list" />
@@ -1440,6 +1576,22 @@ function Ingredients({
 // organic" says the label said so for 18 of them — the wording has to carry
 // that, because an organic CERTIFICATE is a different record on this page and
 // a reader should not come away thinking the two are the same thing.
+// ONE TITLE SCHEMA, INCLUDING HERE. Michael, 2026-10-13, with the comment
+// pinned to a card on this shelf: "These products need to have professional
+// looking title names. Capitalize first letters where appropriate (excluding
+// non important prepositions ...) so we can have a standard title schema".
+//
+// Every other surface already routed its product names through
+// productDisplayName — search rows, the product h1, company cards, the
+// sources page — and this shelf printed `p.name` raw, so it was the one
+// place a lower-case Open Food Facts name reached the screen untouched.
+// titleCaseName now lives inside productDisplayName, so sending this shelf
+// through the same function fixes the casing and strips the repeated brand
+// in one step, and no surface can drift from the schema again.
+function relatedTitle(p: RelatedProduct): string {
+  return productDisplayName(p.name, p.company.legalName)
+}
+
 function IngredientSummary({ ingredients }: { ingredients: IngredientRows }) {
   const organic = ingredients.filter((pi) => pi.isOrganicSourced).length
   const flagged = ingredients.filter((pi) => pi.ingredient.flaggedForResearch).length
@@ -1520,74 +1672,123 @@ function filterHref(category: string): string {
 // scored — the amber on a flagged row is the same amber the rest of the site
 // uses for "there is research to read", and a row with nothing on file is
 // plain, not green.
-function IngredientRow({ pi, origin }: { pi: IngredientRows[number]; origin: string }) {
-  const studies = pi.ingredient._count.studies
-  const authorities = pi.ingredient.authorityAssessments.length
+// THE LEGEND, AND ONLY FOR THIS LABEL.
+//
+// Michael, 2026-10-13: "we should categorize ingredients based on color and
+// have a VERY concise legend about them up here."
+//
+// So it prints only the families this product actually has. A label with two
+// dyes and a preservative gets two entries, not the whole scheme — a legend
+// listing colours that are not on screen is a thing you have to read twice.
+//
+// WHAT IS DELIBERATELY NOT HERE: an entry for the uncoloured rows. There is
+// no honest one-word label for them. "Natural" is the obvious choice and it
+// would be false: on the M&M'S label that prompted all of this,
+// `hydrogenated palm kernel oil`, `cornstarch` and `dextrin` carry no
+// category, and 355 of our 579 hydrogenated-oil names are unclassified
+// (features item 34). An uncoloured row means "no category on file", which
+// is a fact about OUR records, not about the food. The one line under the
+// swatches says exactly that, and it is the only sentence in this block.
+function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
+  const families = familiesPresent(ingredients.map((pi) => pi.ingredient.category))
+  if (families.length === 0) return null
 
-  // What we hold, said in as few words as fits on the row. Studies and
-  // authority classifications are counted separately and never added
-  // together: a classification is a committee reading evidence we may not
-  // hold, which is the distinction /sourcing exists to explain.
+  return (
+    <div style={{ marginTop: 11, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px 14px' }}>
+      {families.map((key) => (
+        <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 9,
+              height: 9,
+              flexShrink: 0,
+              borderRadius: 2,
+              background: additive[key].fg,
+            }}
+          />
+          <span style={{ fontSize: 11.5, color: colors.ink2 }}>{additive[key].label}</span>
+        </span>
+      ))}
+      <span style={{ fontSize: 11.5, color: colors.ink4 }}>
+        Unmarked rows have no category on file · not a finding that they are natural
+      </span>
+    </div>
+  )
+}
+
+function IngredientRow({
+  pi,
+  origin,
+  research,
+}: {
+  pi: IngredientRows[number]
+  origin: string
+  research: Research
+}) {
+  // WHAT THE ROW SHOWS, AFTER 2026-10-13.
   //
-  // Michael, 2026-10-08: "if there is nothing on file it shouldn't be
-  // highlighted. also, remove the 'nothing on file' subtext and leave the
-  // 'undisclosed flavorin' subtext."
+  // Four of Michael's comments on one M&M'S page were one redesign:
+  //   "we should categorize ingredients based on color"
+  //   "preservatives and emulsifiers should get their own text highlight
+  //    color ... We need to distinctify them from natural ingredients"
+  //   "why are the lake variants not highligheted?"
+  //   "it feels like this section is way too large: the rows have too much
+  //    space and we can fit all these ingredients into view so the user
+  //    doesnt have to scroll down."
   //
-  // Both halves are right, and the first one is the three-state rule rather
-  // than a style preference. Amber on this site means "there is research to
-  // read". A flagged row with nothing on file wore the amber and then had
-  // nothing behind it — a promise the page could not keep, on the ingredient
-  // most likely to be clicked. The classification still shows: the category
-  // line under the name says "undisclosed flavoring", which is the fact, and
-  // is what he asked to keep.
+  // They resolve together. The LEFT RULE now carries which class of additive
+  // this is, read off Ingredient.category and explained by the legend above
+  // the list. That frees the grey category line that used to sit under every
+  // name, which is what was making the rows 44px tall. Without it a row is
+  // about 26px, so a 32-ingredient label fits in one view at three columns.
+  //
+  // Dropping that line reverses a round-15 instruction — "leave the
+  // 'undisclosed flavorin' subtext" — and he agreed to the trade when asked,
+  // because the colour plus the legend now carry the same fact. The exact
+  // category is still on the row, in its tooltip, so nothing is lost: the
+  // legend says "Preservative or emulsifier" and the hover says which.
+  //
+  // AMBER MOVED OFF THE LEFT RULE and onto a small dot. It means "there is
+  // research to read" everywhere on this site, and the rule cannot carry
+  // both that and the additive class without one of them becoming noise.
+  const family = familyFor(pi.ingredient.category)
+  const hasResearch = research.studies > 0 || research.authorities > 0
+
+  // What we hold, for the tooltip. Studies and authority classifications are
+  // counted separately and never added together: a classification is a
+  // committee reading evidence we may not hold, which is the distinction
+  // /sourcing exists to explain.
   const holding =
-    studies > 0
-      ? `${studies} research ${studies === 1 ? 'record' : 'records'}`
-      : authorities > 0
-        ? `${authorities} authority ${authorities === 1 ? 'ruling' : 'rulings'}`
+    research.studies > 0
+      ? `${research.studies} research ${research.studies === 1 ? 'record' : 'records'}`
+      : research.authorities > 0
+        ? `${research.authorities} authority ${research.authorities === 1 ? 'ruling' : 'rulings'}`
         : null
 
-  // Highlighted only when there is something to open. `flagged` still drives
-  // the flagged-ingredients section below, which counts and explains the
-  // classification; it no longer colours a row on its own.
-  const holdsSomething = holding !== null
-
-  // FLAGGED, BUT NOTHING TO READ. Michael, 2026-10-12: "the flagged
-  // ingredient isn't being highlighted." On that page the flagged
-  // ingredient is sorbitol, which has no study, no ruling and no country
-  // rule on file.
-  //
-  // This is the other side of his round-15 instruction — "if there is
-  // nothing on file it shouldn't be highlighted" — and both complaints are
-  // right. Amber here means "there is research to read", so a row with
-  // nothing behind it must not wear it; but the row was then pixel-identical
-  // to a row of salt, which is what he is objecting to now.
-  //
-  // So it gets the neutral marker rather than the amber one: the same 3px
-  // rule, in the grey that already means "nothing on file" everywhere else
-  // on the site. No background, no bold, nothing that reads as a warning —
-  // the row says "this is an additive we have not researched", which is
-  // exactly what is true of it.
-  const flaggedOnly = !holdsSomething && pi.ingredient.flaggedForResearch
+  const tip = [
+    pi.ingredient.category ? `Classified as: ${pi.ingredient.category}` : 'No category on file',
+    holding
+      ? research.viaName
+        ? `${holding} on ${sentenceCase(research.viaName)}, the dye this lake is made from`
+        : holding
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' \u2014 ')
 
   return (
     <Link
       href={`/ingredients/${pi.ingredient.id}${origin}`}
+      title={tip}
       style={{
         display: 'flex',
         alignItems: 'baseline',
-        gap: 9,
+        gap: 8,
         boxSizing: 'border-box',
-        padding: '7px 10px 7px 9px',
-        borderLeft: `3px solid ${
-          holdsSomething
-            ? status.openResearch.fg
-            : flaggedOnly
-              ? status.nothingOnFile.fg
-              : 'transparent'
-        }`,
+        padding: '4px 8px 4px 8px',
+        borderLeft: `3px solid ${family ? additive[family].fg : 'transparent'}`,
         borderBottom: `1px solid ${colors.line}`,
-        background: holdsSomething ? status.openResearch.bg : 'transparent',
         textDecoration: 'none',
         color: 'inherit',
       }}
@@ -1597,9 +1798,9 @@ function IngredientRow({ pi, origin }: { pi: IngredientRows[number]; origin: str
       <span
         style={{
           flexShrink: 0,
-          minWidth: 18,
+          minWidth: 16,
           fontFamily: font.mono,
-          fontSize: 11,
+          fontSize: 10.5,
           color: colors.ink4,
           textAlign: 'right',
         }}
@@ -1607,34 +1808,49 @@ function IngredientRow({ pi, origin }: { pi: IngredientRows[number]; origin: str
         {pi.listPosition ?? ''}
       </span>
 
-      <span style={{ flexGrow: 1, minWidth: 0 }}>
-        <span
-          style={{
-            fontSize: 13.5,
-            fontWeight: holdsSomething ? 600 : 400,
-            color: holdsSomething ? status.openResearch.fg : colors.ink,
-          }}
-        >
+      <span style={{ flexGrow: 1, minWidth: 0, fontSize: 13, lineHeight: 1.45 }}>
+        <span style={{ color: family ? additive[family].fg : colors.ink, fontWeight: family ? 500 : 400 }}>
           {sentenceCase(pi.ingredient.name)}
         </span>
+
+        {/* RESEARCH, AS ITS OWN MARK. A filled amber dot, not a tint and not
+            a bold weight: the row's colour and weight are already saying
+            which additive class this is. */}
+        {hasResearch && (
+          <span
+            aria-hidden
+            style={{
+              display: 'inline-block',
+              width: 5,
+              height: 5,
+              marginLeft: 6,
+              verticalAlign: 'middle',
+              borderRadius: '50%',
+              background: status.openResearch.fg,
+            }}
+          />
+        )}
+
+        {/* WHOSE RECORD IT IS. Printed, not hidden in the tooltip. Borrowing
+            the base dye's research is only defensible if the reader can see
+            that is what happened. */}
+        {research.viaName && (
+          <span style={{ marginLeft: 6, fontSize: 10.5, color: colors.ink3 }}>
+            studied as {sentenceCase(research.viaName)}
+          </span>
+        )}
+
         {pi.isOrganicSourced && (
           <span
             title="Listed on the label as an organic ingredient"
-            style={{ marginLeft: 7, fontSize: 10, fontWeight: 700, color: status.confirmed.fg }}
+            style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, color: status.confirmed.fg }}
           >
             ORG
           </span>
         )}
         {pi.isTrace && (
-          <span title="Listed as a trace amount" style={{ marginLeft: 7, fontSize: 10.5, color: colors.ink4 }}>
+          <span title="Listed as a trace amount" style={{ marginLeft: 6, fontSize: 10, color: colors.ink4 }}>
             trace
-          </span>
-        )}
-        {/* What kind of thing it is, under the name rather than beside it, so
-            a long ingredient name never pushes it off the row. */}
-        {(pi.ingredient.category || holding) && (
-          <span style={{ display: 'block', marginTop: 2, fontSize: 11.5, color: colors.ink3 }}>
-            {[pi.ingredient.category, holding].filter(Boolean).join(' \u00b7 ')}
           </span>
         )}
       </span>

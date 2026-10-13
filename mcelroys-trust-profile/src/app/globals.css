@@ -194,14 +194,31 @@ a:hover {
    Why this is here and not inline: column-count has to change with the
    viewport, and break-inside has to stop a row splitting across the column
    boundary. Neither is expressible in a style prop. */
+/* THREE COLUMNS, BECAUSE THE ROWS GOT SHORTER.
+   Michael, 2026-10-13: "it feels like this section is way too large: the
+   rows have too much space and we can fit all these ingredients into view so
+   the user doesnt have to scroll down."
+   The row lost its second line in the same round — the category moved onto
+   the left rule's colour and into the legend — which took a row from about
+   44px to about 26px. At three columns a 32-ingredient label is 11 rows
+   deep, so the M&M'S list that prompted this fits in one view.
+   Column count steps down with width rather than at a phone breakpoint: the
+   constraint is "an ingredient name has to stay readable", which fails on a
+   narrow desktop window at the same place it fails on a tablet. */
 .rt-inglist {
-  column-count: 2;
-  column-gap: 34px;
+  column-count: 3;
+  column-gap: 26px;
 }
 .rt-inglist > * {
   break-inside: avoid;
 }
-@media (max-width: 820px) {
+@media (max-width: 1100px) {
+  .rt-inglist {
+    column-count: 2;
+    column-gap: 30px;
+  }
+}
+@media (max-width: 700px) {
   .rt-inglist {
     column-count: 1;
   }

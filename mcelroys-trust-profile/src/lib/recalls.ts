@@ -338,6 +338,182 @@ export async function getProductRecalls(productId: string, limit?: number) {
   return { thisProduct, brand, process, family }
 }
 
+// ---------------------------------------- is this notice about THIS brand?
+
+// SPLITTING THE COMPANY BUCKET BY BRAND.
+//
+// Michael, 2026-10-13, on an M&M'S page showing a Combos recall: "the same 2
+// recalls saying the same thing. Also, one of the recalls is for not M&Ms.
+// The recalls should ONLY be for M&Ms in this recall section, and others
+// should be in 'other recalls by this company'."
+//
+// He is right, and it also halves the redundancy he opened with: the two
+// notices on that page both summarise to "contains peanuts the label does
+// not mention", because one is a 2016 Combos recall and one a 2014 M&M'S
+// recall. Once they sit in different sections they stop reading as a
+// duplicate.
+//
+// WHAT THIS IS NOT. It is not a brand table — we have no brand column, and
+// Company.dbaNames holds spelling variants of the legal name for most
+// companies (see productBrand in productName.ts). So the test is: does the
+// notice's own product description contain this product's distinctive
+// opening words?
+//
+// WHY IT IS SAFE TO BE APPROXIMATE HERE, and this is the whole reason the
+// method is allowed to be this blunt: BOTH BUCKETS ARE ON THE SAME SCREEN.
+// A misjudged notice moves between two visible, adjacent groups on the
+// product page. Nothing is hidden, nothing is deleted, and the notice still
+// appears in full on the company page either way. That is a very different
+// risk from the barcode match, which decides whether we say a product was
+// recalled at all, and which is why that one is never fuzzy.
+//
+// THE TWO TRAPS, both avoided deliberately:
+//
+//   1. MATCH THE DESCRIPTION, NEVER THE REASON. The Combos notice's reason
+//      is "recalling select Combos due to the potential for undeclared
+//      peanut residue" — it contains "peanut", which is also a word in
+//      "M&M'S Peanut Butter Share Size". Matching on reason text would keep
+//      exactly the notice he asked to move.
+//   2. GENERIC WORDS CANNOT MATCH. "Chocolate", "peanut", "butter", "share",
+//      "size" and the rest of the packaging vocabulary are dropped, so a
+//      product called "Chocolate Bar" does not claim every notice whose
+//      description says chocolate.
+//
+// What is left is the brand-shaped head of the name, compared with
+// punctuation and spaces removed, because labels and agencies spell the same
+// brand four ways: "M &M'S", "M & M's", "M&M'S", "MMS".
+const GENERIC_PRODUCT_WORDS = new Set([
+  // Packaging and size
+  'net', 'wt', 'weight', 'oz', 'ounce', 'ounces', 'lb', 'lbs', 'pound', 'pounds',
+  'g', 'gram', 'grams', 'kg', 'ml', 'l', 'liter', 'litre', 'ct', 'count', 'pack',
+  'packs', 'package', 'bag', 'bags', 'box', 'boxes', 'case', 'bar', 'bars',
+  'pouch', 'bottle', 'can', 'cans', 'jar', 'tub', 'share', 'size', 'single',
+  'serve', 'king', 'family', 'fun', 'mini', 'minis', 'large', 'small', 'medium',
+  'original', 'classic', 'new', 'value', 'multipack', 'variety', 'assorted',
+  // Common food nouns that are never a brand on their own
+  'chocolate', 'milk', 'dark', 'white', 'peanut', 'peanuts', 'butter', 'candy',
+  'candies', 'cookie', 'cookies', 'cracker', 'crackers', 'pretzel', 'pretzels',
+  'snack', 'snacks', 'gummies', 'gummy', 'chips', 'cereal', 'bread', 'cheese',
+  'sugar', 'free', 'flavor', 'flavored', 'flavour', 'with', 'and', 'the', 'of',
+  'in', 'a', 'no', 'added', 'organic', 'natural', 'chicken', 'beef', 'pork',
+  'turkey', 'fish', 'salmon', 'rice', 'corn', 'wheat', 'soy', 'water', 'juice',
+  'soup', 'broth', 'sauce', 'yogurt', 'yoghurt', 'ice', 'cream', 'frozen',
+  'low', 'lite', 'light', 'reduced', 'whole', 'fat', 'sodium', 'gluten',
+])
+
+function squash(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+// The brand-shaped head of a product name.
+//
+// THE FIRST WORD ONLY, and the first draft of this got it wrong in a way
+// worth recording. It took every word up to the first generic one, which
+// turned "Snickers Creamy Peanut Butter 55g" into the key
+// "snickerscreamy" — and no FDA notice has ever written that, so a REAL
+// Snickers recall would have failed to match and been demoted out of the
+// section a reader actually reads. Over-demotion is the dangerous direction
+// here, and a longer key is what causes it.
+//
+// So: the first word, plus any following words only while each is one or two
+// characters. That second clause exists for exactly one shape, and it is the
+// shape that prompted all this — "M &M'S" is stored with the space in the
+// wrong place, so the brand arrives as two tokens, "m" and "m's", and
+// squashes to "mms".
+//
+// A generic first word yields null, and null means DO NOT SPLIT: every
+// company notice stays in the brand bucket, which is the behaviour this
+// function is changing away from. So an incomplete generic list degrades to
+// today's page rather than to a wrong one.
+export function brandKey(productName: string): string | null {
+  const head: string[] = []
+  for (const word of productName.split(/\s+/)) {
+    const bare = word.toLowerCase().replace(/[^a-z0-9']/g, '')
+    if (bare.length === 0) continue
+    const plain = bare.replace(/'/g, '')
+    if (GENERIC_PRODUCT_WORDS.has(plain)) break
+    // Stop after the first real word. Short fragments keep accumulating,
+    // because that is the "M &M'S" case and nothing else.
+    if (head.length > 0 && plain.length > 2) break
+    head.push(bare)
+    if (plain.length > 2) break
+  }
+  const key = squash(head.join(''))
+  // Under three characters is not a brand, it is a letter. A two-character
+  // key would match inside half the descriptions in the database.
+  return key.length >= 3 ? key : null
+}
+
+// Does this notice's product description name the product's brand? `null`
+// when no brand key could be derived, which the caller must treat as "do
+// not split" rather than as "no".
+export function noticeNamesBrand(
+  productName: string,
+  notice: { productDescription: string | null }
+): boolean | null {
+  const key = brandKey(productName)
+  if (!key) return null
+  const description = notice.productDescription
+  // No description at all is not evidence either way. Keeping it in the
+  // brand bucket is the conservative choice: that bucket is the one a reader
+  // is most likely to read.
+  if (!description) return true
+  return squash(description).includes(key)
+}
+
+// --------------------------------------------------------------- selftest
+//   npx tsx src/lib/recalls.ts --selftest
+// Cases are the real strings that prompted the split, plus the two traps.
+if (process.argv[1]?.endsWith('recalls.ts')) {
+  let bad = 0
+  const eq = (what: string, got: unknown, want: unknown) => {
+    const ok = got === want
+    if (!ok) bad++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${ok ? '' : ` — got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`}`)
+  }
+  const MMS = "M &M'S Peanut Butter Share Size"
+  const SNICKERS = 'Snickers Creamy Peanut Butter 55g'
+
+  eq('the split brand name squashes', brandKey(MMS), 'mms')
+  // THE REGRESSION THE FIRST DRAFT OF brandKey HAD. It keyed on every word
+  // up to the first generic one, giving 'snickerscreamy', which no agency
+  // has ever written — so a real Snickers recall would have been demoted.
+  eq('the key is the brand, not the brand plus a descriptor', brandKey(SNICKERS), 'snickers')
+  eq('a generic first word yields no key', brandKey('Chocolate BROWNIE'), null)
+  eq('a label claim is not a brand', brandKey('Organic Valley 1% Lowfat Milk'), null)
+  eq('a hyphen is not a word break', brandKey('Pop-Tarts Frosted Strawberry'), 'poptarts')
+  eq('punctuation at the front is dropped', brandKey(':rise Cacao'), 'rise')
+
+  eq(
+    'the 2014 M&M\u2019s notice stays with the brand',
+    noticeNamesBrand(MMS, { productDescription: "Mars Chocolate North America Milk Chocolate M & M's Net Wt. 3.40 oz" }),
+    true
+  )
+  eq(
+    'the 2016 Combos notice moves out',
+    noticeNamesBrand(MMS, { productDescription: 'COMBOS PIZZERIA PRETZEL - Net Wt. 6.30 Oz. Mars Chocolate North America, LLC' }),
+    false
+  )
+  eq(
+    'the Skittles gummies notice moves out',
+    noticeNamesBrand(MMS, { productDescription: 'SKITTLES Gummies Original Wild Berry Sour' }),
+    false
+  )
+  // A real Snickers recall must NOT be demoted off the Snickers page.
+  eq(
+    'a notice naming the brand stays',
+    noticeNamesBrand(SNICKERS, { productDescription: 'SNICKERS Creamy Peanut Butter Share Size, Net Wt 2.83 oz' }),
+    true
+  )
+  // No description is not evidence either way, and the brand bucket is the
+  // one a reader actually reads, so it stays there.
+  eq('no description stays', noticeNamesBrand(MMS, { productDescription: null }), true)
+  // No derivable key must mean "do not split", never "no".
+  eq('no key means do not split', noticeNamesBrand('Chocolate BROWNIE', { productDescription: 'anything' }), null)
+
+  console.log(bad === 0 ? 'recalls: all brand cases pass' : `recalls: ${bad} FAILURES`)
+}
+
 // ---------------------------------------------- one notice, said once
 
 // GROUPING THE SAME RECALL EVENT.

@@ -132,6 +132,138 @@ export function displayName(raw: string): string {
   return cleaned.length > 0 ? cleaned : raw.trim()
 }
 
+// ------------------------------------------------- one title schema
+
+// TITLE CASE FOR A PRODUCT NAME.
+//
+// Michael, 2026-10-13: "These products need to have professional looking
+// title names. Capitalize first letters where appropriate (excluding non
+// important prepositions, i.e. if we should based on proper grammar) so we
+// can have a standard title schema".
+//
+// The names arrive from Open Food Facts in whatever case the contributor
+// typed: `activia`, `Chocolate BROWNIE`, `M &M'S Peanut Butter Share Size`,
+// `Barra de chocolate con leche`. A shelf of those reads as a database dump,
+// which is what he is objecting to.
+//
+// THE RULE IS DELIBERATELY NARROW, because this runs on 416,382 names in
+// many languages and the cost of being clever is wrong-looking names at
+// scale. A token's case is changed ONLY when the token is pure letters and
+// is entirely lower case or entirely upper case:
+//
+//   activia            -> Activia        (all lower, capitalised)
+//   BROWNIE            -> Brownie        (all upper, brought down)
+//   chocolate          -> Chocolate
+//
+// Everything else is left exactly as stored, which is what protects the
+// names that already carry meaning in their case:
+//
+//   M &M'S             -> M &M'S         (has punctuation, untouched)
+//   55g, 1%, 3.40      -> unchanged      (has a digit, untouched)
+//   iPhone, McVitie's  -> unchanged      (mixed case, untouched)
+//   LLC, USA           -> unchanged      (upper, but only 3 letters)
+//
+// ALL-CAPS TOKENS OF THREE LETTERS OR FEWER ARE LEFT ALONE, because at that
+// length an all-caps word is far more often an acronym or a unit than a
+// shouted word: LLC, USA, BBQ, OZ, XL, DHA. "BROWNIE" is seven and gets
+// brought down.
+//
+// UNLESS THE WHOLE NAME IS SHOUTED, which is the exception the first draft
+// missed: "CHICKEN BROTH LOW SODIUM" came out as "Chicken Broth LOW Sodium",
+// because LOW is three letters and looked like an acronym. In a name with no
+// lower-case letter anywhere there is no information in any token's case, so
+// the acronym exemption has nothing to go on and is switched off. In a name
+// that does have lower case, an all-caps short token was a deliberate
+// choice: "BBQ sauce" keeps its BBQ.
+//
+// WHAT THIS CANNOT FIX, and should not pretend to: `M &M'S` has its space in
+// the wrong place in the source record. That is a transcription problem in
+// ingestion, not a casing problem, and a casing function that "repaired" it
+// would be guessing at the label. It stays as stored and is logged.
+const TITLE_STOPWORDS = new Set([
+  // Articles, conjunctions, and prepositions of three letters or fewer,
+  // which is the line both AP and Chicago draw. Never applied to the first
+  // or last word of a name.
+  'a', 'an', 'the',
+  'and', 'as', 'but', 'for', 'if', 'nor', 'or', 'so', 'yet',
+  'at', 'by', 'in', 'of', 'off', 'on', 'per', 'to', 'up', 'via', 'vs',
+])
+
+// `forced` means first or last word, which only ever suppresses stopword
+// lowering. `shouting` is a property of the WHOLE name. The two are separate
+// because conflating them is what produced "Bbq Sauce".
+function recase(token: string, forced: boolean, shouting: boolean): string {
+  // Not pure letters: a digit, a symbol, an apostrophe, an ampersand. Leave
+  // it exactly as the source wrote it.
+  if (!/^[A-Za-z]+$/.test(token)) return token
+
+  const lower = token.toLowerCase()
+  const isAllLower = token === lower
+  const isAllUpper = token === token.toUpperCase()
+
+  // Mixed case is a deliberate spelling (iPhone, McVitie's, LaCroix).
+  if (!isAllLower && !isAllUpper) return token
+  // A short all-caps token is an acronym or a unit far more often than a
+  // word — unless the whole name is shouted, in which case its case says
+  // nothing. This deliberately outranks `forced`.
+  if (isAllUpper && !isAllLower && token.length <= 3 && !shouting) return token
+
+  if (!forced && TITLE_STOPWORDS.has(lower)) return lower
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+export function titleCaseName(raw: string): string {
+  // No lower-case letter anywhere means the source shouted the whole name.
+  const shouting = !/[a-z]/.test(raw)
+  const tokens = raw.split(/(\s+)/)
+  // Which tokens are words, so "first" and "last" mean the first and last
+  // WORD rather than the first and last chunk of whitespace.
+  const wordIndexes = tokens
+    .map((t, i) => (t.trim().length > 0 ? i : -1))
+    .filter((i) => i !== -1)
+  if (wordIndexes.length === 0) return raw
+  const first = wordIndexes[0]
+  const last = wordIndexes[wordIndexes.length - 1]
+
+  return tokens
+    .map((t, i) => (t.trim().length === 0 ? t : recase(t, i === first || i === last, shouting)))
+    .join('')
+}
+
+// --------------------------------------------------------------- selftest
+//   npx tsx src/lib/productName.ts --selftest
+if (process.argv[1]?.endsWith('productName.ts')) {
+  let bad = 0
+  const eq = (src: string, want: string) => {
+    const got = titleCaseName(src)
+    const ok = got === want
+    if (!ok) bad++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${JSON.stringify(src)} -> ${JSON.stringify(got)}${ok ? '' : ` want ${JSON.stringify(want)}`}`)
+  }
+  eq('activia', 'Activia')
+  eq('Chocolate BROWNIE', 'Chocolate Brownie')
+  eq('cream of mushroom soup', 'Cream of Mushroom Soup')
+  eq('the best of the best', 'The Best of the Best')
+  eq('to go', 'To Go')
+  // The shouted name, and the reason `shouting` exists.
+  eq('CHICKEN BROTH LOW SODIUM', 'Chicken Broth Low Sodium')
+  eq('DARK CHOCOLATE SEA SALT', 'Dark Chocolate Sea Salt')
+  // Case that carries meaning, left alone.
+  eq('BBQ sauce', 'BBQ Sauce')
+  eq('LLC brand foods', 'LLC Brand Foods')
+  eq('iPhone case', 'iPhone Case')
+  eq('La Tourangelle, Inc.', 'La Tourangelle, Inc.')
+  // Tokens with punctuation or digits are never touched.
+  eq("M &M'S Peanut Butter Share Size", "M &M'S Peanut Butter Share Size")
+  eq('Snickers Creamy Peanut Butter 55g', 'Snickers Creamy Peanut Butter 55g')
+  eq('organic valley 1% lowfat milk', 'Organic Valley 1% Lowfat Milk')
+  eq('sodium benzoate (preservative)', 'Sodium Benzoate (preservative)')
+  // Degenerate input must come back unchanged rather than empty.
+  eq('', '')
+  eq('   ', '   ')
+  console.log(bad === 0 ? 'titleCaseName: all cases pass' : `titleCaseName: ${bad} FAILURES`)
+}
+
 // ------------------------------------------------- the brand, said once
 
 // Open Food Facts names usually repeat the brand: the record for a King
@@ -233,11 +365,11 @@ export function productDisplayName(
     // behind a fragment too short to identify anything. "Jovial" under
     // Jovial Foods stays "Jovial"; a row with no name is worse than a
     // repeated one.
-    if (rest.length >= 3 && /[a-z0-9]/i.test(rest)) return rest
-    return cleaned
+    if (rest.length >= 3 && /[a-z0-9]/i.test(rest)) return titleCaseName(rest)
+    return titleCaseName(cleaned)
   }
 
-  return cleaned
+  return titleCaseName(cleaned)
 }
 
 // ------------------------------------------------------------- the brand

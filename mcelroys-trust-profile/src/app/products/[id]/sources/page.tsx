@@ -264,7 +264,9 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
 
         <p style={{ margin: '14px 0 0', fontSize: 12.5, lineHeight: 1.6, color: colors.ink3, maxWidth: '68ch' }}>
           On the label this product is called{' '}
-          <strong style={{ color: colors.ink }}>{product.name}</strong>
+          {/* `name` is the title-cased, brand-stripped form computed above.
+              This was the last place a raw stored name reached a page. */}
+          <strong style={{ color: colors.ink }}>{name}</strong>
           {product.upc ? (
             <>
               , barcode <span style={{ fontFamily: font.mono }}>{product.upc}</span>.
