@@ -65,11 +65,26 @@ export function Collapsible({
   const counted = typeof count === 'number'
   const numberColor = countState && count ? status[countState].fg : colors.ink
 
+  // A SECTION WITH NOTHING IN IT IS ALWAYS CLOSED. Michael, 2026-10-13:
+  // "if there is no notices, or for this ENTIRE website, no information to
+  // be displayed, the menu should be collapsed."
+  //
+  // Enforced HERE rather than at each call site, which is the whole point of
+  // it being a rule. "Every caller remembers to pass open={n > 0}" is how
+  // the same rule ends up true on four pages and false on the fifth, and
+  // this codebase has that exact drift in its history three times over. A
+  // caller's `open` is a request; an empty section overrides it.
+  //
+  // Only an explicit 0 counts. `count` is undefined or null for a section
+  // whose contents are not countable, and those must keep deciding for
+  // themselves — "not countable" is not "empty".
+  const isOpen = count === 0 ? false : open
+
   return (
     <details
       id={id}
       className="rt-collapse"
-      open={open}
+      open={isOpen}
       style={{
         boxSizing: 'border-box',
         background: colors.card,

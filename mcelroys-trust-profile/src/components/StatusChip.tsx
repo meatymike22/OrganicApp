@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { colors, font, layout, status, type StatusKey } from '@/lib/design'
 import type { Signal } from '@/lib/productSignals'
+import { InfoDot } from '@/components/Collapsible'
 
 // The one component that paints a status colour.
 //
@@ -462,10 +463,30 @@ export function StatusLegend() {
 //
 // Rows link to the section that answers them, so the table is also the page's
 // table of contents and its order has to match the section order.
+// THE DETAIL MOVED BEHIND THE "i". Michael, 2026-10-13: "instead of these
+// descriptions being out in the open, put them under 'i' next to the
+// leftmost title."
+//
+// This is the third time the same instruction has been applied to a
+// different surface — the search filter rail in round 10, the
+// flagged-ingredients explainer in round 14, and now the table. The pattern
+// is settled: the ANSWER is always on screen, the EXPLANATION of the answer
+// is one hover away, and anything a reader must see to read the answer
+// correctly stays in the open.
+//
+// What that last clause protects here: the chip label still carries its own
+// scope. "None for this product" says what was checked without the tooltip
+// being opened, which is why round 17 put the scope in the label rather than
+// leaving it to the detail line. Hiding a detail is safe only because the
+// label was already made honest on its own.
+//
+// `help` is optional extra context about the QUESTION rather than about this
+// product's answer — what a government notice is, say. It goes above the
+// row's own detail in the tooltip.
 export function SignalTable({
   rows,
 }: {
-  rows: { question: string; signal: Signal; href?: string }[]
+  rows: { question: string; signal: Signal; href?: string; help?: string }[]
 }) {
   return (
     <dl
@@ -480,42 +501,37 @@ export function SignalTable({
       }}
     >
       {rows.map((row, i) => {
+        const detail = row.signal.short ?? row.signal.detail ?? ''
+        const tip = [row.help, detail].filter(Boolean).join('\n\n')
+
         const body = (
           <>
             <dt
               style={{
                 flexBasis: 150,
                 flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
                 fontSize: 13,
                 fontWeight: 600,
                 color: colors.ink,
               }}
             >
               {row.question}
+              {tip && <InfoDot text={tip} />}
             </dt>
             <dd style={{ margin: 0, flexShrink: 0 }}>
               <StatusChip state={row.signal.state}>{row.signal.label}</StatusChip>
             </dd>
-            {/* THE ONE-LINE REASON, which is where "not certified" stops
-                being a verdict and becomes a statement about a register.
-                It prints `short` and falls back to `detail`. Michael,
-                2026-10-07: "this is too much... this description causes too
-                much clutter. Add it to another page that is used for users to
-                understand more about what we are doing." The long version is
-                the glossary on /sourcing, linked under the table. */}
-            <dd
-              style={{
-                margin: 0,
-                flexGrow: 1,
-                flexBasis: 220,
-                minWidth: 0,
-                fontSize: 12,
-                lineHeight: 1.45,
-                color: colors.ink3,
-              }}
-            >
-              {row.signal.short ?? row.signal.detail ?? ''}
-            </dd>
+            {/* WHERE THE ONE-LINE REASON USED TO PRINT. It is now the
+                `tip` on the "i" beside the question, above. The long version
+                is still the glossary on /sourcing, linked under the table.
+
+                The row keeps a flexible spacer so the chips stay in a column
+                instead of jumping to sit against each question, which is
+                what makes the table scannable down the middle. */}
+            <dd style={{ margin: 0, flexGrow: 1, flexBasis: 0, minWidth: 0 }} />
           </>
         )
 

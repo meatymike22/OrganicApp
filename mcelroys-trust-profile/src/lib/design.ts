@@ -106,15 +106,30 @@ export type StatusKey = keyof typeof status
 // "Colour added" says what the ingredient does. "Artificial colour" would
 // smuggle in a judgement about artificial things that the record does not
 // make.
+// SEVEN FAMILIES AS OF 2026-10-13. Round 18 shipped six, with preservative
+// and emulsifier sharing one hue because Michael had named them as a pair.
+// He then asked for the split directly: "preservative and emulsifier should
+// be separated as distinct categories." They do different jobs, so the split
+// is the more accurate shape; the reason it is now safe is the other half of
+// the same comment — "put a little 'i' next to each category so the user
+// can understand what each means". With a definition on every legend entry,
+// the hue no longer has to be self-explaining, which is what made six the
+// practical ceiling before.
+//
+// HUE ORDER IS NOT LEGEND ORDER, on purpose. Seven distinguishable hues that
+// avoid red, green and amber means using most of a spectrum, and a spectrum
+// printed in spectrum order reads as a ramp from mild to severe — which is
+// the scoring system this project refuses to build. So the legend's order
+// interleaves them: magenta, violet, teal, indigo, brown, blue, grey. That
+// also puts the two closest hues (indigo and blue) on opposite sides of
+// brown rather than next to each other.
 export const additive = {
   dye: { label: 'Colour added', fg: '#A0357A', bg: '#F6E8F1' },
-  flavour: { label: 'Flavour or fragrance added', fg: '#6B3FA0', bg: '#EFE8F7' },
+  flavour: { label: 'Flavour or fragrance added', fg: '#7A3FA0', bg: '#F0E8F7' },
   sweetener: { label: 'Sweetener added', fg: '#0F6E7A', bg: '#E2EFF1' },
-  // One hue for the pair, at Michael's wording: "preservatives and
-  // emulsifiers ... are add ons". The exact category is still on the row's
-  // tooltip.
-  shelfLife: { label: 'Preservative or emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },
-  oil: { label: 'Seed oil', fg: '#2F5EA8', bg: '#E4EAF4' },
+  preservative: { label: 'Preservative', fg: '#3F4DA8', bg: '#E7E9F6' },
+  emulsifier: { label: 'Emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },
+  oil: { label: 'Seed oil', fg: '#1F6FA0', bg: '#E3EEF4' },
   // Categories too rare to earn a hue, and any category a later
   // classification pass invents. Deliberately NOT the same grey as
   // status.nothingOnFile: this one means "an additive we have classified",

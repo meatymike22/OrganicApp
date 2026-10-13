@@ -65,9 +65,28 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     keywords: [
       'canola oil', 'rapeseed oil', 'soybean oil', 'corn oil', 'cottonseed oil',
       'sunflower oil', 'safflower oil', 'grapeseed oil', 'rice bran oil',
+      // PALM KERNEL OIL IS A SEED OIL. PALM OIL IS NOT. Added 2026-10-13
+      // after Michael asked, on a hydrogenated palm kernel oil row, "seed
+      // oils should be a category too and why havent we researched this
+      // further?"
+      //
+      // Seed oil was already a category. What was wrong is that this rule
+      // applied its own test inconsistently. The oil palm fruit yields two
+      // different oils: palm oil from the fruit flesh, and palm kernel oil
+      // from the seed inside it. The note below has been right about palm
+      // oil since it was written and wrong by omission about palm kernel
+      // oil, which is pressed from a seed and belongs here.
+      //
+      // 5,488 products carry `palm kernel oil` and 1,055 carry
+      // `hydrogenated palm kernel oil`, all of them uncategorised and
+      // therefore invisible to every ingredient filter on the site. The
+      // substring match catches the hydrogenated spelling too. This changes
+      // nothing in the database until reclassify-ingredients.ts is run.
+      'palm kernel oil',
       // Generic, and in practice almost always a soy or canola blend.
-      // NOT 'palm oil': palm is pressed from the fruit, not the seed, so
-      // filing it under seed oil would be wrong even though people group them.
+      // NOT 'palm oil' on its own: that one is pressed from the fruit, not
+      // the seed, so filing it under seed oil would be wrong even though
+      // people group them.
       'vegetable oil',
     ],
   },

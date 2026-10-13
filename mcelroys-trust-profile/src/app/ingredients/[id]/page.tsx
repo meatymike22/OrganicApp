@@ -1,12 +1,17 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { colors, font, layout, status } from '@/lib/design'
+import { additive, colors, font, layout, status } from '@/lib/design'
 import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 // The product name, spelled the way the product page spells it, so the back
 // link reads as the page it returns to rather than as a database row.
 import { productDisplayName, shortProductName } from '@/lib/productName'
-import { baseDyeOf } from '@/lib/ingredientDisplay'
+import {
+  baseDyeOf,
+  familyFor,
+  glossFor,
+  GLOSSARY_SOURCE,
+} from '@/lib/ingredientDisplay'
 import { StatusChip } from '@/components/StatusChip'
 // The shared one. This file used to carry its own copy, which drifted: when
 // the "not yet checked by a person" line was removed from PageParts it
@@ -15,7 +20,7 @@ import { StatusChip } from '@/components/StatusChip'
 import { Callout, Paragraphs, SectionHead, SourceLine, Tag } from '@/components/PageParts'
 // SectionHead, Callout and Tag were local copies here too, and the header
 // comment above said they should go the same way. They have.
-import { MiniCollapse } from '@/components/Collapsible'
+import { InfoDot, MiniCollapse } from '@/components/Collapsible'
 // Where a 1,500-character research record becomes a headline and four rows
 // a reader can open. Nothing in it rewrites the stored text.
 import {
@@ -275,6 +280,28 @@ export default async function IngredientPage({
           {capitalize(ingredient.name)}
         </h1>
 
+        {/* WHAT THIS KIND OF INGREDIENT IS, RIGHT UNDER THE TITLE. Michael,
+            2026-10-13: "definition of the ingredients and how it is made
+            should be right under the title here."
+            and: "On the ingredient page, define it so the layman can begin
+            to understand what thye are eating".
+
+            WHAT THIS IS AND IS NOT, because the gap matters. This is the
+            definition of the CLASS \u2014 what a colour additive is, what an
+            emulsifier does \u2014 which is a published fact, written once, and
+            true of all 9,090 ingredients we have classified. It is NOT a
+            description of this particular substance or how it is made. That
+            is 127,268 separate facts, each needing its own source, and there
+            is no column to put them in yet; it is logged as a build rather
+            than guessed at here.
+
+            So the line leads with the CLASSIFICATION, not with the
+            ingredient's name: "Colour added" followed by what a colour
+            additive is. A reader cannot mistake that for a definition of
+            Blue 1 Lake specifically, and the "i" says outright that we hold
+            no description of this substance yet. */}
+        <IngredientGloss category={ingredient.category} />
+
         {/* THE FLAG CHIP. Two comments from Michael, 2026-10-07, on the
             soybean oil page, and they are the same comment:
               "how is it that soybean oil has open research but no authority
@@ -306,7 +333,12 @@ export default async function IngredientPage({
                       : 'This is an additive or processing ingredient rather than a whole food, which is why it is on our research list. We hold no studies, authority rulings or country rules on it yet.'
                   }
                 >
-                  {onFile > 0 ? 'On our research list' : 'On our research list — nothing on file yet'}
+                  {/* JUST THE WORD, as on the product page. Michael,
+                      2026-10-13: "this should simply say 'researching'".
+                      The two states are still distinguishable without
+                      reading: amber when there is something to open, neutral
+                      grey when there is not, and the hover says which. */}
+                  Researching
                 </StatusChip>
               </div>
             )
@@ -385,6 +417,45 @@ export default async function IngredientPage({
 
       <SiteFooter />
     </>
+  )
+}
+
+// See the note at the call site. Renders nothing when the ingredient has no
+// category, because "no category on file" is a fact about our records and
+// belongs in the signal row, not in a definition slot.
+function IngredientGloss({ category }: { category: string | null }) {
+  const key = familyFor(category)
+  if (!key) return null
+  const gloss = glossFor(key)
+
+  return (
+    <div
+      style={{
+        marginTop: 11,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 8,
+        maxWidth: 680,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: colors.ink2 }}>
+        <strong style={{ color: additive[key].fg, fontWeight: 600 }}>{additive[key].label}.</strong>{' '}
+        {gloss.plain}
+      </p>
+      <div style={{ marginTop: 3 }}>
+        <InfoDot
+          text={[
+            category ? `Our classifier recorded this as: ${category}.` : null,
+            gloss.codex
+              ? `${GLOSSARY_SOURCE.label} defines the class as: \u201c${gloss.codex}\u201d`
+              : null,
+            'This describes the class of additive, not this particular substance. We do not hold a description of this ingredient itself yet.',
+          ]
+            .filter(Boolean)
+            .join('\n\n')}
+        />
+      </div>
+    </div>
   )
 }
 

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 // filter that means the same thing by the same word.
 import { INGREDIENT_FILTERS } from '@/lib/ingredientFilters'
 import { additive, colors, font, isoDate, layout, status } from '@/lib/design'
-import { baseDyeOf, familiesPresent, familyFor } from '@/lib/ingredientDisplay'
+import { baseDyeOf, categoryHelp, familiesPresent, familyFor, familyHelp } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import {
@@ -21,10 +21,33 @@ import { plainReason } from '@/lib/plainRecall'
 import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
 import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecalls, noticeNamesBrand, type RecallGroup } from '@/lib/recalls'
 import { ProductThumb } from '@/components/ProductThumb'
-import { Collapsible } from '@/components/Collapsible'
+import { Collapsible, InfoDot } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
 import { AisleBar, BackLink, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { SignalTable, SignalTableNote, StatusChip } from '@/components/StatusChip'
+
+// WHAT A "GOVERNMENT NOTICE" IS, written once.
+//
+// Michael, 2026-10-13: "What is a government notice? How is the user
+// supposed to know what this is? Put an 'i' next to the title explaining
+// it."
+//
+// Fair: the phrase is ours rather than any agency's. It covers two different
+// things that the recalls section deliberately does not merge \u2014 a recall,
+// where a product is pulled from sale, and the wider set of enforcement
+// records an agency publishes without one. Calling the section "recalls"
+// alone would overstate the quieter notices.
+//
+// It is a constant because it is now shown in two places on this page: the
+// "i" on the signal table's Recalls row, and the "i" on the section itself.
+// Two copies of a definition is how this codebase has drifted before.
+const GOVERNMENT_NOTICE =
+  'A record published by a food safety agency \u2014 the FDA, FSIS, CPSC or CBP. ' +
+  'Most are recalls, where a company pulls a product from sale, voluntarily ' +
+  'or at an agency\u2019s request. The rest are other enforcement records those ' +
+  'agencies publish. We show the agency, the date, what the notice said and ' +
+  'which products it covered, and every reference number is on this ' +
+  'product\u2019s sources page.'
 
 // Everything on this page in one query. The product page is the place a
 // shopper goes to check our work, so it pulls the actual source rows — the
@@ -440,7 +463,14 @@ export default async function ProductPage({
                   href: '#ingredients',
                 },
                 { question: 'Open research', signal: flagged, href: '#flagged' },
-                { question: 'Recalls', signal: recall, href: '#recalls' },
+                {
+                  question: 'Recalls',
+                  signal: recall,
+                  href: '#recalls',
+                  // Same wording as the section below, from one place, so the
+                  // row and the section cannot define the term differently.
+                  help: GOVERNMENT_NOTICE,
+                },
                 // These two used to point at #certificates, which no longer
                 // exists — Michael, 2026-10-07: "I am not sure how much
                 // immediate value this section provides. At the very top we
@@ -1004,6 +1034,7 @@ function Recalls({
       count={total}
       countState="recall"
       note={total === 0 ? 'Nothing on file' : 'FDA, FSIS, CPSC and CBP records'}
+      info={GOVERNMENT_NOTICE}
       open={listed.length > 0}
     >
       <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -1695,8 +1726,16 @@ function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
 
   return (
     <div style={{ marginTop: 11, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '7px 14px' }}>
+      {/* AN "i" ON EVERY ENTRY. Michael, 2026-10-13: "put a little 'i' next
+          to each category so the user can understand what each means."
+          This is also what made the preservative/emulsifier split workable
+          in the same round: a legend entry that explains itself does not
+          need its hue to do the explaining, so seven families stopped being
+          more than the colours could carry.
+          The text comes from familyHelp(), which the ingredient rows use
+          too, so a family cannot be described two ways on one page. */}
       {families.map((key) => (
-        <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
           <span
             aria-hidden
             style={{
@@ -1708,6 +1747,7 @@ function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
             }}
           />
           <span style={{ fontSize: 11.5, color: colors.ink2 }}>{additive[key].label}</span>
+          <InfoDot text={familyHelp(key)} />
         </span>
       ))}
       <span style={{ fontSize: 11.5, color: colors.ink4 }}>
@@ -1766,8 +1806,19 @@ function IngredientRow({
         ? `${research.authorities} authority ${research.authorities === 1 ? 'ruling' : 'rulings'}`
         : null
 
+  // THE DEFINITION IS IN HERE TOO. Michael, 2026-10-13, asked for an "i" on
+  // every ingredient so a reader can hover and learn what it is. The whole
+  // row is already the hover target, and it now carries what the class
+  // means, in the same words the legend uses.
+  //
+  // A SEPARATE "i" GLYPH ON ALL 32 ROWS WAS NOT ADDED, and this is a
+  // judgement to overrule rather than a thing forgotten. Round 18 cut the
+  // row from 44px to 26px at his request, to fit a long label in one view;
+  // 32 more glyphs put weight straight back into the line the density came
+  // out of. Raised in thread with an offer to add them anyway.
   const tip = [
     pi.ingredient.category ? `Classified as: ${pi.ingredient.category}` : 'No category on file',
+    categoryHelp(pi.ingredient.category),
     holding
       ? research.viaName
         ? `${holding} on ${sentenceCase(research.viaName)}, the dye this lake is made from`
