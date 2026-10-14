@@ -401,5 +401,62 @@ if (process.argv[1]?.includes('ingredientDisplay')) {
   eq('a stored category resolves to help', (categoryHelp('emulsifier') ?? '').length > 20, true)
   eq('no category means no help', categoryHelp(null), null)
 
+  // ---------------------------------------------------------------------
+  // THE r22 COLOUR-BLINDNESS INVARIANTS.
+  //
+  // Michael, 2026-10-13: "colors are too close together and its hard to see
+  // the colors when the text is highlighted. we have to take colorblind
+  // people into consideration here." Measuring that produced the finding
+  // that eight categorical hues CANNOT be made colour-blind-safe inside this
+  // project’s own no-red, no-green, no-amber rule, so the two-letter `code`
+  // in design.ts is what actually carries a family, not the hue.
+  //
+  // THESE ASSERTIONS EXIST BECAUSE THE CODES ARE NOW LOAD-BEARING. A hue
+  // collision is a degraded experience; two families sharing a code is a
+  // reader being told the wrong thing. Pinned here rather than checked once
+  // by hand, which is the lesson of the stale assertion Michael caught in
+  // r21 and of item 20 generally.
+  const codes = LEGEND_ORDER.map((k) => additive[k].code)
+  eq('every family has a two-letter code', codes.every((c) => c.length === 2), true)
+  eq('no two families share a code', new Set(codes).size, codes.length)
+  // THE RULE THAT MAKES THE CODES LEARNABLE: a code is the first two letters
+  // of the same word the legend prints directly above the list. Break this
+  // and the legend stops teaching the rows. `other` is the one stated
+  // exception ("Ad" for an additive, not "Ot" for other), because the reader
+  // is being told what the row IS, not which bucket it fell in.
+  eq(
+    'a code is the first two letters of its own legend word',
+    LEGEND_ORDER.filter((k) => additive[k].code.toLowerCase() !== additive[k].label.slice(0, 2).toLowerCase()),
+    ['other']
+  )
+  // FLAVOUR AND FRAGRANCE SHARE A HUE ON PURPOSE, measured: zero products in
+  // the database carry both an undisclosed flavouring and an undisclosed
+  // fragrance, so no legend ever prints the two swatches together. The r20
+  // split above still has to hold, and the codes are what hold it.
+  eq('flavour and fragrance share one hue', additive.fragrance.fg, additive.flavour.fg)
+  // Written as a set size rather than `a === b`: the codes are literal
+  // types, so TypeScript knows '"Fr"' and '"Fl"' can never be equal and
+  // rejects the direct comparison outright (TS2367). The set form asserts
+  // the same thing and keeps working if either code is ever changed.
+  eq('but not one code', new Set([additive.flavour.code, additive.fragrance.code]).size, 2)
+  // Hue is no longer the channel, so the only families allowed to collide are
+  // those two. Any other duplicate means someone pasted a colour.
+  const hues = LEGEND_ORDER.map((k) => additive[k].fg)
+  eq('no other two families share a colour', new Set(hues).size, LEGEND_ORDER.length - 1)
+  // Every code is rendered as WHITE text on its family colour, so each colour
+  // has to clear 4.5:1 against white. Checked with the real formula rather
+  // than trusted, because a colour added later will not have been measured.
+  const relLum = (hex: string) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const lin = c.map((v) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)))
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+  }
+  const onWhite = (hex: string) => 1.05 / (relLum(hex) + 0.05)
+  eq(
+    'every family colour carries white text at 4.5:1 or better',
+    LEGEND_ORDER.filter((k) => onWhite(additive[k].fg) < 4.5),
+    []
+  )
+
   console.log(bad === 0 ? 'ingredientDisplay: all cases pass' : `ingredientDisplay: ${bad} FAILURES`)
 }

@@ -199,7 +199,37 @@ export const SIGNAL_COLUMNS = '126px 126px 126px 126px 1fr'
 // A SIDE EFFECT WORTH RECORDING: this is 190px of chips rather than 504px,
 // which is what round 16 had to stack into two rows below 900px to stop the
 // search page scrolling sideways. The glyph row fits a phone outright.
-export const SIGNAL_COLUMNS_GLYPH = '44px 44px 44px 44px 1fr'
+export const SIGNAL_COLUMNS_GLYPH = '56px 56px 56px 56px 1fr'
+
+// ONE PLACE PICKS THE TEMPLATE, because two places already got it wrong.
+//
+// Michael, 2026-10-13, on a search result row: "now these arent aligned
+// with the columns above. need to find a way to align all of these and
+// visually fix it."
+//
+// He was pointing at a regression from the glyph mode shipped hours
+// earlier. SignalStrip switched to the narrow template; SignalHeader, forty
+// lines below, still named the wide one. So the labels sat at 126px pitch
+// over glyphs at 44px pitch and nothing lined up after the first column.
+//
+// This is the fourth time this project has shipped a bug of exactly this
+// shape (item 20 in the backlog is the same lesson): a value duplicated
+// across two call sites whose correctness depends on someone remembering
+// both. Fixing the two numbers would leave the next person the same trap,
+// so the header now asks this function rather than naming a constant, and
+// the only way to get them out of step is to stop calling it.
+export function signalColumns(glyphs?: boolean): string {
+  return glyphs ? SIGNAL_COLUMNS_GLYPH : SIGNAL_COLUMNS
+}
+
+// WHY 56px AND NOT THE 44px THE GLYPHS NEED. The chips would fit in 44, but
+// the column HEADINGS would not: "FLAGGED", "RECALLS", "ORGANIC" and
+// "NON-GMO" are all seven characters, which is about 52px at the header's
+// 9.5px bold with 0.09em tracking. 44px columns meant either overlapping
+// labels or abbreviating them to FLG / RCL / ORG / GMO, and an abbreviated
+// heading teaching an abbreviated glyph is two puzzles rather than one.
+// 56px is 242px of chips against the 504px this started at, so the saving
+// that made the glyph row worth shipping survives.
 
 // NUMBERS SURVIVE, WORDS DO NOT. Michael, 2026-10-13, on a search result
 // row: "Maybe just put an X here instead of all this text. no words, just
@@ -235,7 +265,7 @@ export function SignalStrip({ signals, glyphs }: { signals: Signal[]; glyphs?: b
       className="rt-signals"
       style={{
         display: 'grid',
-        gridTemplateColumns: glyphs ? SIGNAL_COLUMNS_GLYPH : SIGNAL_COLUMNS,
+        gridTemplateColumns: signalColumns(glyphs),
         gap: 6,
         alignItems: 'center',
       }}
@@ -267,7 +297,16 @@ export function SignalStrip({ signals, glyphs }: { signals: Signal[]; glyphs?: b
 // The little column header that sits above a list of rows. Without it, a grey
 // chip in the third slot is only meaningful if you already know the third
 // slot is organic — the header is what makes the column self-describing.
-export function SignalHeader({ thumbWidth = 66 }: { thumbWidth?: number | string }) {
+export function SignalHeader({
+  thumbWidth = 66,
+  // MUST MATCH THE ROWS BELOW IT. Passed through to signalColumns() rather
+  // than defaulted to anything clever: a header that guessed would be wrong
+  // silently, which is the bug this parameter exists to retire.
+  glyphs,
+}: {
+  thumbWidth?: number | string
+  glyphs?: boolean
+}) {
   return (
     // Hidden below 900px by .rt-signalhead. These are column headers, and
     // below that width the chips stop being columns — they wrap into two.
@@ -296,7 +335,7 @@ export function SignalHeader({ thumbWidth = 66 }: { thumbWidth?: number | string
           flexGrow: 1,
           minWidth: 0,
           display: 'grid',
-          gridTemplateColumns: SIGNAL_COLUMNS,
+          gridTemplateColumns: signalColumns(glyphs),
           gap: 6,
           fontFamily: font.sans,
           fontSize: 9.5,

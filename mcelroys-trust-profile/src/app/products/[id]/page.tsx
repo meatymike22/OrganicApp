@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 // filter that means the same thing by the same word.
 import { INGREDIENT_FILTERS } from '@/lib/ingredientFilters'
 import { additive, colors, font, isoDate, layout, status } from '@/lib/design'
+import { AdditiveMark } from '@/components/AdditiveMark'
 import { baseDyeOf, categoryHelp, familiesPresent, familyFor, familyHelp } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
@@ -1748,20 +1749,14 @@ function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
           too, so a family cannot be described two ways on one page. */}
       {families.map((key) => (
         <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <span
-            aria-hidden
-            style={{
-              width: 9,
-              height: 9,
-              flexShrink: 0,
-              borderRadius: 2,
-              background: additive[key].fg,
-            }}
-          />
+          <AdditiveMark family={key} size="legend" />
           <span style={{ fontSize: 11.5, color: colors.ink2 }}>{additive[key].label}</span>
           <InfoDot text={familyHelp(key)} />
         </span>
       ))}
+      <span style={{ fontSize: 11.5, color: colors.ink4 }}>
+        The code on a row is the first two letters of its family above
+      </span>
       <span style={{ fontSize: 11.5, color: colors.ink4 }}>
         Unmarked rows have no category on file · not a finding that they are natural
       </span>
@@ -1872,7 +1867,18 @@ function IngredientRow({
       </span>
 
       <span style={{ flexGrow: 1, minWidth: 0, fontSize: 13, lineHeight: 1.45 }}>
-        <span style={{ color: family ? additive[family].fg : colors.ink, fontWeight: family ? 500 : 400 }}>
+        {/* THE NAME IS INK AGAIN, AND THE FAMILY MOVED TO THE MARK.
+            Michael, 2026-10-13: "its hard to see the colors when the text is
+            highlighted". Tinting the ingredient name put the family on the
+            one element a reader selects, and a selection replaces the text
+            colour outright — so the family went invisible at exactly the
+            moment someone was trying to copy the name and look it up.
+            It was also the weakest possible place for it: hue is far harder
+            to judge on thin 13px glyphs than on a solid block.
+            The weight stays, because bold-vs-regular is a third channel that
+            costs nothing and survives greyscale. */}
+        {family && <AdditiveMark family={family} />}{family ? ' ' : null}
+        <span style={{ color: colors.ink, fontWeight: family ? 500 : 400 }}>
           {sentenceCase(pi.ingredient.name)}
         </span>
 

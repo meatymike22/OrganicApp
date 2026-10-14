@@ -18,6 +18,35 @@
   --link-hover: #8e3e22;
 }
 
+/* TEXT SELECTION. One of the two things Michael reported on 2026-10-13 was
+ * "its hard to see the colors when the text is highlighted". The structural
+ * half of that fix is in AdditiveMark.tsx: the ingredient name is ink again
+ * and the family moved to a two-letter mark, so a selection can no longer
+ * hide what family a row is in.
+ *
+ * This is the other half. The browser default selection is a saturated blue
+ * that forces its own foreground colour, and on a warm paper page it washes
+ * out anything underneath it. A pale wash of the link rust keeps the ink
+ * underneath at full contrast, so highlighting a line to copy it no longer
+ * makes the line harder to read than it was.
+ *
+ * THE FOREGROUND IS FORCED, AND THAT IS THE LOAD-BEARING HALF. With only a
+ * background set, Chrome and Safari pick their own selection foreground,
+ * which is how the default ends up replacing a dark colour with a lighter
+ * one. Pinning it to ink means NO coloured text anywhere on the site can
+ * end up low-contrast while it is selected, whatever colour it is unselected:
+ * ink on this wash measures 12.3:1. Without the pin, the rust link colour
+ * on this same wash is 3.8:1, which is the failure this rule exists to
+ * prevent rather than one it would cause.
+ *
+ * The wash is 9 L* below the paper background, so a selection is plainly
+ * visible. A lighter wash that kept rust above 4.5:1 on its own was tried
+ * first and was too faint to read as a selection at all. */
+::selection {
+  background: #f0d9cd;
+  color: #16201b;
+}
+
 html {
   background: var(--paper);
 }

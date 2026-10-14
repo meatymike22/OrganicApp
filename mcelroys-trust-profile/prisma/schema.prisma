@@ -247,6 +247,122 @@ model Product {
   imageSourceUrl String?
   imageCheckedAt DateTime?
 
+  // ===================================================================
+  // WHAT THE PACKAGE ITSELF CLAIMS, from the Open Food Facts export.
+  // Added 2026-10-13 (Phase 1 of the backlog) after scripts/probe-off-labels.ts
+  // measured the export rather than assuming its shape.
+  //
+  // THE ONE RULE THAT GOVERNS EVERY COLUMN IN THIS SECTION, and the reason
+  // they are not merged into the certification tables above:
+  //
+  //   An OrganicCertification row is a GOVERNMENT RECORD about a COMPANY.
+  //   A labelClaims entry is a CROWDSOURCED TRANSCRIPTION of a claim printed
+  //   on THIS PACKAGE. Nobody audited it.
+  //
+  // Different grades of evidence need different wording, so they need
+  // different columns. Collapsed into one green chip we are straight back to
+  // item 13: a green Organic badge on a product that is not organic.
+  //
+  // EVERY ONE OF THESE IS A THREE-STATE PAIR, exactly like imageCheckedAt
+  // above. An empty array with a checkedAt set means "we read the export and
+  // the label claims nothing". An empty array with a null checkedAt means
+  // "nobody has looked". Those are not the same statement, and item 27 is
+  // what it costs to collapse them: 34,624 products are still stamped
+  // "never looked" for their photograph because a backfill ran before that
+  // distinction existed.
+  // ===================================================================
+
+  // OFF `labels_tags`, e.g. en:organic, en:no-gmos, en:no-gluten.
+  // Measured in the export: 6.1% of records carry an organic tag, 4.4%
+  // non-GMO, 3.4% gluten-free. We hold 40 organic and 18 non-GMO rows today
+  // across 416,382 products, which is why this is worth a column.
+  //
+  // STORED AS THE RAW TAG, not as booleans. Three reasons: the tag list is
+  // open-ended (the export has hundreds), a boolean would lose which exact
+  // claim was printed, and "en:no-gluten" and "en:certified-gluten-free" are
+  // different claims that a single glutenFree flag would silently merge.
+  // See item 31: never the unqualified phrase "gluten free", and never one
+  // derived from an ingredient list.
+  labelClaims          String[]  @default([])
+  labelClaimsSource    String?
+  labelClaimsCheckedAt DateTime?
+
+  // OFF `additives_tags`: INS numbers, which are the same numbers as EU
+  // E-numbers. 56.1% of export records carry them, 422 distinct tags, and
+  // 99.5% of the tags are well-formed e-numbers (measured by shape, because
+  // an array being present is not the same as it holding e-numbers).
+  //
+  // WHY THIS MATTERS MORE THAN IT LOOKS: src/lib/ingredientClassification.ts
+  // is a hand-maintained keyword list. It is why palm kernel oil sat
+  // uncategorised on 5,488 products and why 355 hydrogenated names still do.
+  // An INS number is a published standard with one additive and one Codex
+  // functional class behind it.
+  //
+  // IT DOES NOT REPLACE THE KEYWORD CLASSIFIER, and the measurement is the
+  // reason: 56.1% coverage leaves 44% of records with no tags at all, and
+  // the classifier also catches things that are NOT additives and have no
+  // INS number by definition — seed oils and hydrogenated fats are
+  // ingredients, not additives. Two sources, not a replacement.
+  additiveENumbers   String[]  @default([])
+  additivesSource    String?
+  additivesCheckedAt DateTime?
+
+  // THE LABEL'S OWN "CONTAINS:" LINE. OFF `allergens_tags` on 55.1% of
+  // records, 94,054 of which name a US major allergen.
+  //
+  // THIS IS NOT Ingredient.allergens, AND THE DIFFERENCE IS THE POINT.
+  // Ingredient.allergens is DERIVED by reading ingredient names. This is the
+  // statement the manufacturer printed, which is the authoritative one. Item
+  // 23 was deliberately left unbuilt for two rounds rather than ship
+  // "contains milk (our reading)" and replace it later with "Contains: milk
+  // (the label)" — teaching a reader that our allergen wording is unstable,
+  // on the one topic where that is least acceptable.
+  labelAllergens String[] @default([])
+
+  // THE "MAY CONTAIN" LINE. OFF `traces_tags`, on only 2.4% of records.
+  //
+  // Small, and worth a column anyway: this is the cross-contact warning, we
+  // hold none of it, and it CANNOT BE DERIVED AT ALL. No ingredient list can
+  // see what else ran on the line. It is the half of allergen safety our
+  // current derivation is structurally blind to.
+  labelAllergenTraces     String[] @default([])
+  labelAllergensSource    String?
+  labelAllergensCheckedAt DateTime?
+
+  // THE INGREDIENT LIST AS THE SOURCE WROTE IT, verbatim and unparsed.
+  //
+  // Item 40. Today there is no raw text column anywhere in this schema, so
+  // our transcription into ProductIngredient rows CANNOT BE AUDITED BY
+  // ANYONE, including us. That is how `coloring` became an ingredient on 803
+  // products and nobody could check it against the label.
+  //
+  // ingredientsTextLang is the export's own `lang`. 4.4% of records have
+  // ingredient text but NO English text, which is the Norwegian-Snickers bug
+  // (item 36) measured exactly: those rows joined to ingredient names nothing
+  // else in the catalogue shares.
+  ingredientsTextRaw          String?
+  ingredientsTextLang         String?
+  ingredientsTextRawSource    String?
+  ingredientsTextRawCheckedAt DateTime?
+
+  // PIXEL DIMENSIONS OF imageUrl. Item 32: without them the hero frame
+  // letterboxes every portrait photograph, because it has to assume a shape.
+  //
+  // DELIBERATELY NOT GIVEN THEIR OWN checkedAt PAIR. They are part of the
+  // image record and imageCheckedAt already governs it. The third state here
+  // is "we have a photo but have not measured it" — imageUrl set with these
+  // null — which is a rendering fallback, not a claim about the product.
+  //
+  // THE SOURCE IS NOT YET PROVEN. Unlike every other column in this section,
+  // the probe did not measure these: it checked the label, additive,
+  // allergen and ingredient fields, not the export's `images` object. The
+  // backfill reports whether the export carries sizes and fills what it can.
+  // Saying so here rather than implying the export provides them, because
+  // assuming an export field is exactly what round 5d cost a 7-minute run
+  // and a day.
+  imageWidth  Int?
+  imageHeight Int?
+
   // HOW GOOD THE RECORD BEHIND THIS PRODUCT IS, as one small number, so the
   // database can sort by it.
   //
@@ -405,6 +521,29 @@ model Ingredient {
   // about any of them. A stale count makes the shelf slightly worse, never
   // wrong. Nothing user-facing prints it — the ingredient page deliberately
   // stopped showing this number on 2026-10-08.
+  // OPEN FOOD FACTS' OWN CANONICAL ID for this ingredient, e.g.
+  // "en:canola-oil". Added 2026-10-13 with the Phase 1 export pass.
+  //
+  // WHY THIS IS WORTH A COLUMN. Every ingredient in this table is keyed by a
+  // NAME, and a name is a terrible join key: it is why 566 names carry OFF
+  // underscore markup, why 361 of them have a clean twin to merge onto, and
+  // why `quot` is an ingredient on 400+ products. The export ships a
+  // taxonomy id alongside the text on 90.6% of records, and that id is
+  // stable across spelling, case, markup and language.
+  //
+  // IT ALSO CARRIES AN ADMISSION FROM THE SOURCE. The export sets
+  // `is_in_taxonomy: 0` on entries it could not resolve itself. An id that
+  // came back unresolved is recorded as null here rather than invented,
+  // which keeps the three-state rule: an id, no id but we looked, or nobody
+  // looked.
+  //
+  // NOT A MERGE KEY YET. Writing it is Phase 1; using it to merge duplicate
+  // names is item 28, which needs its own dry run read by a person. A name
+  // that looks like junk and is not is the expensive error in that area
+  // (`2'-fucosyllactose` once became `'-fucosyllactose`).
+  offTaxonomyId        String?
+  offTaxonomyCheckedAt DateTime?
+
   productCount       Int       @default(0)
   // True only for additives/processing-flagged ingredients that warrant dedicated
   // safety research (IngredientStudy records) — mirrors how Yuka only researches
@@ -448,6 +587,54 @@ model ProductIngredient {
   // OrganicCertification remains the authoritative source for organic status.
   isOrganicSourced Boolean @default(false)
 
+  // WHICH INGREDIENT THIS ONE IS NESTED INSIDE, within this product.
+  //
+  // THE EXPORT SHIPS THE TREE, which is the single most useful thing the
+  // probe found. 90.6% of records carry a PARSED `ingredients` array and
+  // 115,774 of those have nested children already structured. So item 39 is
+  // not a bracket parser we have to write and get wrong — the nesting is
+  // given, and the job is storing a parent link.
+  //
+  // WHAT IT FIXES. Today we flatten, so `MILK CHOCOLATE (SUGAR, COCOA
+  // BUTTER, ...)` becomes eleven sibling rows and the sub-list header
+  // `coloring` becomes an ingredient in its own right on 803 products, 382
+  // of which also carry an actual artificial dye. Flattening also destroys
+  // the one real signal a label gives: listPosition means descending order
+  // by weight, and a nested child is a fraction of its parent, not the
+  // 7th-heaviest thing in the package.
+  //
+  // WHY THE RELATION IS COMPOSITE. The parent is identified by
+  // (productId, ingredientId) because that is this table's primary key, and
+  // nesting never crosses products. Declaring it as a real relation rather
+  // than a bare column is deliberate: a dangling parent id would be a silent
+  // data bug, and a database-level foreign key is the cheapest possible
+  // guard against one.
+  //
+  // NULL MEANS TOP LEVEL, which is the common case and the default.
+  // A PLAIN COLUMN, NOT A DECLARED RELATION, and that is a deliberate
+  // downgrade. The parent is (productId, parentIngredientId), which would be
+  // a composite foreign key back to this table’s own primary key, with
+  // productId shared between two relations. Both of those are things the
+  // Prisma documentation does not state are supported, and `prisma validate`
+  // cannot run in the environment this was written in — Prisma downloads its
+  // schema engine from a host that is blocked there. Shipping a schema
+  // construct that has never been validated, into a migration, is how you
+  // spend someone else’s evening. So this is the form that needs no
+  // validation to be certain of.
+  //
+  // WHAT THAT COSTS, STATED PLAINLY: there is no database-level guard against
+  // a parentIngredientId that points at no row. Two things cover it instead.
+  // The backfill only ever writes a parent it created in the same product in
+  // the same pass. And the renderer treats an unresolvable parent as
+  // top-level rather than dropping the row, so the worst case is one
+  // ingredient shown flat — never a missing ingredient, and never a cycle.
+  //
+  // IF A LATER ROUND CONFIRMS Prisma takes the composite self-relation, this
+  // becomes a real foreign key and the two guards above become redundant
+  // rather than load-bearing. That is the upgrade, and it is safe to make
+  // because the column name does not change.
+  parentIngredientId String?
+
   // Position in the product's ingredient list, 1-indexed.
   //
   // This is meaningful, not incidental: FDA requires ingredients to be listed
@@ -475,6 +662,14 @@ model ProductIngredient {
   concentrationNote String?
 
   @@id([productId, ingredientId])
+  // NO INDEX ON parentIngredientId YET, ON PURPOSE. Until the backfill runs
+  // the column is NULL on all 3,551,695 rows, so a btree over it would be
+  // 3.5M index entries pointing at nothing, built under a write lock on a
+  // 934 MB table, to serve no query. It is declared in the migration that
+  // follows the backfill instead, where it is built once over populated data.
+  // Adding it by hand in SQL would have been the other option and was
+  // rejected: an index Prisma does not know about shows up as drift on the
+  // next migrate dev, which is a worse problem than a missing index.
   // The primary key already covers "ingredients of this product". This covers
   // the reverse — "products containing this ingredient" — used by ingredient
   // pages, filters, and the orphaned-ingredient cleanup.

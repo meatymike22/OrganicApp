@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { AdditiveMark } from '@/components/AdditiveMark'
 import { additive, colors, font, layout, status } from '@/lib/design'
 import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { VisitTrail } from '@/components/VisitTrail'
@@ -443,7 +444,14 @@ function IngredientGloss({ category }: { category: string | null }) {
       }}
     >
       <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: colors.ink2 }}>
-        <strong style={{ color: additive[key].fg, fontWeight: 600 }}>{additive[key].label}.</strong>{' '}
+        {/* THE SAME MARK THE PRODUCT PAGE PRINTS. A reader arrives here by
+            clicking a row that showed a code, so this page has to show the
+            same code or the code looks like decoration. The label used to
+            be set in the family colour; it is ink now, for the reason in
+            AdditiveMark.tsx — a selection over coloured text hides the
+            colour, and the colour was the only thing carrying the family. */}
+        <AdditiveMark family={key} />{' '}
+        <strong style={{ color: colors.ink, fontWeight: 600 }}>{additive[key].label}.</strong>{' '}
         {gloss.plain}
       </p>
       <div style={{ marginTop: 3 }}>

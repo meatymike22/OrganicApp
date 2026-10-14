@@ -106,49 +106,104 @@ export type StatusKey = keyof typeof status
 // "Colour added" says what the ingredient does. "Artificial colour" would
 // smuggle in a judgement about artificial things that the record does not
 // make.
-// SEVEN FAMILIES AS OF 2026-10-13. Round 18 shipped six, with preservative
-// and emulsifier sharing one hue because Michael had named them as a pair.
-// He then asked for the split directly: "preservative and emulsifier should
-// be separated as distinct categories." They do different jobs, so the split
-// is the more accurate shape; the reason it is now safe is the other half of
-// the same comment — "put a little 'i' next to each category so the user
-// can understand what each means". With a definition on every legend entry,
-// the hue no longer has to be self-explaining, which is what made six the
-// practical ceiling before.
+// EIGHT FAMILIES, AND COLOUR IS NO LONGER THE ONLY THING THAT CARRIES THEM.
 //
-// HUE ORDER IS NOT LEGEND ORDER, on purpose. Seven distinguishable hues that
-// avoid red, green and amber means using most of a spectrum, and a spectrum
-// printed in spectrum order reads as a ramp from mild to severe — which is
-// the scoring system this project refuses to build. So the legend's order
-// interleaves them: magenta, violet, teal, indigo, brown, blue, grey. That
-// also puts the two closest hues (indigo and blue) on opposite sides of
-// brown rather than next to each other.
+// Round 18 shipped six, round 19 split preservative from emulsifier and
+// flavour from fragrance, round 21 added hydrogenated fat to the oil family.
+// Then Michael, 2026-10-13: "colors are too close together and its hard to
+// see the colors when the text is highlighted. we have to take colorblind
+// people into consideration here."
+//
+// HE WAS RIGHT, AND IT WAS WORSE THAN THAT. Measured with CIEDE2000 on the
+// Machado 2009 colour-vision-deficiency simulations, the palette he was
+// looking at scored:
+//
+//     normal vision      deltaE  4.7   dye vs fragrance
+//     deuteranopia       deltaE  3.6   flavour vs oil
+//     protanopia         deltaE  1.4   flavour vs preservative
+//     tritanopia         deltaE  4.0   sweetener vs oil
+//
+// A deltaE of 1.4 is not "close", it is the same colour. And the 4.7 was for
+// NORMAL vision, which makes it a plain bug rather than an accessibility
+// gap. The rule of thumb for marks this small is deltaE 15 to 20.
+//
+// THE THING THAT CAME OUT OF MEASURING IT: eight categorical hues cannot be
+// made colour-blind-safe inside this file’s own no-red, no-green, no-amber
+// rule. A search over every in-gamut colour that rule permits tops out at
+// about deltaE 11 for eight, and only reaches 16 for six by using hues that
+// break the rule (it wanted a green and a brown-red). Protanopia and
+// deuteranopia collapse the red-green axis, and banning amber removes the
+// yellow end, so what is left is one blue-violet arc, one teal arc, and
+// lightness. That is four or five colours, not eight.
+//
+// SO COLOUR STOPPED BEING THE ONLY CHANNEL. Every classified row now carries
+// a two-letter code as well — `code` below, rendered by AdditiveMark.tsx.
+// The code is the first two letters of the family’s own legend word, which is
+// what makes it learnable from the legend sitting directly above the list.
+// It reads in greyscale, it reads under every kind of colour blindness, and
+// it survives the thing he reported second: a text selection over a coloured
+// word hides the colour, and it cannot hide a letter.
+//
+// The hues below are now a SECONDARY cue — fast grouping when you scan a
+// list, not the thing that tells you which family a row is in. They were
+// re-tuned anyway, within 8 degrees of where each family already sat, so
+// dye is still magenta, flavour violet, preservative indigo, oil blue,
+// sweetener teal, emulsifier brown. The lever was LIGHTNESS, which is the
+// one channel every kind of colour blindness leaves intact: the ladder now
+// runs L 24, 24, 28, 36, 42, 46 where it used to sit between 34 and 45.
+//
+//     worst co-occurring pair, all four vision types:  1.4  ->  9.3
+//
+// 9.3 is still under the 15 a colour-only mark would need. That is the point
+// of the letters, and it is why this comment does not claim the palette was
+// fixed.
+//
+// WHY "CO-OCCURRING" IS THE RIGHT MEASURE, and this is the part worth
+// keeping: a hue only has to be told apart from the hues ON THE SAME PAGE.
+// Counted over the 179,391 products that carry any classified ingredient:
+//
+//     families on one product’s list:   1: 66,609   2: 54,225   3: 35,901
+//                                     4: 16,960   5:  5,280   6:    416
+//
+// Never seven, never eight, and four or fewer on 96.8% of products. Better:
+// every pair involving `fragrance` or `other` co-occurs on at most 37
+// products, and flavour and fragrance NEVER co-occur — zero products hold
+// both, because an undisclosed fragrance only appears on things that are not
+// eaten. So fragrance takes flavour’s hue outright, below, and the two codes
+// Fl and Fr are what separate them. There is no page where that is ambiguous.
+//
+// HUE ORDER IS STILL NOT LEGEND ORDER, on purpose: a spectrum printed in
+// spectrum order reads as a ramp from mild to severe, which is the scoring
+// system this project refuses to build.
+//
+// `bg` WAS REMOVED in this pass. It held a pale tint per family and was read
+// by nothing — every call site used `fg`. A documented "never use a fg on
+// a background other than its own bg" pairing that no code honours is worse
+// than no pairing, because the next person to add a tint will trust it.
+const FLAVOUR_HUE = '#462A6E'
+
 export const additive = {
-  dye: { label: 'Colour added', fg: '#A0357A', bg: '#F6E8F1' },
-  flavour: { label: 'Flavour added', fg: '#7A3FA0', bg: '#F0E8F7' },
-  // SPLIT FROM FLAVOUR 2026-10-13: "separate flavor and fragrance". They
-  // were one entry because the two stored categories are rare together and
-  // read as a pair; they are not one. A flavouring is eaten and a fragrance
-  // is smelled, and `undisclosed fragrance` appears only on non-food
-  // products in our data. Close in hue to flavour on purpose — they are
-  // adjacent facts, and the legend labels carry the difference.
-  fragrance: { label: 'Fragrance added', fg: '#A34A86', bg: '#F7E9F2' },
-  sweetener: { label: 'Sweetener added', fg: '#0F6E7A', bg: '#E2EFF1' },
-  preservative: { label: 'Preservative', fg: '#3F4DA8', bg: '#E7E9F6' },
-  emulsifier: { label: 'Emulsifier', fg: '#6B4A2A', bg: '#F2EAE1' },
-  // RELABELLED 2026-10-13 from "Seed oil". The family now holds two stored
+  dye: { label: 'Colour added', code: 'Co', fg: '#88517B' },
+  flavour: { label: 'Flavour added', code: 'Fl', fg: FLAVOUR_HUE },
+  // SAME HUE AS FLAVOUR, DELIBERATELY. Zero products in the database carry
+  // both an undisclosed flavouring and an undisclosed fragrance, so no
+  // legend ever prints these two swatches together. Written as a shared
+  // constant rather than a repeated literal so the two cannot drift apart
+  // and quietly become a confusable pair.
+  fragrance: { label: 'Fragrance added', code: 'Fr', fg: FLAVOUR_HUE },
+  sweetener: { label: 'Sweetener added', code: 'Sw', fg: '#004A4F' },
+  preservative: { label: 'Preservative', code: 'Pr', fg: '#144CBD' },
+  emulsifier: { label: 'Emulsifier', code: 'Em', fg: '#56300C' },
+  // RELABELLED 2026-10-13 from "Seed oil". The family holds two stored
   // categories, `seed oil` and `hydrogenated fat`, and "Seed oil" would be a
   // false label on hydrogenated palm, which is not pressed from a seed.
-  // A ninth hue was the alternative and was rejected: the two are told apart
-  // by the ingredient's own name, which contains the word "hydrogenated" in
-  // every case, so a colour would be carrying information the row already
-  // has. See the oil entry in the glossary.
-  oil: { label: 'Oil or fat added', fg: '#1F6FA0', bg: '#E3EEF4' },
+  oil: { label: 'Oil or fat added', code: 'Oi', fg: '#2E72A1' },
   // Categories too rare to earn a hue, and any category a later
   // classification pass invents. Deliberately NOT the same grey as
   // status.nothingOnFile: this one means "an additive we have classified",
-  // which is the opposite of nothing on file.
-  other: { label: 'Other additive', fg: '#5A5F62', bg: '#ECEDEE' },
+  // which is the opposite of nothing on file. Code is Ad, not Ot, because
+  // the reader is being told what the row IS, not which bucket it fell in.
+  other: { label: 'Other additive', code: 'Ad', fg: '#5A5F62' },
 } as const
 
 export type AdditiveKey = keyof typeof additive

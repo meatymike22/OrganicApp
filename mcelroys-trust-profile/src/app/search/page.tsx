@@ -486,7 +486,10 @@ export default async function SearchPage({
                 <EmptyState q={q} aisle={aisle} filtered={hasAnyFilter(filters)} />
               ) : (
                 <>
-                  <SignalHeader thumbWidth={THUMB} />
+                  {/* glyphs MUST match the SignalStrip on the rows below,
+                      which passes it too. See signalColumns() in
+                      StatusChip.tsx for why this is a parameter. */}
+                  <SignalHeader thumbWidth={THUMB} glyphs />
                   {loaded.results.map(({ product, signals }) => (
                     <ResultRow key={product.id} product={product} signals={signals} from={here} />
                   ))}
