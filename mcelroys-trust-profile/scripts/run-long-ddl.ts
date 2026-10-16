@@ -30,10 +30,15 @@
 // block/tuple counts every few seconds instead of leaving you watching a
 // spinner and wondering whether to give up.
 //
+// IT IS NOT ONLY FOR DDL. Any statement that can outlive a gateway timeout
+// belongs here -- VACUUM and ANALYZE have exactly the same problem, and
+// Postgres reports their progress through a different view, so each job names
+// the view that reports it.
+//
 // USAGE
 //   npx tsx scripts/run-long-ddl.ts --list
-//   npx tsx scripts/run-long-ddl.ts product_ingredient_covering_index
-//   npx tsx scripts/run-long-ddl.ts product_ingredient_covering_index --live
+//   npx tsx scripts/run-long-ddl.ts <job>
+//   npx tsx scripts/run-long-ddl.ts <job> --live
 //
 // Dry run by default: it prints the SQL and checks whether the object already
 // exists, and writes nothing without --live.
@@ -52,11 +57,33 @@
 import 'dotenv/config'
 import { Client } from 'pg'
 
-// EVERY LONG DDL WE HAVE NEEDED, BY NAME. Kept as a registry rather than
+// WHAT A JOB IS. Only `sql` and `note` are required; the rest describe how to
+// tell whether the job is already done and how Postgres reports it running.
+type Job = {
+  sql: string
+  note: string
+  // IDEMPOTENCY CHECK, run before the statement and again after it. Zero rows
+  // means the object does not exist yet. OMIT IT for a job that is always safe
+  // to run again and creates nothing -- VACUUM, ANALYZE -- where there is no
+  // "already done" state to detect and skipping would be wrong.
+  verify?: string
+  // True when a verify row reporting indisvalid = false means a previous
+  // attempt died part-way and left a corpse that has to be dropped by hand.
+  invalidMeansRetry?: boolean
+  // WHICH pg_stat_progress_* VIEW REPORTS THIS STATEMENT. Postgres has one per
+  // operation and they share no columns, so the view and the columns worth
+  // printing are named per job. Omitted means no progress reporting exists and
+  // only elapsed time is printed.
+  progress?: { view: string; columns: string[] }
+  // Follow-up commands the operator must not forget, printed on success.
+  then?: string[]
+}
+
+// EVERY LONG STATEMENT WE HAVE NEEDED, BY NAME. Kept as a registry rather than
 // taking arbitrary SQL on the command line: this script exists to run known,
 // reviewed statements against a production database, and accepting free-form
-// DDL from a shell argument is a different and much worse tool.
-const JOBS: Record<string, { sql: string; verify: string; note: string }> = {
+// SQL from a shell argument is a different and much worse tool.
+const JOBS: Record<string, Job> = {
   product_ingredient_covering_index: {
     // CONCURRENTLY, because the site is live and taking traffic. A plain
     // CREATE INDEX takes a lock that blocks writes for the whole build; this
@@ -72,7 +99,50 @@ const JOBS: Record<string, { sql: string; verify: string; note: string }> = {
     verify: `SELECT c.relname, i.indisvalid
              FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
              WHERE c.relname = 'ProductIngredient_ingredientId_productId_idx'`,
+    invalidMeansRetry: true,
+    progress: {
+      view: 'pg_stat_progress_create_index',
+      columns: ['phase', 'blocks_done', 'blocks_total', 'tuples_done', 'tuples_total'],
+    },
     note: 'Covering index for the related-products seed lookup. See the comment on @@index([ingredientId, productId]) in schema.prisma for why.',
+    then: [
+      'Now record it in Prisma WITHOUT re-running the SQL:',
+      '  npx prisma migrate resolve --rolled-back 20261015181837_product_ingredient_covering_index',
+      '  npx prisma migrate resolve --applied     20261015181837_product_ingredient_covering_index',
+      '  npx prisma generate',
+    ],
+  },
+
+  // RAN 2026-10-16, after the covering index was built. The index worked --
+  // 11.5 s down to 38.6 ms -- but its Index Only Scan still did 104 heap
+  // fetches for 500 rows, which is not what "index only" is supposed to mean.
+  //
+  // THE CAUSE: an Index Only Scan can skip the heap only for pages the
+  // visibility map marks all-visible, and the visibility map is maintained by
+  // VACUUM. ProductIngredient had not been vacuumed since 2026-09-28, so most
+  // pages were unmarked and Postgres had to check the heap anyway.
+  //
+  // ANALYZE is bundled in for a second reason: last_analyze was 2026-10-01,
+  // which PRE-DATES the whole Phase 1 export backfill. The planner was
+  // choosing plans for this table from statistics two weeks and sixteen
+  // columns out of date.
+  //
+  // No `verify`: there is no "already vacuumed" state to detect, and a vacuum
+  // is always safe to repeat.
+  product_ingredient_vacuum: {
+    sql: 'VACUUM (ANALYZE) "ProductIngredient"',
+    progress: {
+      view: 'pg_stat_progress_vacuum',
+      columns: ['phase', 'heap_blks_scanned', 'heap_blks_total', 'index_vacuum_count'],
+    },
+    note: 'VACUUM (ANALYZE) on ProductIngredient. Sets the visibility map so index-only scans stop touching the heap, and refreshes statistics last taken before the Phase 1 backfill.',
+    then: [
+      'Re-check that the heap fetches have dropped:',
+      '  EXPLAIN (ANALYZE, BUFFERS) SELECT "productId" FROM "ProductIngredient"',
+      "    WHERE \"ingredientId\" = '8245abab-d57f-4d00-9c3b-aa63dfb818c3'",
+      '    ORDER BY "productId" ASC LIMIT 500;',
+      'Heap Fetches was 104 before this ran. It should now be at or near 0.',
+    ],
   },
 }
 
@@ -109,23 +179,30 @@ async function main() {
   await client.connect()
   log(`connected`)
 
-  // Check first. Re-running a succeeded build wastes twenty minutes, and an
-  // INVALID index left by a previous failure must be dropped, not built over.
-  const pre = await client.query(job.verify)
-  if (pre.rows.length > 0) {
-    const valid = pre.rows[0].indisvalid
-    if (valid) {
-      log(`ALREADY EXISTS and is valid. Nothing to do.`)
-      log(`If Prisma still thinks the migration failed, run the two`)
-      log(`prisma migrate resolve commands in this file's header.`)
+  // Check first, when the job has a check. Re-running a succeeded build wastes
+  // twenty minutes, and an INVALID index left by a previous failure must be
+  // dropped, not built over.
+  if (job.verify) {
+    const pre = await client.query(job.verify)
+    if (pre.rows.length > 0) {
+      const valid = pre.rows[0].indisvalid
+      if (valid || !job.invalidMeansRetry) {
+        log(`ALREADY EXISTS and is valid. Nothing to do.`)
+        if (job.then) {
+          log(`If the follow-up was never done, it is:`)
+          for (const line of job.then) log(`  ${line}`)
+        }
+        await client.end()
+        return
+      }
+      log(`An INVALID index of this name exists, left by a failed build.`)
+      log(`Postgres will not use it. Drop it before retrying:`)
+      log(`  DROP INDEX "${pre.rows[0].relname}";`)
       await client.end()
-      return
+      process.exit(1)
     }
-    log(`An INVALID index of this name exists, left by a failed build.`)
-    log(`Postgres will not use it. Drop it before retrying:`)
-    log(`  DROP INDEX "${pre.rows[0].relname}";`)
-    await client.end()
-    process.exit(1)
+  } else {
+    log('This job has no idempotency check; it is safe to run more than once.')
   }
 
   log(`SQL: ${job.sql}`)
@@ -138,57 +215,68 @@ async function main() {
   // THE THREE THINGS THAT KILLED THE EARLIER ATTEMPTS, all disabled here.
   // statement_timeout is the one that stopped Prisma; lock_timeout and
   // idle_in_transaction_session_timeout are set for the same reason, so that
-  // nothing else can cut a build that may legitimately run for half an hour.
+  // nothing else can cut a statement that may legitimately run for half an
+  // hour.
   await client.query('SET statement_timeout = 0')
   await client.query('SET lock_timeout = 0')
   await client.query('SET idle_in_transaction_session_timeout = 0')
   log('statement_timeout, lock_timeout and idle_in_transaction_session_timeout disabled for this session')
 
-  // A SECOND CONNECTION, purely to watch. The building connection is blocked
-  // inside CREATE INDEX and cannot report on itself.
+  // A SECOND CONNECTION, purely to watch. The working connection is blocked
+  // inside the statement and cannot report on itself.
+  const progress = job.progress
   const watcher = new Client({ connectionString: process.env.DATABASE_URL })
   await watcher.connect()
   const started = Date.now()
   const beat = setInterval(() => {
     void (async () => {
+      const mins = ((Date.now() - started) / 60000).toFixed(1)
+      if (!progress) {
+        log(`${mins} min — running (this statement reports no progress)`)
+        return
+      }
       try {
         const r = await watcher.query(
-          `SELECT phase, blocks_done, blocks_total, tuples_done, tuples_total
-           FROM pg_stat_progress_create_index LIMIT 1`
+          `SELECT ${progress.columns.join(', ')} FROM ${progress.view} LIMIT 1`
         )
-        const mins = ((Date.now() - started) / 60000).toFixed(1)
         if (r.rows.length === 0) {
-          log(`${mins} min — no build reported yet (it may be waiting for a lock)`)
+          log(`${mins} min — nothing reported yet (it may be waiting for a lock)`)
           return
         }
         const p = r.rows[0]
-        const blocks =
-          p.blocks_total > 0 ? ` blocks ${p.blocks_done}/${p.blocks_total}` : ''
-        const tuples =
-          p.tuples_total > 0 ? ` tuples ${p.tuples_done}/${p.tuples_total}` : ''
-        log(`${mins} min — ${p.phase}${blocks}${tuples}`)
+        const detail = progress.columns
+          .filter((c) => c !== 'phase')
+          .map((c) => `${c} ${p[c]}`)
+          .join(', ')
+        log(`${mins} min — ${p.phase ?? 'running'}${detail ? ` (${detail})` : ''}`)
       } catch {
-        /* a watcher that cannot read progress must not kill the build */
+        /* a watcher that cannot read progress must not kill the work */
       }
     })()
   }, 10_000)
 
-  log('building. This can take many minutes on a loaded instance; leave it alone.')
+  log('working. This can take many minutes on a loaded instance; leave it alone.')
   try {
     await client.query(job.sql)
     clearInterval(beat)
-    const post = await client.query(job.verify)
-    const ok = post.rows.length > 0 && post.rows[0].indisvalid
     const mins = ((Date.now() - started) / 60000).toFixed(1)
+
+    // Only a job with a verify can confirm itself. One without is trusted to
+    // have thrown if it failed, which is what pg does.
+    let ok = true
+    if (job.verify) {
+      const post = await client.query(job.verify)
+      ok = post.rows.length > 0 && (post.rows[0].indisvalid || !job.invalidMeansRetry)
+    }
+
     if (ok) {
-      log(`DONE in ${mins} min, and the index reports valid.`)
-      log('')
-      log('Now record it in Prisma WITHOUT re-running the SQL:')
-      log('  npx prisma migrate resolve --rolled-back 20261015181837_product_ingredient_covering_index')
-      log('  npx prisma migrate resolve --applied     20261015181837_product_ingredient_covering_index')
-      log('  npx prisma generate')
+      log(job.verify ? `DONE in ${mins} min, and it reports valid.` : `DONE in ${mins} min.`)
+      if (job.then) {
+        log('')
+        for (const line of job.then) log(line)
+      }
     } else {
-      log(`FINISHED in ${mins} min but the index is NOT valid. Drop it and retry.`)
+      log(`FINISHED in ${mins} min but it is NOT valid. Drop it and retry.`)
       process.exitCode = 1
     }
   } catch (err) {

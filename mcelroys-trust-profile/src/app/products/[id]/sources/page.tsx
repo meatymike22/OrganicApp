@@ -82,6 +82,17 @@ const FIELDS = {
   },
 } as const
 
+// Cached. This data changes on import, not continuously.
+export const revalidate = 3600
+
+// Required for ISR on a dynamic segment: without it the route is dynamically
+// rendered and `revalidate` above does nothing. Prerenders nothing at build,
+// caches each path on first visit. See the long note in
+// products/[id]/page.tsx and claude/runbook-serving-and-caching.md.
+export async function generateStaticParams() {
+  return []
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const product = await prisma.product.findUnique({

@@ -24,7 +24,9 @@ import { evidenceNote, getProductRecalls, getRecallsListingProducts, groupRecall
 import { ProductThumb } from '@/components/ProductThumb'
 import { Collapsible, InfoDot } from '@/components/Collapsible'
 import { CopyBarcode } from '@/components/CopyBarcode'
-import { AisleBar, BackLink, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { Suspense } from 'react'
+import { BackToResultsFromUrl } from '@/components/BackFromUrl'
 import { VisitTrail } from '@/components/VisitTrail'
 import { SignalTable, SignalTableNote, StatusChip } from '@/components/StatusChip'
 
@@ -137,19 +139,52 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: `${title} — ${companyDisplayName(product.company.legalName)}` }
 }
 
-export default async function ProductPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>
-  // Only `from` is read here, and only to offer a way back to the list the
-  // reader came from. Nothing on this page varies by query string.
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
+// CACHED, which is the whole point of the back-link change below.
+//
+// Until 2026-10-16 this page read `searchParams`, which opts a route out of
+// caching unconditionally -- so all 416,365 product pages rendered from
+// scratch on every request. That is what exhausted the Vercel Fluid Active
+// CPU allowance and paused the project. The only thing read from the query
+// string was a back link, which now reads the URL on the client instead; see
+// BackFromUrl.tsx and claude/runbook-serving-and-caching.md.
+//
+// An hour is chosen because this data changes on import, not continuously.
+export const revalidate = 3600
+
+// WHY AN EMPTY ARRAY RATHER THAN NO FUNCTION AT ALL.
+//
+// Without this, the route is DYNAMICALLY RENDERED and the `revalidate` above
+// does nothing. `revalidate` is not sufficient on its own for a dynamic
+// segment. From the Next.js docs on generateStaticParams: "You must always
+// return an array from generateStaticParams, even if it's empty. Otherwise,
+// the route will be dynamically rendered." And: "You must return an empty
+// array from generateStaticParams [...] in order to revalidate (ISR) paths at
+// runtime."
+//
+// Returning [] prerenders NOTHING at build time -- there are 416,365 products
+// and they do not belong in a build -- and instead caches each path the first
+// time it is visited, which is exactly what this page wants.
+//
+// NOT `dynamic = 'force-static'`, which the docs offer as the alternative:
+// that forces useSearchParams() to return empty values, which would
+// permanently break the client-side back link in BackFromUrl.tsx.
+//
+// MEASURED 2026-10-16, before this was added: six loads of one product page
+// produced EIGHT renders and 24 database round trips for the related-products
+// seeds alone, counted in pg_stat_statements. The pages were not being cached
+// at all, and `prerender-manifest.json` listed no dynamic route as
+// revalidatable. See claude/runbook-serving-and-caching.md.
+export async function generateStaticParams() {
+  return []
+}
+
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   // In Next.js 15+ the dynamic part of the URL arrives as a Promise.
+  //
+  // `searchParams` is deliberately NOT read. Its own comment here used to say
+  // "Nothing on this page varies by query string", which was true and is now
+  // load-bearing: reading it at all would un-cache the page.
   const { id } = await params
-  const sp = searchParams ? await searchParams : {}
-  const fromParam = Array.isArray(sp.from) ? sp.from[0] : sp.from
 
   const product = await prisma.product.findUnique({ where: { id }, select: PRODUCT_FIELDS })
 
@@ -207,11 +242,17 @@ export default async function ProductPage({
   // unchanged, so "back to Snickers" lands on a Snickers page that still
   // knows the way back to "peanut butter". Both are re-parsed and filtered
   // where they are read and neither is ever printed to the page.
-  const ingredientOrigin = (() => {
-    const params = new URLSearchParams({ from: `p:${product.id}` })
-    if (fromParam) params.set('pfrom', fromParam)
-    return `?${params.toString()}`
-  })()
+  //
+  // `pfrom` IS NO LONGER SET HERE. It carried this page's own origin one hop
+  // further so that "back to Snickers" landed on a Snickers page that still
+  // knew the way back to "peanut butter" -- but a cached page cannot know its
+  // own query string, so the server cannot put it on these links any more.
+  // What covers the gap: VisitTrail, which records the pages actually opened
+  // in this tab and shows the real route whenever it has two or more stops.
+  // That is strictly better than the URL chain for anyone who really walked
+  // search -> product -> ingredient, and the URL chain only ever rendered as
+  // VisitTrail's fallback. See BackToProductFromUrl in BackFromUrl.tsx.
+  const ingredientOrigin = `?from=p:${product.id}`
   const organic = organicSignal(forSignals)
   const nonGmo = nonGmoSignal(forSignals)
   const owner = ownerSignal(forSignals)
@@ -346,7 +387,19 @@ export default async function ProductPage({
           bar and never two. See the long note in VisitTrail.tsx for why this
           is not the breadcrumb returning. */}
       <VisitTrail label={title}>
-        <BackLink from={fromParam} />
+        {/* THE SUSPENSE BOUNDARY IS LOAD-BEARING. A static page that calls
+            useSearchParams from a client component MUST wrap it, or `next build`
+            fails with "Missing Suspense boundary with useSearchParams" -- and
+            because dev renders every route on demand, `next dev` works fine
+            without it. It also bounds the damage: useSearchParams makes the client
+            tree up to the nearest boundary client-rendered, so without one the
+            de-opt would climb past VisitTrail and take the prerender with it.
+
+            fallback={null} because that is what this bar has always rendered when
+            there is no origin to show. */}
+        <Suspense fallback={null}>
+          <BackToResultsFromUrl />
+        </Suspense>
       </VisitTrail>
 
       {/* HEADER */}

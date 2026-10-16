@@ -3,11 +3,10 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { AdditiveMark } from '@/components/AdditiveMark'
 import { additive, colors, font, layout, status } from '@/lib/design'
-import { AisleBar, BackTo, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { AisleBar, SignalTile, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { Suspense } from 'react'
+import { BackToProductFromUrl } from '@/components/BackFromUrl'
 import { VisitTrail } from '@/components/VisitTrail'
-// The product name, spelled the way the product page spells it, so the back
-// link reads as the page it returns to rather than as a database row.
-import { productDisplayName, shortProductName } from '@/lib/productName'
 import {
   baseDyeOf,
   familyFor,
@@ -55,39 +54,24 @@ import { assessmentWeight, authority, classificationMeaning } from '@/lib/author
 // copies and should go the same way.
 
 
-// THE WAY BACK TO A PRODUCT. Michael, 2026-10-12, after clicking sorbitol
-// from a Snickers page: "when i click this ingredient after being on the
-// product page, i can't go back: this tab/page history is gone. What
-// happened?"
+// CACHED, which is the whole point of the back-link change below.
 //
-// An ingredient page is reached from a product, from search, and from the
-// ingredients index, so where you came from is not knowable from this URL —
-// it has to be carried. The product page now appends `from=p:<id>` (and
-// `pfrom`, its own origin) to every ingredient link it renders; see
-// ingredientOrigin there.
+// Until 2026-10-16 this page read `searchParams`, which opts a route out of
+// caching unconditionally -- so all 416,365 product pages rendered from
+// scratch on every request. That is what exhausted the Vercel Fluid Active
+// CPU allowance and paused the project. The only thing read from the query
+// string was a back link, which now reads the URL on the client instead; see
+// BackFromUrl.tsx and claude/runbook-serving-and-caching.md.
 //
-// NOTHING FROM THE URL IS PRINTED. `from` is accepted only as `p:` plus a
-// uuid, the label is read from our own Product row, and a value naming a
-// product that does not exist produces no link at all rather than a dead
-// one. `pfrom` is passed straight back into a /products URL, where BackLink
-// parses and filters it exactly as it does on arrival from search — so the
-// whole chain (search, product, ingredient) walks backwards without any of
-// it being trusted as given.
-async function backToProduct(
-  from: string | undefined,
-  pFrom: string | undefined,
-): Promise<{ href: string; label: string } | null> {
-  if (!from || !from.startsWith('p:')) return null
-  const id = from.slice(2)
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return null
-  const product = await prisma.product.findUnique({
-    where: { id },
-    select: { name: true, company: { select: { legalName: true, dbaNames: true } } },
-  })
-  if (!product) return null
-  const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
-  const qs = pFrom ? `?from=${encodeURIComponent(pFrom)}` : ''
-  return { href: `/products/${id}${qs}`, label: shortProductName(title) }
+// An hour is chosen because this data changes on import, not continuously.
+export const revalidate = 3600
+
+// Required for ISR on a dynamic segment: without it the route is dynamically
+// rendered and `revalidate` above does nothing. Prerenders nothing at build,
+// caches each path on first visit. See the long note in
+// products/[id]/page.tsx and claude/runbook-serving-and-caching.md.
+export async function generateStaticParams() {
+  return []
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -97,18 +81,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return { title: capitalize(ingredient.name) }
 }
 
-export default async function IngredientPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
+export default async function IngredientPage({ params }: { params: Promise<{ id: string }> }) {
   // In Next.js 15+ the dynamic part of the URL arrives as a Promise.
+  //
+  // `searchParams` is deliberately NOT read, so this page can be cached. The
+  // back link to the originating product reads the URL on the client instead;
+  // see BackToProductFromUrl in BackFromUrl.tsx.
   const { id } = await params
-  const sp = searchParams ? await searchParams : {}
-  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
-  const cameFrom = await backToProduct(one(sp.from), one(sp.pfrom))
 
   const ingredient = await prisma.ingredient.findUnique({
     where: { id },
@@ -249,7 +228,11 @@ export default async function IngredientPage({
       {/* Same trail as the product page, with the product back link as its
           fallback for a first visit. See VisitTrail.tsx. */}
       <VisitTrail label={capitalize(ingredient.name)}>
-        {cameFrom ? <BackTo href={cameFrom.href} label={cameFrom.label} /> : null}
+        {/* See the note on the same boundary in products/[id]/page.tsx:
+            without it `next build` fails, while `next dev` does not. */}
+        <Suspense fallback={null}>
+          <BackToProductFromUrl />
+        </Suspense>
       </VisitTrail>
 
       {/* HEADER */}
