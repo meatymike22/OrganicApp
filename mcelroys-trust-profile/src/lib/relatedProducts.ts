@@ -112,6 +112,35 @@ const MIN_INGREDIENTS = 5
 // checkable against two ingredient lists.
 const MIN_OVERLAP = 0.25
 const MAX_RESULTS = 6
+
+// THE KILL SWITCH.
+//
+// Set the environment variable RELATED_PRODUCTS_DISABLED=1 to make this
+// function return nothing without touching the database at all.
+//
+// It exists because this query caused a production outage: twelve
+// concurrent copies at 29-83 seconds each, which starved every other
+// query on the instance. The ingredient free-from filters, which are
+// written correctly and use an entirely correct plan, went from a
+// measured 852 ms to 55 seconds purely from the IO contention this
+// created. Nothing was wrong with them.
+//
+// The real fix is the covering index on ProductIngredient
+// (ingredientId, productId) plus the per-seed queries below. That index
+// takes minutes to build and competes with live traffic for the same
+// buffers, so the build wants a quiet database.
+//
+// Sequence:
+//   1. set RELATED_PRODUCTS_DISABLED=1 in Vercel, redeploy
+//   2. npx tsx scripts/run-long-ddl.ts product_ingredient_covering_index --live
+//   3. remove the variable, redeploy
+//
+// The product page degrades gracefully: it already renders with no
+// related products on several paths, so nothing breaks, the shelf is
+// just absent for as long as the flag is set.
+//
+// See claude/runbook-database-performance.md.
+const DISABLED_PENDING_INDEX = process.env.RELATED_PRODUCTS_DISABLED === '1'
 // The second shelf: same kind of thing, shorter ingredient list. A lower bar
 // than MIN_OVERLAP on purpose — the whole point is a product that is
 // recognisably the same food while NOT sharing the long tail.
@@ -183,6 +212,8 @@ export async function getRelatedProducts(product: {
   companyId: string
 }): Promise<RelatedSet> {
   const empty: RelatedSet = { similar: [], shorter: [], myTotal: 0 }
+  // Kill switch, checked before any query runs. See the constant above.
+  if (DISABLED_PENDING_INDEX) return empty
   // No category, nothing to be related within. A product whose category we
   // have not worked out is not a product we can put on a shelf.
   if (!product.category) return empty
@@ -202,14 +233,61 @@ export async function getRelatedProducts(product: {
     .slice(0, SEED_INGREDIENTS)
     .map((r) => r.ingredientId)
 
-  // Every product carrying one of those rare ingredients. Index-driven on
-  // ProductIngredient_ingredientId_idx, and bounded.
-  const seedRows = await prisma.productIngredient.findMany({
-    where: { ingredientId: { in: seedIds }, productId: { not: product.id } },
-    select: { productId: true },
-    take: SEED_ROWS,
-  })
-  const seedProductIds = [...new Set(seedRows.map((r) => r.productId))]
+  // Every product carrying one of those rare ingredients.
+  //
+  // REWRITTEN 2026-10-15, AND THE COMMENT THIS REPLACED WAS THE PROBLEM. It
+  // said "Index-driven on ProductIngredient_ingredientId_idx, and bounded",
+  // which was wrong, and being wrong in a confident comment is why nobody
+  // looked at it for weeks. Measured in production this query was taking
+  // 29 to 83 SECONDS, twelve copies of it at a time, and it was the single
+  // thing making the whole database unusable.
+  //
+  // WHAT WAS ACTUALLY HAPPENING. It was one findMany with `in: seedIds` and
+  // `take: SEED_ROWS` and no orderBy. Prisma adds its own
+  // `ORDER BY "productId", "ingredientId"` when you use `take`, to make the
+  // slice deterministic. The only index that satisfies that ordering is the
+  // PRIMARY KEY, which is (productId, ingredientId) — so the planner chose:
+  //
+  //   Index Only Scan using "ProductIngredient_pkey"
+  //     Index Cond: ("ingredientId" = ANY (...))
+  //
+  // ingredientId is the SECOND column of that key, so it cannot be seeked on.
+  // Postgres scanned a 500 MB index from the beginning, checking every entry,
+  // until it had collected 1500 matches in productId order. The ingredientId
+  // index was never used at all.
+  //
+  // THE FIX IS THREE THINGS TOGETHER, and none of them works alone:
+  //   1. one query PER SEED instead of one `IN` query, so the filter is an
+  //      equality on the leading column and can be seeked;
+  //   2. an explicit `orderBy: productId`, so the ordering is ours rather than
+  //      Prisma’s and matches the index instead of fighting it;
+  //   3. a new index (ingredientId, productId) — see schema.prisma. With it
+  //      each query is an index-only seek: both selected columns are in the
+  //      index, so the heap is never touched.
+  //
+  // AND IT FIXES A RESULT-QUALITY BUG THAT WAS HIDING BEHIND THE SLOWNESS.
+  // The old single query took the first 1500 rows in productId order across
+  // all three seeds at once. Which seed those came from was pure accident of
+  // UUID sort, so the RAREST ingredient — the one that actually makes two
+  // products similar — often contributed nothing. On one measured product the
+  // seeds were mango (1,343 products), spices (36,359) and citric acid
+  // (58,881): a 1500-row slice could be entirely spices, which tells you
+  // almost nothing. A per-seed budget gives the rare ingredient its share.
+  const perSeed = Math.max(1, Math.ceil(SEED_ROWS / Math.max(seedIds.length, 1)))
+  const seedProductIdSet = new Set<string>()
+  for (const seedId of seedIds) {
+    // Sequential, not Promise.all: these are sub-millisecond index-only seeks
+    // once the composite index exists, and three concurrent connections per
+    // page render is exactly the pool pressure that made this worse.
+    const rows = await prisma.productIngredient.findMany({
+      where: { ingredientId: seedId, productId: { not: product.id } },
+      select: { productId: true },
+      orderBy: { productId: 'asc' },
+      take: perSeed,
+    })
+    for (const r of rows) seedProductIdSet.add(r.productId)
+  }
+  const seedProductIds = [...seedProductIdSet]
   if (seedProductIds.length === 0) return { ...empty, myTotal: mine.size }
 
   const candidates = await prisma.product.findMany({

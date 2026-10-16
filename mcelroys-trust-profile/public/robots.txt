@@ -1,0 +1,31 @@
+# Rootify crawler rules.
+#
+# WHY THIS FILE EXISTS: without it, the site was paused by Vercel on
+# 2026-10-16 for exhausting its Fluid Active CPU allowance. Every product
+# and ingredient page renders dynamically with no cache (all three heavy
+# pages await searchParams), so each crawler hit is a full server render
+# plus three database queries across a 543,000-page surface. /search
+# accepts arbitrary filter parameters, which is an unbounded URL space.
+#
+# See claude/runbook-database-performance.md.
+
+User-agent: *
+
+# The unbounded space. Every combination of free-from filters is a unique
+# URL running correlated anti-joins against a 3.5M-row join table. Bare
+# /search stays crawlable so the page itself can rank.
+Disallow: /search?
+Disallow: /*?page=
+Disallow: /*?q=
+
+# Not content.
+Disallow: /api/
+
+# Honoured by Bing, Yandex and most smaller crawlers. Google ignores it
+# and is rate-limited in Search Console instead.
+Crawl-delay: 10
+
+# No Sitemap: line yet, deliberately. A sitemap's job is to help crawlers
+# find all 543,000 pages faster, which is the opposite of what this site
+# can currently afford. Add it once the product and ingredient pages are
+# cached.

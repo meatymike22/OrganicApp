@@ -674,6 +674,47 @@ model ProductIngredient {
   // the reverse — "products containing this ingredient" — used by ingredient
   // pages, filters, and the orphaned-ingredient cleanup.
   @@index([ingredientId])
+
+  // THE COVERING INDEX FOR THE RELATED-PRODUCTS SEED LOOKUP. Added 2026-10-15
+  // after that one query was measured taking 29 to 83 seconds in production,
+  // twelve copies running concurrently, and found to be what made the whole
+  // database unusable: every load phase of the Phase 1 backfill queued behind
+  // it, and a plain count(*) on Product timed out entirely.
+  //
+  // WHY THE INDEX ABOVE WAS NOT ENOUGH. The query is
+  //   SELECT "productId" WHERE "ingredientId" IN (...) LIMIT 1500
+  // and Prisma adds its own ORDER BY on the primary key whenever `take` is
+  // used. The only index serving that order is the PK, (productId,
+  // ingredientId), where ingredientId is the SECOND column and so cannot be
+  // seeked. Postgres scanned a 500 MB index from the start, entry by entry.
+  // The measured plan was:
+  //
+  //   Index Only Scan using "ProductIngredient_pkey"
+  //     Index Cond: ("ingredientId" = ANY (...))
+  //
+  // The ingredientId index was never used. And it could not have helped much:
+  // it holds ingredientId alone, so reading productId meant a heap visit per
+  // row — 257,646,378 heap fetches over 1,778,334 scans, against a table
+  // whose heap cache hit rate had fallen to 61.8%.
+  //
+  // THIS INDEX FIXES BOTH HALVES. ingredientId leads, so an equality filter
+  // seeks straight to it; productId follows, so rows arrive already in the
+  // order relatedProducts.ts now explicitly asks for, with no sort; and both
+  // selected columns are present, so it is an index-only scan that never
+  // touches the heap.
+  //
+  // IT COSTS SPACE, and the amount is worth knowing before applying it. The
+  // ingredientId-only index is just 42 MB because btree deduplication stores
+  // each of the 127,268 distinct ids once with a posting list of row pointers.
+  // Adding productId makes every entry unique, which defeats deduplication,
+  // so expect a few hundred MB against a 391 MB heap. That is the trade: disk
+  // for the one access pattern that was taking the site down.
+  //
+  // @@index([ingredientId]) above is now redundant for filtering and could be
+  // dropped to win that space back. Left in place deliberately — dropping an
+  // index with 1.78 million recorded scans deserves its own change and its own
+  // verification that nothing regressed.
+  @@index([ingredientId, productId])
 }
 
 model IngredientStudy {
