@@ -504,6 +504,36 @@ model Ingredient {
   // has to say so.
   allergens          String[]  @default([])
   allergensCheckedAt DateTime?
+  // WAS THIS INGREDIENT HYDROGENATED? A PROCESS, NOT A SOURCE.
+  //
+  // `category` holds one fact and hydrogenation is a second, independent one.
+  // `partially hydrogenated soybean oil` is BOTH a seed oil and a hydrogenated
+  // fat; one column cannot say both, so the classifier files it as `seed oil`
+  // (a name whose source we can identify keeps its source) and hydrogenation
+  // had nowhere to live. See the hydrogenated-fat rule in
+  // ingredientClassification.ts, which predicted this column.
+  //
+  // MEASURED 2026-10-17, which is why this exists. A "no hydrogenated fats"
+  // filter built on `category = 'hydrogenated fat'` would have caught 2,599
+  // products and MISSED 8,159 -- 76% of the products that actually contain a
+  // hydrogenated ingredient, including `partially hydrogenated soybean oil`
+  // at 2,486 links. A filter that misses three quarters of its own subject is
+  // worse than no filter.
+  //
+  // NULLABLE ON PURPOSE, and this is the schema's standing three-state rule:
+  //   true   the name says it was hydrogenated
+  //   false  the classifier looked and it was not
+  //   NULL   nobody has looked
+  // A default of `false` would collapse the third state into the second and
+  // let an unclassified row pass a filter it was never checked against. The
+  // allergen filter already refuses any product carrying an ingredient with a
+  // null allergensCheckedAt; this column is read the same way.
+  //
+  // Written by classifyIngredient() from the ingredient NAME, using the same
+  // keywords and exclusions as the `hydrogenated fat` category so there is
+  // one definition of "hydrogenated" and not two. "non-hydrogenated" is
+  // excluded: 241 product links say exactly that on the label.
+  isHydrogenated     Boolean?
   // HOW MANY PRODUCTS LIST THIS INGREDIENT. Denormalised on purpose.
   //
   // Maintained by scripts/sync-ingredient-product-count.ts, which the

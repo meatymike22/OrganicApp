@@ -59,6 +59,11 @@ export const INGREDIENT_FILTERS: {
   // approximations and the wording survives being a little out of date.
   what: string
   categories: string[]
+  // A PROCESS ATTRIBUTE INSTEAD OF A CATEGORY. Set on the one filter that
+  // asks about how an ingredient was MADE rather than what it IS, which
+  // `category` cannot answer because it already holds the source. The
+  // filter's `categories` stays empty when this is set.
+  processAttribute?: 'hydrogenated'
 }[] = [
   {
     key: 'seed-oil',
@@ -114,6 +119,24 @@ export const INGREDIENT_FILTERS: {
     what:
       'Ingredients that thicken a mixture or hold it together: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, cellulose gum, locust bean gum, gum arabic, polysorbates, DATEM, gellan gum.',
     categories: ['emulsifier'],
+  },
+  {
+    key: 'hydrogenated',
+    label: 'No hydrogenated fats',
+    short: 'no hydrogenated fats',
+    what:
+      'Oils and fats hardened by hydrogenation: partially hydrogenated soybean oil, hydrogenated vegetable oil, hydrogenated palm kernel oil, hydrogenated palm oil, hydrogenated coconut oil, hydrogenated tallow and lard. A label that says NON-hydrogenated is not in this category. Neither are hydrogenated sweeteners such as hydrogenated starch hydrolysate, which is a sugar alcohol rather than a fat.',
+    // EMPTY, and the processAttribute below is why.
+    //
+    // This filter cannot be built on `category`. Hydrogenation is a PROCESS
+    // and the category column already holds the SOURCE, so a hydrogenated
+    // seed oil is filed as `seed oil` and a category-based filter would not
+    // see it. Measured 2026-10-17: `category = 'hydrogenated fat'` catches
+    // 2,599 products and MISSES 8,159, including `partially hydrogenated
+    // soybean oil` on 2,486 of them. That is 76% of the subject missed by a
+    // filter that names it, which is the one thing a filter must never do.
+    categories: [],
+    processAttribute: 'hydrogenated',
   },
   {
     key: 'flavoring',
@@ -347,6 +370,22 @@ export function ingredientFilterWhere(f: IngredientFilterState): Prisma.ProductW
   for (const key of f.keys) {
     const filter = INGREDIENT_FILTERS.find((x) => x.key === key)
     if (!filter) continue
+
+    // The process attribute reads its own column rather than `category`.
+    //
+    // A NULL isHydrogenated means nobody has looked, and it is treated here
+    // exactly as a null `category` is treated by the filters above: the
+    // product passes. That is the same decision, for the same reason given
+    // at the top of this file -- a product we have not assessed is not a
+    // product we can exclude. It is deliberately NOT the stricter rule the
+    // allergen filters use, because this is not an allergen.
+    if (filter.processAttribute === 'hydrogenated') {
+      and.push({
+        NOT: { productIngredients: { some: { ingredient: { isHydrogenated: true } } } },
+      })
+      continue
+    }
+
     and.push({
       NOT: {
         productIngredients: {

@@ -56,9 +56,23 @@ import { normalizeIngredientName } from './ingredientNormalization'
 export type IngredientClassification = {
   category: string | null
   flaggedForResearch: boolean
+  // THE SECOND AXIS. A process, evaluated independently of which category
+  // won, because first-match-wins means a hydrogenated seed oil is filed as
+  // `seed oil` and would otherwise lose the fact that it was hydrogenated.
+  // See Ingredient.isHydrogenated in schema.prisma for the measurement that
+  // forced this. Never null here: this function always looks.
+  isHydrogenated: boolean
 }
 
-export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = [
+// `excludeKeywords` exists because substring matching has no way to say NOT.
+// A keyword that is a substring of a phrase meaning the OPPOSITE will fire on
+// it, and the classifier cannot tell the difference. See the hydrogenated-fat
+// rule at the bottom of this array for the case that forced this.
+export const CLASSIFICATION_RULES: {
+  category: string
+  keywords: string[]
+  excludeKeywords?: string[]
+}[] = [
   // --- Food-oriented categories ---
   {
     category: 'seed oil',
@@ -259,6 +273,37 @@ export const CLASSIFICATION_RULES: { category: string; keywords: string[] }[] = 
     // shadows them — which the first draft of this change did, moving 12
     // names and 27 links out of categories that were already right.
     category: 'hydrogenated fat',
+    // THE EXCLUSIONS, EVERY ONE FOUND BY THE 2026-10-16 DRY RUN. The rule as
+    // written matched 326 names / 3,168 product links, and roughly an eighth
+    // of that was wrong. Counted against the live database:
+    //
+    //   61 names, 266 links  the label says NON-hydrogenated
+    //   35 names, 130 links  hydrogenated, but not a fat
+    //
+    // THE FIRST GROUP IS THE SERIOUS ONE. 'hydrogenated' is a substring of
+    // 'non-hydrogenated', so `non-hydrogenated palm oil` -- a label whose
+    // whole point is that the fat was NOT hydrogenated -- would have been
+    // marked as containing a hydrogenated fat. That is not a missing fact,
+    // it is the opposite of the fact, printed on 266 products. All three
+    // spellings appear in the catalogue and all three are listed, because
+    // the normaliser is not guaranteed to collapse them to one.
+    //
+    // THE SECOND GROUP is hydrogenation applied to something that is not a
+    // fat. `hydrogenated starch hydrolysate` (80 products) is a sugar
+    // alcohol sweetener; filing it as a fat shows the wrong mark AND keeps
+    // it out of "No sugar substitutes", where it belongs. Whether it should
+    // be classified as a sugar substitute is a separate decision and is
+    // logged in features-to-add.md rather than guessed at here -- excluding
+    // it leaves it exactly as it is today, uncategorised, which claims
+    // nothing.
+    //
+    // 'peg-' catches `peg-40 hydrogenated castor oil` and its sibling, which
+    // are cosmetic surfactants. Plain `hydrogenated castor oil` is NOT
+    // excluded: it is a genuine hydrogenated fat.
+    excludeKeywords: [
+      'non-hydrogenated', 'non hydrogenated', 'nonhydrogenated',
+      'starch hydrolysate', 'glucose syrup', 'protein', 'peg-', 'flour', 'salt',
+    ],
     // ONLY 'hydrogenated'. Interesterified fats are the industry
     // replacement for PHOs and arguably belong in the same processing
     // category, but the FDA determination cited above does not cover them,
@@ -296,24 +341,45 @@ const norm = (s: string) => normalizeIngredientName(s) ?? s.toLowerCase().trim()
 const NORMALIZED_RULES = CLASSIFICATION_RULES.map((rule) => ({
   category: rule.category,
   keywords: rule.keywords.map(norm),
+  // Normalised the same way as the keywords, so an exclusion written with a
+  // hyphen still matches a name the normaliser spelled with a space.
+  excludeKeywords: (rule.excludeKeywords ?? []).map(norm),
 }))
 const NORMALIZED_EXACT: Record<string, string> = Object.fromEntries(
   Object.entries(EXACT_MATCH_RULES).map(([k, v]) => [norm(k), v])
 )
 
+// The hydrogenated-fat rule, pulled out so the process attribute can be
+// evaluated on its own. Using the SAME rule object is the point: the keyword
+// and its exclusions are defined once, and `isHydrogenated` can never drift
+// away from what the category means.
+const HYDROGENATION_RULE = NORMALIZED_RULES.find((r) => r.category === 'hydrogenated fat')
+
+function isHydrogenatedName(lower: string): boolean {
+  if (!HYDROGENATION_RULE) return false
+  if (HYDROGENATION_RULE.excludeKeywords.some((k) => lower.includes(k))) return false
+  return HYDROGENATION_RULE.keywords.some((k) => lower.includes(k))
+}
+
 export function classifyIngredient(name: string): IngredientClassification {
   const lower = norm(name)
+  const isHydrogenated = isHydrogenatedName(lower)
 
   // Exact-match rules first, so they aren't shadowed by broader substring rules
   if (NORMALIZED_EXACT[lower]) {
-    return { category: NORMALIZED_EXACT[lower], flaggedForResearch: true }
+    return { category: NORMALIZED_EXACT[lower], flaggedForResearch: true, isHydrogenated }
   }
 
   for (const rule of NORMALIZED_RULES) {
+    // An exclusion vetoes the whole rule, before any keyword is considered.
+    // It does NOT fall through to a later rule with a different answer: a
+    // name we have decided this rule must not claim is a name we would rather
+    // leave uncategorised than guess about.
+    if (rule.excludeKeywords.some((keyword) => lower.includes(keyword))) continue
     if (rule.keywords.some((keyword) => lower.includes(keyword))) {
-      return { category: rule.category, flaggedForResearch: true }
+      return { category: rule.category, flaggedForResearch: true, isHydrogenated }
     }
   }
 
-  return { category: null, flaggedForResearch: false }
+  return { category: null, flaggedForResearch: false, isHydrogenated }
 }
