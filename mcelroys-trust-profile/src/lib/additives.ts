@@ -27,25 +27,32 @@
 // SOURCES, PINNED
 //
 // Functional classes and canonical names: Codex Alimentarius CXG 36-1989,
-// "Class Names and the International Numbering System for Food Additives".
-// Read from the 2015 amendment text, which states:
-//     "Adopted in 1989. Revision: 2008. Amendment: 2015."
+// "Class Names and the International Numbering System for Food Additives",
+// title page: "ADOPTED 1989 / REVISED 2026", history page: "Amended in 2018,
+// 2019, 2021, 2023, 2024 and 2025. Revised in 2008. Adopted in 1989."
 //
-// A LATER REVISION EXISTS AND COULD NOT BE READ. The FAO committee page lists
-// CXG 36-1989 as last modified 2026. Its current PDF sits on
-// workspace.fao.org, which refuses automated fetches (robots), and the FAO
-// proxy URL returned a server error. So every row below is from the 2015
-// amendment and says so. This is recorded rather than smoothed over: the
-// difference for mainstream additives is probably nil, and "probably" is not
-// a citation. Re-verify against the current revision before this file is used
-// to publish a class on a page.
+// FINDING THE CURRENT TEXT TOOK THREE TRIES AND THE FIRST TWO WERE WRONG.
+// `fao.org/fao-who-codexalimentarius` now redirects to `codex.fao.org`, and
+// the download link the old committee page emitted pointed into
+// `workspace.fao.org` — the Codex members' SharePoint, which asks for an
+// organisational Microsoft account. That is not a public route and nobody
+// should sign up for one; the standard is public, just published elsewhere.
+// The public copy is the URL below, reached from the new site's "Find a Codex
+// text" index.
+//
+// THE STALE TEXT WOULD HAVE PUBLISHED WRONG CLASSES. The first version of
+// this file was built from the 2015 amendment, which is six amendments out of
+// date, and the 2026 text corrects it in eight places — lecithin gains Flour
+// treatment agent, mono- and di-glycerides gain Glazing agent, carob bean gum
+// gains Gelling agent, sucralose gains Flavour enhancer, malic acid gains
+// Sequestrant, and "Colour retention agent" is now hyphenated. None of those
+// were guessable and all of them would have been stated as fact.
 export const CODEX_SOURCE = {
   standard: 'CXG 36-1989',
   title: 'Class Names and the International Numbering System for Food Additives',
-  revision: '2015 amendment',
-  url: 'https://www.fao.org/input/download/standards/13341/CXG_036e_2015.pdf',
+  revision: 'revised 2026',
+  url: 'https://codex.fao.org/restapi/searchstandard/CXG_036e.pdf?lang=en&id=428',
   readOn: '2026-10-20',
-  laterRevisionExists: true,
 } as const
 
 // Label-name mapping: measured against this catalogue on 2026-10-20. Method
@@ -55,18 +62,26 @@ export const LABEL_NAME_SOURCE = { measuredOn: '2026-10-20', catalogueProducts: 
 // ---------------------------------------------------------------------------
 // FUNCTIONAL CLASSES.
 //
-// Codex defines 27. Listed here are the ones the sourced rows below actually
-// use; the complete set is in the standard. A class is only added when a row
-// needs it, so this union never claims more than has been read.
+// ALL 27, transcribed from the standard's own numbered list in section 2 —
+// not from the classes the rows below happen to use. The count matches what
+// the project already recorded in r19 ("27 functional classes and none of them
+// is 'polyol'"), which is the check that this list is complete rather than
+// merely long.
+//
+// 'Colour-retention agent' IS HYPHENATED. The 2015 text wrote it open; the
+// 2026 text hyphenates it. It appears on citric acid, sodium nitrite and
+// calcium disodium EDTA below.
 export type FunctionalClass =
   | 'Acidity regulator'
   | 'Anticaking agent'
   | 'Antifoaming agent'
   | 'Antioxidant'
+  | 'Bleaching agent'
   | 'Bulking agent'
+  | 'Carbonating agent'
   | 'Carrier'
   | 'Colour'
-  | 'Colour retention agent'
+  | 'Colour-retention agent'
   | 'Emulsifier'
   | 'Emulsifying salt'
   | 'Firming agent'
@@ -76,7 +91,9 @@ export type FunctionalClass =
   | 'Gelling agent'
   | 'Glazing agent'
   | 'Humectant'
+  | 'Packaging gas'
   | 'Preservative'
+  | 'Propellant'
   | 'Raising agent'
   | 'Sequestrant'
   | 'Stabilizer'
@@ -118,7 +135,32 @@ export type Additive = {
   name: string
   /** Synonyms Codex itself prints in parentheses in the name field. */
   codexSynonyms: string[]
-  /** Codex functional classes. Empty for a class heading — claims nothing. */
+  /**
+   * THE PURPOSES CODEX LISTS FOR THIS ADDITIVE — NOT ITS ROLE IN ANY PRODUCT.
+   *
+   * This distinction was missed in the first draft of this file and it matters.
+   * The standard's own introduction says:
+   *
+   *   "The purposes listed are indicative rather than exhaustive."
+   *
+   *   "A single food additive can often be used for a range of technological
+   *    purposes in a food, and it remains the responsibility of the
+   *    MANUFACTURER to declare the most descriptive functional class in the
+   *    list of ingredients."
+   *
+   * So a functional class is not a property of the substance. It is a menu of
+   * purposes the substance can serve, and which one applies is a per-product
+   * fact that the manufacturer declares and Codex does not. Citric acid lists
+   * four; printing all four on a product page says nothing about why it is in
+   * THAT product, and printing one would be our guess.
+   *
+   * Empty for a class heading, which claims nothing.
+   *
+   * ALSO FROM THE INTRODUCTION, and worth keeping in view:
+   *   "Inclusion in the INS does not imply approval by Codex for use as food
+   *    additives." The list may include additives JECFA has never evaluated.
+   * An INS number is an identifier, not an endorsement.
+   */
   functionalClasses: FunctionalClass[]
   /**
    * CAS Registry Number. NULL EVERYWHERE ON PURPOSE — nobody has looked yet.
@@ -141,7 +183,7 @@ export type Additive = {
 export const ADDITIVES: Additive[] = [
   { code: 'e330', ins: '330', parent: null, isClassHeading: false,
     name: 'Citric acid', codexSynonyms: [],
-    functionalClasses: ['Acidity regulator', 'Antioxidant', 'Colour retention agent', 'Sequestrant'],
+    functionalClasses: ['Acidity regulator', 'Antioxidant', 'Colour-retention agent', 'Sequestrant'],
     cas: null, labelNames: [{ name: 'citric acid', basis: 'codex' }] },
 
   { code: 'e322', ins: '322', parent: null, isClassHeading: true,
@@ -149,7 +191,8 @@ export const ADDITIVES: Additive[] = [
 
   { code: 'e322i', ins: '322(i)', parent: 'e322', isClassHeading: false,
     name: 'Lecithin', codexSynonyms: [],
-    functionalClasses: ['Antioxidant', 'Emulsifier'],
+    // 2026 adds Flour treatment agent; the 2015 text had only two classes.
+    functionalClasses: ['Antioxidant', 'Emulsifier', 'Flour treatment agent'],
     cas: null, labelNames: [
       { name: 'lecithin', basis: 'codex' },
       { name: 'soy lecithin', basis: 'measured' },
@@ -181,15 +224,17 @@ export const ADDITIVES: Additive[] = [
     cas: null, labelNames: [{ name: 'guar gum', basis: 'codex' }] },
 
   { code: 'e471', ins: '471', parent: null, isClassHeading: false,
-    name: 'Mono- and di- glycerides of fatty acids', codexSynonyms: [],
-    functionalClasses: ['Antifoaming agent', 'Emulsifier', 'Stabilizer'],
+    name: 'Mono- and di-glycerides of fatty acids', codexSynonyms: [],
+    // 2026 adds Glazing agent, and closes the space in "di- glycerides".
+    functionalClasses: ['Antifoaming agent', 'Emulsifier', 'Glazing agent', 'Stabilizer'],
     cas: null, labelNames: [
       { name: 'mono and diglycerides', basis: 'codex' },
       { name: 'diglycerides', basis: 'measured' },
     ] },
 
   { code: 'e150c', ins: '150c', parent: null, isClassHeading: false,
-    name: 'Caramel III - ammonia caramel', codexSynonyms: [], functionalClasses: ['Colour'],
+    // En dash, as printed.
+    name: 'Caramel III – ammonia caramel', codexSynonyms: [], functionalClasses: ['Colour'],
     cas: null, labelNames: [{ name: 'caramel color', basis: 'measured' }] },
 
   { code: 'e202', ins: '202', parent: null, isClassHeading: false,
@@ -258,15 +303,18 @@ export const ADDITIVES: Additive[] = [
 
   { code: 'e410', ins: '410', parent: null, isClassHeading: false,
     name: 'Carob bean gum', codexSynonyms: [],
-    functionalClasses: ['Emulsifier', 'Stabilizer', 'Thickener'],
+    // 2026 adds Gelling agent.
+    functionalClasses: ['Emulsifier', 'Gelling agent', 'Stabilizer', 'Thickener'],
     cas: null, labelNames: [
       { name: 'carob bean gum', basis: 'codex' },
       { name: 'locust bean gum', basis: 'measured' },
     ] },
 
   { code: 'e955', ins: '955', parent: null, isClassHeading: false,
-    name: 'Sucralose (Trichlorogalactosucrose)', codexSynonyms: ['Trichlorogalactosucrose'],
-    functionalClasses: ['Sweetener'],
+    name: 'Sucralose (trichlorogalactosucrose)', codexSynonyms: ['trichlorogalactosucrose'],
+    // 2026 adds Flavour enhancer. A sweetener that is also a flavour enhancer
+    // is exactly the one-column-two-facts case backlog item 34 describes.
+    functionalClasses: ['Flavour enhancer', 'Sweetener'],
     cas: null, labelNames: [{ name: 'sucralose', basis: 'codex' }] },
 
   { code: 'e414', ins: '414', parent: null, isClassHeading: false,
@@ -285,12 +333,14 @@ export const ADDITIVES: Additive[] = [
     ] },
 
   { code: 'e466', ins: '466', parent: null, isClassHeading: false,
-    name: 'Sodium carboxymethyl cellulose (Cellulose gum)', codexSynonyms: ['Cellulose gum'],
+    name: 'Sodium carboxymethyl cellulose (cellulose gum)', codexSynonyms: ['cellulose gum'],
     functionalClasses: ['Bulking agent', 'Emulsifier', 'Firming agent', 'Gelling agent', 'Glazing agent', 'Humectant', 'Stabilizer', 'Thickener'],
     cas: null, labelNames: [{ name: 'cellulose gum', basis: 'codex' }] },
 
   { code: 'e296', ins: '296', parent: null, isClassHeading: false,
-    name: 'Malic acid, DL-', codexSynonyms: [], functionalClasses: ['Acidity regulator'],
+    name: 'Malic acid, DL-', codexSynonyms: [],
+    // 2026 adds Sequestrant.
+    functionalClasses: ['Acidity regulator', 'Sequestrant'],
     cas: null, labelNames: [{ name: 'malic acid', basis: 'codex' }] },
 
   { code: 'e621', ins: '621', parent: null, isClassHeading: false,
@@ -308,7 +358,7 @@ export const ADDITIVES: Additive[] = [
 
   { code: 'e250', ins: '250', parent: null, isClassHeading: false,
     name: 'Sodium nitrite', codexSynonyms: [],
-    functionalClasses: ['Colour retention agent', 'Preservative'],
+    functionalClasses: ['Colour-retention agent', 'Preservative'],
     cas: null, labelNames: [{ name: 'sodium nitrite', basis: 'codex' }] },
 
   { code: 'e903', ins: '903', parent: null, isClassHeading: false,
@@ -339,7 +389,7 @@ export const ADDITIVES: Additive[] = [
     labelNames: [{ name: 'dipotassium phosphate', basis: 'measured' }] },
 
   { code: 'e631', ins: '631', parent: null, isClassHeading: false,
-    name: "Disodium 5'-inosinate", codexSynonyms: [], functionalClasses: ['Flavour enhancer'],
+    name: 'Disodium 5\u2019-inosinate', codexSynonyms: [], functionalClasses: ['Flavour enhancer'],
     cas: null, labelNames: [{ name: 'disodium inosinate', basis: 'codex' }] },
 
   { code: 'e460', ins: '460', parent: null, isClassHeading: true,
@@ -350,7 +400,7 @@ export const ADDITIVES: Additive[] = [
     ] },
 
   { code: 'e460i', ins: '460(i)', parent: 'e460', isClassHeading: false,
-    name: 'Microcrystalline cellulose (Cellulose gel)', codexSynonyms: ['Cellulose gel'],
+    name: 'Microcrystalline cellulose (cellulose gel)', codexSynonyms: ['cellulose gel'],
     functionalClasses: ['Anticaking agent', 'Bulking agent', 'Carrier', 'Emulsifier', 'Foaming agent', 'Glazing agent', 'Stabilizer', 'Thickener'],
     cas: null, labelNames: [{ name: 'cellulose gel', basis: 'codex' }] },
 
@@ -359,7 +409,7 @@ export const ADDITIVES: Additive[] = [
     cas: null, labelNames: [{ name: 'sorbic acid', basis: 'codex' }] },
 
   { code: 'e627', ins: '627', parent: null, isClassHeading: false,
-    name: "Disodium 5'-guanylate", codexSynonyms: [], functionalClasses: ['Flavour enhancer'],
+    name: 'Disodium 5\u2019-guanylate', codexSynonyms: [], functionalClasses: ['Flavour enhancer'],
     cas: null, labelNames: [{ name: 'disodium guanylate', basis: 'codex' }] },
 
   { code: 'e321', ins: '321', parent: null, isClassHeading: false,
@@ -383,12 +433,12 @@ export const ADDITIVES: Additive[] = [
     name: 'Carotenes', codexSynonyms: [], functionalClasses: [], cas: null, labelNames: [] },
 
   { code: 'e160ai', ins: '160a(i)', parent: 'e160a', isClassHeading: false,
-    name: 'Carotenes, beta-, synthetic', codexSynonyms: [], functionalClasses: ['Colour'],
+    name: 'Carotenes, beta -, synthetic', codexSynonyms: [], functionalClasses: ['Colour'],
     cas: null, labelNames: [] },
 
   { code: 'e385', ins: '385', parent: null, isClassHeading: false,
     name: 'Calcium disodium ethylenediaminetetraacetate', codexSynonyms: [],
-    functionalClasses: ['Antioxidant', 'Colour retention agent', 'Preservative', 'Sequestrant'],
+    functionalClasses: ['Antioxidant', 'Colour-retention agent', 'Preservative', 'Sequestrant'],
     cas: null, labelNames: [] },
 
   { code: 'e452', ins: '452', parent: null, isClassHeading: true,
@@ -417,17 +467,73 @@ export const ADDITIVES: Additive[] = [
     name: 'Dextrins, roasted starch', codexSynonyms: [],
     functionalClasses: ['Carrier', 'Emulsifier', 'Stabilizer', 'Thickener'],
     cas: null, labelNames: [] },
+
+  // THE TWO 160c CHILDREN — AND THE SPICE/ADDITIVE LINE.
+  //
+  // Michael, 2026-10-20: "isnt paprika extract a spice and not a color? It
+  // might be used for color but technically it is a spice."
+  //
+  // Right, and the standard agrees by omission. The INS is "a harmonized
+  // naming system for FOOD ADDITIVES"; paprika the spice is a food and is not
+  // in it at any number. What IS listed is the extract and the oleoresin —
+  // the things made from paprika and added for colour. So "Colour" here is
+  // not a claim that paprika is a dye; it is the purpose Codex records for
+  // the extract when it is used as an additive.
+  //
+  // OUR CATALOGUE ALREADY KEEPS THE LINE, which is what makes this safe:
+  //     paprika               9,453 products   <- the spice, NOT mapped here
+  //     paprika extract       2,257            <- additive
+  //     oleoresin of paprika    887            <- additive
+  //     paprika oleoresin       704            <- additive
+  //     smoked paprika          400            <- the spice, NOT mapped here
+  //
+  // Mapping e160c to "paprika" would have put a colour-additive class on
+  // 9,453 products whose label says a spice. The parent has no row of its own
+  // either — see EU_CODES_WITHOUT_INS_ROW.
+  { code: 'e160ci', ins: '160c(i)', parent: 'e160c', isClassHeading: false,
+    name: 'Paprika oleoresin', codexSynonyms: [], functionalClasses: ['Colour'],
+    cas: null, labelNames: [
+      { name: 'paprika oleoresin', basis: 'codex' },
+      { name: 'oleoresin of paprika', basis: 'codex' },
+    ] },
+
+  { code: 'e160cii', ins: '160c(ii)', parent: 'e160c', isClassHeading: false,
+    name: 'Paprika extract', codexSynonyms: [], functionalClasses: ['Colour'],
+    cas: null, labelNames: [{ name: 'paprika extract', basis: 'codex' }] },
 ]
 
 // ---------------------------------------------------------------------------
-// CODES PRESENT IN THE CATALOGUE BUT ABSENT FROM THE 2015 CODEX TABLE.
+// E-NUMBERS AND INS NUMBERS ARE NOT THE SAME NAMESPACE.
 //
-// Recorded rather than filled in. `160c` (paprika extract, 5,154 products) and
-// `306` (tocopherols, 3,640 products) are both real and both heavily used, and
-// neither appears in the revision that was read. Either the later revision
-// adds them or they are numbered differently; until that is checked they get
-// no name and no class rather than a plausible one.
-export const NOT_IN_CODEX_2015 = ['e160c', 'e306'] as const
+// This is the correction that matters most for anything built on this file.
+// `Product.additiveENumbers` holds EU E-numbers, because that is what Open
+// Food Facts tags. Codex INS numbers are mostly identical to them and are not
+// the same list, so `code` and `ins` are separate fields and either can exist
+// without the other.
+//
+// Two codes in the catalogue have NO INS row at all, both verified against the
+// 2026 text rather than assumed from the stale one:
+//
+//   e306 — 3,640 products. Codex HAS NO 306. It goes 305 Ascorbyl stearate ->
+//          307 Tocopherols (307a, 307b "Tocopherol concentrate, mixed",
+//          307c). The EU uses E306 for a tocopherol-rich extract; Codex
+//          numbers the same substances differently. So there is no row to
+//          cite, and this file states nothing about e306 rather than quietly
+//          borrowing 307's.
+//
+//   e160c — 5,154 products. The table jumps from 160b(ii) straight to
+//          160c(i) Paprika oleoresin and 160c(ii) Paprika extract, both
+//          Colour. The PARENT has no row. Both children are in ADDITIVES
+//          above, so a product tagged e160ci or e160cii resolves; one tagged
+//          only the parent e160c does not.
+//
+// NOT INFERRING THE PARENT'S CLASS IS A DELIBERATE COST. Both 160c children
+// are Colour, so "e160c is a Colour" looks safe — and it is still our
+// inference about what a code OFF invented means, not something the standard
+// says. 5,154 products show nothing instead. Whether a parent tag should
+// surface the classes its children agree on is a decision, not a default, and
+// it is in the backlog as one.
+export const EU_CODES_WITHOUT_INS_ROW = ['e306', 'e160c'] as const
 
 // ---------------------------------------------------------------------------
 const BY_CODE = new Map(ADDITIVES.map((a) => [a.code, a]))
@@ -483,7 +589,7 @@ export function uncitedLabelNames(): { code: string; name: string }[] {
 // reached this file's reach cut. Listed explicitly so the selftest can tell a
 // known gap from a typo — a dangling parent is otherwise indistinguishable
 // from a misspelled one.
-export const UNSOURCED_PARENTS = ['e339', 'e481'] as const
+export const UNSOURCED_PARENTS = ['e339', 'e481', 'e160c'] as const
 
 // ------------------------------------------------------------------ selftest
 //   npx tsx src/lib/additives.ts --selftest
@@ -556,9 +662,15 @@ if (typeof process !== 'undefined' && process.argv?.includes('--selftest')) {
     if (a.cas !== null && !/^\d{2,7}-\d{2}-\d$/.test(a.cas)) fail(`${a.code} cas ${JSON.stringify(a.cas)} is not a CAS registry format`)
   }
 
-  // 8. a code we admit we have not sourced must not also be in the table.
-  for (const c of NOT_IN_CODEX_2015) {
-    if (BY_CODE.has(c)) fail(`${c} is listed as absent from Codex 2015 but also present in the table`)
+  // 8. a code with no INS row must not also claim one in the table.
+  for (const c of EU_CODES_WITHOUT_INS_ROW) {
+    if (BY_CODE.has(c)) fail(`${c} is listed as having no INS row but is also present in the table`)
+  }
+  // ...and its children, if any, must be present, or the gap note lies.
+  for (const a of ADDITIVES) {
+    if (a.parent && (EU_CODES_WITHOUT_INS_ROW as readonly string[]).includes(a.parent)) {
+      if (!a.ins) fail(`${a.code} sits under a parent with no INS row but has no INS of its own`)
+    }
   }
 
   // 9. lookups: case-insensitive, and an unknown code claims nothing.
