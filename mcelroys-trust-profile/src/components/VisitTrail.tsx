@@ -103,11 +103,37 @@ export function VisitTrail({ label, children }: { label: string; children?: Reac
     setTrail(next)
   }, [label])
 
-  // One stop is not a route — it is just the page you are on. Fall back to
-  // whatever the server rendered, which is the `?from=` back link.
-  if (!trail || trail.length < 2) return <>{children}</>
+  // ONE ELEMENT AT THIS POSITION, ALWAYS — AND THE WRAPPER IS THE WHOLE POINT.
+  //
+  // Michael, 2026-10-20: "when i click this and then use the tab history to go
+  // back, my comments disappear: it is almost as if a new page is generated."
+  //
+  // It was not a new page and it was not the tab history. Vercel's toolbar
+  // anchors a comment with a positional CSS selector — his was
+  // `body.min-h-full > div:nth-of-type(5)` — and this component used to render
+  // a <nav> once the trail had two stops and fall straight through to
+  // `children` otherwise, which is BackBar's <div>. So the element at this
+  // slot was a div on a cold open and a nav after navigating, and
+  // `div:nth-of-type(n)` counts only divs: the moment the div became a nav,
+  // every later div's index shifted by one and his anchor stopped matching.
+  // The comment had not gone anywhere. The page had stopped being the shape
+  // the selector was written against.
+  //
+  // So both branches now live inside one wrapper that is always a <div>. The
+  // indices below it never move.
+  //
+  // WHY display:contents AND NOT A PLAIN DIV: a plain div would become a flex
+  // item of the page column and add a box 44px tall that nothing asked for.
+  // `display: contents` keeps the element in the DOM — which is what
+  // nth-of-type counts — while removing its box entirely, so the layout is
+  // byte-for-byte what it was.
+  //
+  // One stop is not a route — it is just the page you are on, so the fallback
+  // is whatever the server rendered: the `?from=` back link.
+  if (!trail || trail.length < 2) return <div style={{ display: 'contents' }}>{children}</div>
 
   return (
+    <div style={{ display: 'contents' }}>
     <nav
       aria-label="Pages you have opened in this tab"
       style={{
@@ -165,5 +191,6 @@ export function VisitTrail({ label, children }: { label: string; children?: Reac
         )
       })}
     </nav>
+    </div>
   )
 }

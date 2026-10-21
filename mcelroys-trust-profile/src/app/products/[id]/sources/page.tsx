@@ -5,6 +5,7 @@ import { colors, font, isoDate, layout, type StatusKey } from '@/lib/design'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { getProductRecalls, groupRecalls } from '@/lib/recalls'
 import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { VisitTrail } from '@/components/VisitTrail'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 
@@ -195,7 +196,20 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
     <>
       <TopNav />
       <AisleBar />
-      <BackTo href={`/products/${product.id}`} label={shortProductName(name)} />
+      {/* THE TRAIL HAS TO BE ON THIS PAGE TOO.
+          Michael, 2026-10-20, having clicked through from a product page:
+          "when I click this the tab history doesn't hold: i cant click back to
+          this page without hitting backspace."
+          He was right and it was not subtle — VisitTrail was rendered on
+          /products/[id] and /ingredients/[id] and nowhere else, so every
+          secondary page was a dead end: no trail to click, and the visit was
+          never recorded either, because the trail is only written by this
+          component's effect. VisitTrail falls through to the BackTo bar below
+          whenever there are fewer than two stops, so this adds a route when
+          there is one and changes nothing when there is not. */}
+      <VisitTrail label={'Sources'}>
+        <BackTo href={`/products/${product.id}`} label={shortProductName(name)} />
+      </VisitTrail>
 
       <div
         style={{

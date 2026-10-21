@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { companyDisplayName } from '@/lib/productName'
 import { colors, font, isoDate, layout } from '@/lib/design'
 import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { VisitTrail } from '@/components/VisitTrail'
 import { StatusChip } from '@/components/StatusChip'
 import { SourceLine } from '@/components/PageParts'
 import { plainReason } from '@/lib/plainRecall'
@@ -165,10 +166,23 @@ export default async function RecallPage({ params }: { params: Promise<{ id: str
       {/* A notice is reachable from the company page and from any affected
           product, so there is no single parent to name. The company is the
           one link that is always right, so it is the one link. */}
-      <BackTo
-        href={`/companies/${action.company.id}`}
-        label={companyDisplayName(action.company.legalName)}
-      />
+      {/* THE TRAIL HAS TO BE ON THIS PAGE TOO.
+          Michael, 2026-10-20, having clicked through from a product page:
+          "when I click this the tab history doesn't hold: i cant click back to
+          this page without hitting backspace."
+          He was right and it was not subtle — VisitTrail was rendered on
+          /products/[id] and /ingredients/[id] and nowhere else, so every
+          secondary page was a dead end: no trail to click, and the visit was
+          never recorded either, because the trail is only written by this
+          component's effect. VisitTrail falls through to the BackTo bar below
+          whenever there are fewer than two stops, so this adds a route when
+          there is one and changes nothing when there is not. */}
+      <VisitTrail label={ACTION_TYPES[action.actionType] ?? 'Notice'}>
+        <BackTo
+          href={`/companies/${action.company.id}`}
+          label={companyDisplayName(action.company.legalName)}
+        />
+      </VisitTrail>
 
       {/* HEADER */}
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0`, maxWidth: 860 }}>

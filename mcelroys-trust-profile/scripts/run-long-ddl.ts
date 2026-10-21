@@ -144,6 +144,122 @@ const JOBS: Record<string, Job> = {
       'Heap Fetches was 104 before this ran. It should now be at or near 0.',
     ],
   },
+
+  // ADDED r24, while building src/lib/additives.ts.
+  //
+  // WHY: `Product.additiveENumbers` is a text[] on 416,382 rows with NO index
+  // of any kind. Every query that filters by an additive code is a parallel
+  // sequential scan — measured 2026-10-20:
+  //
+  //   EXPLAIN SELECT count(*) FROM "Product" WHERE 'e322i' = ANY("additiveENumbers");
+  //   ->  Parallel Seq Scan on "Product"  (cost=0.00..43209.82 rows=21501)
+  //
+  // That was tolerable while nothing read the column. It is not now: the
+  // additive work needs these queries, and during r24 the same statements that
+  // ran in seconds early in the session began timing out (57014) later on,
+  // once heavier queries had evicted Product from shared buffers. Exactly the
+  // cache-starvation pattern from r23 — a correct-looking query starved by its
+  // table not being resident, which an index makes survivable.
+  //
+  // THE OPERATOR MATTERS MORE THAN THE INDEX. A GIN index with the default
+  // array_ops opclass serves the ARRAY operators — @>, <@, &&, = — and
+  // `'e330' = ANY(col)` is NOT one of them: Postgres expands it to an OR of
+  // scalar equalities, which a GIN index cannot answer. So this index does
+  // nothing for `= ANY`, which is the form every ad-hoc query in r24 used.
+  //
+  // Queries must be written as containment:
+  //     WHERE "additiveENumbers" @> ARRAY['e330']        -- SQL
+  //     where: { additiveENumbers: { has: 'e330' } }      -- Prisma, which emits @>
+  //
+  // Verify that from the plan after building it, rather than trusting this
+  // comment — the `then` steps below do exactly that, on both forms, because a
+  // comment claiming an optimisation is not evidence the code gets it (r24).
+  product_additive_enumbers_gin: {
+    sql: 'CREATE INDEX CONCURRENTLY "Product_additiveENumbers_gin_idx" ON "Product" USING gin ("additiveENumbers")',
+    verify: `SELECT c.relname, i.indisvalid
+             FROM pg_class c JOIN pg_index i ON i.indexrelid = c.oid
+             WHERE c.relname = 'Product_additiveENumbers_gin_idx'`,
+    invalidMeansRetry: true,
+    progress: {
+      view: 'pg_stat_progress_create_index',
+      columns: ['phase', 'blocks_done', 'blocks_total', 'tuples_done', 'tuples_total'],
+    },
+    note: 'GIN index on Product.additiveENumbers so additive-code lookups stop seq-scanning 416,382 rows. Required before anything user-facing reads src/lib/additives.ts.',
+    then: [
+      'PROVE the index is used, and prove the operator caveat, before trusting it:',
+      '  EXPLAIN SELECT count(*) FROM "Product" WHERE "additiveENumbers" @> ARRAY[\'e330\'];',
+      '    -> expect a Bitmap Index Scan on Product_additiveENumbers_gin_idx',
+      '  EXPLAIN SELECT count(*) FROM "Product" WHERE \'e330\' = ANY("additiveENumbers");',
+      '    -> expect a Seq Scan STILL. That is not a failure; it is the reason',
+      '       app and script queries must use `has` / @> rather than = ANY.',
+      '',
+      'Then record it in Prisma WITHOUT re-running the SQL, the same way the',
+      'covering index was recorded:',
+      '  add  @@index([additiveENumbers], type: Gin)  to model Product',
+      '  npx prisma migrate dev --create-only   (then empty the generated SQL)',
+      '  npx prisma migrate resolve --applied <that migration>',
+      '  npx prisma generate',
+    ],
+  },
+
+  // ADDED r24, from the stats this instance reported after the GIN build.
+  //
+  // THE SAME FINDING AS r23, ON A DIFFERENT TABLE. pg_stat_user_tables,
+  // 2026-10-20:
+  //
+  //   Product      416,136 live   11,559 dead (2.7%)   last_analyze 2026-10-05
+  //   Ingredient   127,268 live   19,785 dead (13.5%)  last_analyze 2026-10-08
+  //
+  // Product's statistics PRE-DATE the Phase 1 export backfill, which added
+  // sixteen columns of data to this table. Every plan chosen for Product since
+  // has been chosen from numbers that describe a different table. Ingredient's
+  // pre-date r23's reclassify run and r24's productCount and isHydrogenated
+  // passes, which together rewrote all 127,268 rows — hence the 13.5% dead.
+  //
+  // WHY IT MATTERS MORE HERE THAN IT WOULD ELSEWHERE. shared_buffers on this
+  // instance is 256 MB against a 2,303 MB database, and Product's heap alone
+  // is 314 MB. Almost nothing stays resident, so every wasted block read costs
+  // a real disk fetch at roughly 6 ms. Reclaiming 13.5% of Ingredient's heap
+  // and setting its visibility map is worth more at this cache ratio than it
+  // would be on an instance that could hold the table.
+  //
+  // Neither job has a `verify`: there is no "already vacuumed" state to
+  // detect, and a vacuum is always safe to repeat.
+  product_vacuum: {
+    sql: 'VACUUM (ANALYZE) "Product"',
+    progress: {
+      view: 'pg_stat_progress_vacuum',
+      columns: ['phase', 'heap_blks_scanned', 'heap_blks_total', 'index_vacuum_count'],
+    },
+    note: 'VACUUM (ANALYZE) on Product. Statistics were last taken 2026-10-05, before the Phase 1 backfill added sixteen columns to this table.',
+    then: [
+      'Confirm the statistics are current:',
+      "  SELECT last_vacuum, last_analyze FROM pg_stat_user_tables WHERE relname = 'Product';",
+      '',
+      'Then re-time an additive lookup. Before this ran, e127 (3,033 products)',
+      'took 9,968 ms of which 210 ms was the index scan — the rest was 1,545',
+      'cold heap block reads:',
+      '  EXPLAIN (ANALYZE, BUFFERS) SELECT count(*) FROM "Product"',
+      '    WHERE "additiveENumbers" @> ARRAY[\'e127\'];',
+      'Watch `Buffers: read=` rather than the total time; that is the number',
+      'this job can actually move.',
+    ],
+  },
+
+  ingredient_vacuum: {
+    sql: 'VACUUM (ANALYZE) "Ingredient"',
+    progress: {
+      view: 'pg_stat_progress_vacuum',
+      columns: ['phase', 'heap_blks_scanned', 'heap_blks_total', 'index_vacuum_count'],
+    },
+    note: 'VACUUM (ANALYZE) on Ingredient. 19,785 dead rows (13.5%) left by the r23 reclassify and r24 productCount/isHydrogenated passes; statistics last taken 2026-10-08.',
+    then: [
+      'Confirm the dead rows are gone and the statistics are current:',
+      "  SELECT n_live_tup, n_dead_tup, last_vacuum, last_analyze",
+      "    FROM pg_stat_user_tables WHERE relname = 'Ingredient';",
+      'n_dead_tup was 19,785 before this ran.',
+    ],
+  },
 }
 
 const args = process.argv.slice(2)

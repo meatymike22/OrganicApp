@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
+import { VisitTrail } from '@/components/VisitTrail'
 import { Callout, Paragraphs, SectionHead, SourceLine, Tag } from '@/components/PageParts'
 import {
   CONSENSUS_LABEL,
@@ -139,7 +140,20 @@ export default async function IngredientResearchPage({
     <>
       <TopNav />
       <AisleBar />
-      <BackTo href={`/ingredients/${ingredient.id}`} label={capitalize(ingredient.name)} />
+      {/* THE TRAIL HAS TO BE ON THIS PAGE TOO.
+          Michael, 2026-10-20, having clicked through from a product page:
+          "when I click this the tab history doesn't hold: i cant click back to
+          this page without hitting backspace."
+          He was right and it was not subtle — VisitTrail was rendered on
+          /products/[id] and /ingredients/[id] and nowhere else, so every
+          secondary page was a dead end: no trail to click, and the visit was
+          never recorded either, because the trail is only written by this
+          component's effect. VisitTrail falls through to the BackTo bar below
+          whenever there are fewer than two stops, so this adds a route when
+          there is one and changes nothing when there is not. */}
+      <VisitTrail label={'Research record'}>
+        <BackTo href={`/ingredients/${ingredient.id}`} label={capitalize(ingredient.name)} />
+      </VisitTrail>
 
       <div style={{ boxSizing: 'border-box', padding: `26px ${layout.gutter}px 0`, maxWidth: 860 }}>
         <div
