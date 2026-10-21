@@ -479,7 +479,11 @@ export function SiteFooter() {
             furniture of every page. The first half is what Rootify IS and is
             worth saying; the second half is now one of the headings on
             /disclaimer, linked to the right. */}
-        <span style={{ marginLeft: 10 }}>We report public records.</span>
+        {/* Michael, 2026-10-20 (_zWAJNVt0JSn): "change this to 'Grounded in
+            research.'" The long-form "We report public records -- not health
+            advice" is still the wording on the home page and the FAQ, where
+            there is room for the second clause. */}
+        <span style={{ marginLeft: 10 }}>Grounded in research.</span>
       </div>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {links.map((l) => (

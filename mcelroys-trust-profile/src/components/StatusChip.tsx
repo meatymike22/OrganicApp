@@ -456,7 +456,8 @@ export function StatusKeyPanel({ bar }: { bar?: boolean } = {}) {
           color: colors.ink2,
         }}
       >
-        What the colors mean
+        {/* Michael, 2026-10-21 (s6JFAQyAVHZl): "just say \"Legend\"". */}
+        Legend
       </div>
 
       {/* ONE LINE PER COLOUR: swatch, term, phrase. It used to be a term on
@@ -524,10 +525,17 @@ export function StatusKeyPanel({ bar }: { bar?: boolean } = {}) {
         ))}
       </dl>
 
-      <p style={{ margin: '11px 0 0', fontSize: 11.5, lineHeight: 1.45, color: colors.ink4 }}>
-        Not a grading system. These say what the record says, not whether a
-        product is good.
-      </p>
+      {/* NO "not a grading system" LINE. Michael, 2026-10-21 (G7pwYgt4jydZ):
+          "remove this across the board please" -- so it is gone from here, from
+          the compact legend below, and from the signal table note, which is
+          every place it appeared.
+
+          It is not a loss of honesty: the legend directly above states what
+          each colour MEANS ("The record says so", "We looked, found nothing"),
+          and a reader who has just read five definitions in terms of records
+          does not then need telling that they are not grades. The claim we must
+          never make is a score, and the way not to make it is not to build one,
+          which we have not. The standing wording lives on /disclaimer. */}
     </div>
   )
 }
@@ -566,7 +574,6 @@ export function StatusLegend() {
           {e.term}
         </span>
       ))}
-      <span style={{ color: colors.ink4 }}>Colors are not a grading system.</span>
     </div>
   )
 }
@@ -702,7 +709,10 @@ export function SignalTable({
 export function SignalTableNote() {
   return (
     <p style={{ margin: '9px 0 0', fontSize: 11.5, lineHeight: 1.5, color: colors.ink4, maxWidth: 620 }}>
-      Each row says what a public record says, never whether a product is good.{' '}
+      {/* The "never whether a product is good" clause went with the sweep
+          above. The LINK stays: it is navigation to the glossary, not a
+          disclaimer, and it is the only route from this table to the full
+          wording for each row. */}
       <Link href="/sourcing#glossary" style={{ color: colors.link }}>
         What each answer means
       </Link>

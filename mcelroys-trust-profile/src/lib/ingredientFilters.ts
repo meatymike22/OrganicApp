@@ -57,6 +57,15 @@ export const INGREDIENT_FILTERS: {
   //
   // Counts go stale as the catalogue grows. They are deliberately written as
   // approximations and the wording survives being a little out of date.
+  //
+  // SHORTENED 2026-10-21. Michael (Nu1xgS66kLH8): "make this more concise".
+  // Each of these lost roughly 40% of its length, and what went was prose, not
+  // evidence: every one still NAMES REAL INGREDIENTS and still states what it
+  // excludes, because those two are what stop the description drifting from
+  // what the filter does. The ALLERGEN_FILTERS below were deliberately NOT
+  // shortened -- their inclusions and exclusions ("coconut is included",
+  // "an unqualified flour counts") are safety information for someone avoiding
+  // an allergen, not colour.
   what: string
   categories: string[]
   // A PROCESS ATTRIBUTE INSTEAD OF A CATEGORY. Set on the one filter that
@@ -70,7 +79,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No seed oils',
     short: 'no seed oils',
     what:
-      'Seed and vegetable oils: soybean, canola, plain "vegetable oil", sunflower, corn, safflower, and hydrogenated versions of them. Palm oil is not in this category — palm is pressed from the fruit, not the seed.',
+      'Soybean, canola, plain "vegetable oil", sunflower, corn, safflower, and hydrogenated versions of them. Not palm — that is pressed from the fruit.',
     categories: ['seed oil'],
   },
   {
@@ -81,7 +90,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No added colors',
     short: 'no added colors',
     what:
-      'Colourings added to the food: caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide, and their lake forms.',
+      'Caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide, and their lake forms.',
     categories: ['artificial dye'],
   },
   {
@@ -95,7 +104,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No sugar substitutes',
     short: 'no sugar substitutes',
     what:
-      'Anything sweet that is not sugar: sucralose, acesulfame potassium, aspartame, sorbitol, stevia (across its spellings), erythritol, monk fruit, maltitol, xylitol, allulose, steviol glycoside, saccharin. Sugar, honey and fruit juice are not in this category.',
+      'Sweetness that is not sugar: sucralose, aspartame, acesulfame potassium, saccharin, stevia, monk fruit, and the sugar alcohols. Not sugar, honey or fruit juice.',
     categories: ['artificial sweetener', 'sugar substitute'],
   },
   {
@@ -103,7 +112,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No preservatives',
     short: 'no preservatives',
     what:
-      'Added preservatives: potassium sorbate, sodium benzoate, sodium nitrite, calcium propionate, sorbic acid, sodium erythorbate, natamycin, potassium benzoate, BHT, BHA, TBHQ, propyl gallate, and the parabens. Salt, sugar and vinegar are not in this category even where they preserve.',
+      'Potassium sorbate, sodium benzoate, sodium nitrite, calcium propionate, BHT, BHA, TBHQ, propyl gallate and the parabens. Not salt, sugar or vinegar, even where they preserve.',
     // Three separate category values, all of which are preservatives. Mapping
     // only 'preservative' would quietly let every paraben through.
     categories: ['preservative', 'paraben preservative', 'antimicrobial preservative'],
@@ -117,7 +126,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No emulsifiers or gums',
     short: 'no emulsifiers or gums',
     what:
-      'Ingredients that thicken a mixture or hold it together: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, cellulose gum, locust bean gum, gum arabic, polysorbates, DATEM, gellan gum.',
+      'Thickeners and binders: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, gum arabic, polysorbates.',
     categories: ['emulsifier'],
   },
   {
@@ -125,7 +134,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No hydrogenated fats',
     short: 'no hydrogenated fats',
     what:
-      'Oils and fats hardened by hydrogenation: partially hydrogenated soybean oil, hydrogenated vegetable oil, hydrogenated palm kernel oil, hydrogenated palm oil, hydrogenated coconut oil, hydrogenated tallow and lard. A label that says NON-hydrogenated is not in this category. Neither are hydrogenated sweeteners such as hydrogenated starch hydrolysate, which is a sugar alcohol rather than a fat.',
+      'Fats hardened by hydrogenation: partially hydrogenated soybean oil, and hydrogenated vegetable, palm kernel, palm or coconut oil, tallow and lard. A label that says NON-hydrogenated is not counted, and neither are hydrogenated sweeteners.',
     // EMPTY, and the processAttribute below is why.
     //
     // This filter cannot be built on `category`. Hydrogenation is a PROCESS
@@ -143,7 +152,7 @@ export const INGREDIENT_FILTERS: {
     label: 'No undisclosed flavoring',
     short: 'no undisclosed flavoring',
     what:
-      'Flavour listed as a blend the label does not break down: "natural flavor", "spices", "artificial flavor", "flavoring", "seasoning". This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. A named spice like allspice or cinnamon is not in this category, because it discloses itself.',
+      'Flavour the label does not break down: "natural flavor", "spices", "artificial flavor", "flavoring", "seasoning". About disclosure, not the flavouring itself. A named spice like cinnamon discloses itself and is not counted.',
     categories: ['undisclosed flavoring'],
   },
 ]

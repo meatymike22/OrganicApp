@@ -537,7 +537,28 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   href: '#ingredients',
                   hideInfo: true,
                 },
-                { question: 'Open research', signal: flagged, href: '#flagged' },
+                {
+                  // Michael, 2026-10-20 (B5s15Qof54kB): "This should say
+                  // something like 'Any ingredient that is up for scholarly
+                  // debate on the effects on the human body'".
+                  //
+                  // NOT IN THOSE WORDS, and the number is the reason: 9,090
+                  // ingredients are flagged and 15 of them have a single study
+                  // attached. "Up for scholarly debate" describes a literature
+                  // we do not hold, on 99.8% of the rows it would appear on --
+                  // it would be the site's largest unsourced claim.
+                  //
+                  // What the flag ACTUALLY means is a category test: this is an
+                  // additive or a processing aid rather than a whole food. That
+                  // is worth telling a shopper, and it is true of every row. The
+                  // wording below says it as the question the row asks, matching
+                  // the other five, and it matches the legend's own word for
+                  // this colour: "Worth reading about".
+                  question: 'Open research',
+                  signal: flagged,
+                  href: '#flagged',
+                  help: 'Which ingredients are additives or processing aids rather than whole foods — the ones worth reading about?',
+                },
                 {
                   question: 'Recalls',
                   signal: recall,
