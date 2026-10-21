@@ -134,10 +134,22 @@ export function ProductThumb({
         // very thing a shopper is checking — a certification seal, a flavour,
         // a "no added sugar" claim — and a cropped label is a misleading one.
         style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-        // These are other people's uploads at unpredictable sizes, and there
-        // are 25 of them on a search page. Letting Next optimise them keeps
-        // the page weight sane.
-        sizes={`${intrinsic}px`}
+        // NO `sizes` PROP, DELIBERATELY -- it is the trap here, not the fix.
+        //
+        // When `sizes` is present Next builds the srcset from `deviceSizes`:
+        // fifteen entries up to 3840w, with `src` pointing at the largest. For
+        // a 160px frame that asks Vercel to UPSCALE a 400px Open Food Facts
+        // thumbnail to 3840px, and every distinct width is its own cache entry
+        // that has to be warmed separately. Measured on the live site before
+        // this was removed: 16.3 s for the w=3840 fallback, 8.7 s for the
+        // w=256 a browser actually picks. Omitting it gives exactly two
+        // variants, 256w and 384w, which is what a 160px box needs at 1x/2x.
+        //
+        // Optimising at all is still right, and the measurement is why: OFF's
+        // origin takes ~8.5 s to serve a 12 KB thumbnail, so Vercel's ~100 ms
+        // of overhead is not the cost -- the optimiser is what stops us paying
+        // the upstream cost more than once. See minimumCacheTTL in
+        // next.config.ts, which is what actually keeps it warm.
       />
     </div>
   )
