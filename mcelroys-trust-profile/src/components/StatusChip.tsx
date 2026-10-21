@@ -617,7 +617,12 @@ export function StatusLegend() {
 export function SignalTable({
   rows,
 }: {
-  rows: { question: string; signal: Signal; href?: string; help?: string }[]
+  // `hideInfo` suppresses the "i" entirely for a row that explains itself.
+  // Michael, 2026-10-21 on the ingredients row: "We do not need an I symbol
+  // here." A row reading "Ingredients -- 32 ingredients" has nothing left to
+  // gloss, and an "i" that opens to restate the chip teaches a reader that
+  // the "i"s are not worth opening.
+  rows: { question: string; signal: Signal; href?: string; help?: string; hideInfo?: boolean }[]
 }) {
   return (
     <dl
@@ -633,7 +638,7 @@ export function SignalTable({
     >
       {rows.map((row, i) => {
         const detail = row.signal.short ?? row.signal.detail ?? ''
-        const tip = [row.help, detail].filter(Boolean).join('\n\n')
+        const tip = row.hideInfo ? '' : [row.help, detail].filter(Boolean).join('\n\n')
 
         const body = (
           <>

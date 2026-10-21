@@ -5,7 +5,6 @@ import { colors, font, isoDate, layout, type StatusKey } from '@/lib/design'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { getProductRecalls, groupRecalls } from '@/lib/recalls'
 import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
-import { VisitTrail } from '@/components/VisitTrail'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
 
@@ -196,20 +195,7 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
     <>
       <TopNav />
       <AisleBar />
-      {/* THE TRAIL HAS TO BE ON THIS PAGE TOO.
-          Michael, 2026-10-20, having clicked through from a product page:
-          "when I click this the tab history doesn't hold: i cant click back to
-          this page without hitting backspace."
-          He was right and it was not subtle — VisitTrail was rendered on
-          /products/[id] and /ingredients/[id] and nowhere else, so every
-          secondary page was a dead end: no trail to click, and the visit was
-          never recorded either, because the trail is only written by this
-          component's effect. VisitTrail falls through to the BackTo bar below
-          whenever there are fewer than two stops, so this adds a route when
-          there is one and changes nothing when there is not. */}
-      <VisitTrail label={'Sources'}>
-        <BackTo href={`/products/${product.id}`} label={shortProductName(name)} />
-      </VisitTrail>
+      <BackTo href={`/products/${product.id}`} label={shortProductName(name)} />
 
       <div
         style={{
@@ -236,8 +222,19 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
         </h1>
 
         <p style={{ margin: '11px 0 0', fontSize: 15, lineHeight: 1.6, color: colors.ink2, maxWidth: '58ch' }}>
+          {/* NO "nothing here is ours" SENTENCE. Michael, 2026-10-20
+              (xsZ2ou82B-xX): "Alright PLEASE stop with beating this dead horse.
+              The disclaimers will be in a separate documents, please remove
+              these 'nothing here is ours' from the layman pages." At least the
+              fifth time this instruction has been given.
+
+              It is not lost, and it did not need to be here to be true: the
+              same statement is on /disclaimer, which is linked from the footer
+              of every page, and this page already proves the point line by line
+              -- every row names its source and the date we read it. A sentence
+              asserting that is weaker than the table demonstrating it. */}
           Every record behind <Link href={`/products/${product.id}`}>{shortProductName(name)}</Link>, with
-          the date we read it. Nothing here is ours — it is all somebody else&apos;s published record.
+          the date we read it.
         </p>
 
         {/* THE LEDGER — the whole page in six rows. */}

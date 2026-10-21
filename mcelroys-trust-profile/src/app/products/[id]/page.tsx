@@ -524,18 +524,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             <SignalTable
               rows={[
                 {
-                  question: 'What is in it',
+                  // Michael, 2026-10-20 (8MjM-VpO_sEp): "This should simply say
+                  // Ingredients (left side) 32 (right side). We do not need an I
+                  // symbol here." Both halves are right. "What is in it" was a
+                  // question the chip beside it already answers, and the "i" said
+                  // "Listed in label order", which is true of every ingredient list
+                  // we hold and so tells this reader nothing about this product.
+                  // `hideInfo` rather than dropping the signal's `short`, because
+                  // the same line is still wanted on the sources page.
+                  question: 'Ingredients',
                   signal: ingredientSignal,
                   href: '#ingredients',
+                  hideInfo: true,
                 },
                 { question: 'Open research', signal: flagged, href: '#flagged' },
                 {
                   question: 'Recalls',
                   signal: recall,
                   href: '#recalls',
-                  // Same wording as the section below, from one place, so the
-                  // row and the section cannot define the term differently.
-                  help: GOVERNMENT_NOTICE,
+                  // Michael, 2026-10-20 (ky-pIWvJcjcs): "please make this
+                  // description WAY more concise, this is too long." It ran to about
+                  // 500 characters, because the row reused the whole
+                  // GOVERNMENT_NOTICE definition that the section below already
+                  // prints. Nothing is lost: that definition is still on the section
+                  // (`info=` further down) and in the glossary on /sourcing. The row
+                  // now asks the question and leaves the signal's own
+                  // product-specific line to answer it.
+                  help: 'Has a food-safety agency published a notice about this product?',
                 },
                 // These two used to point at #certificates, which no longer
                 // exists — Michael, 2026-10-07: "I am not sure how much
@@ -545,16 +560,32 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 // where the rows now go. A row that links to a deleted anchor
                 // silently does nothing, which is worse than not linking.
                 {
+                  // Michael, 2026-10-20 (LC-6ge6axb-V): "this should say 'Is the
+                  // product USDA certified organic'".
                   question: 'Certified organic',
                   signal: organic,
                   href: `/products/${product.id}/sources`,
+                  help: 'Is the product USDA certified organic?',
                 },
                 {
+                  // Michael, 2026-10-20 (t41u1k6b8JF_): "this should say something
+                  // like 'Does the product have Genetically modified ingredients'".
+                  // Phrased as the question the row asks; the answer, and the reason
+                  // "not verified" is not the same as "contains GMOs", stay on the
+                  // signal's own line beneath it.
                   question: 'Non-GMO verified',
                   signal: nonGmo,
                   href: `/products/${product.id}/sources`,
+                  help: 'Does the product have genetically modified ingredients?',
                 },
-                { question: 'Who owns the brand', signal: owner, href: owner.href },
+                {
+                  // Michael, 2026-10-20 (VZybn428zXsG): "shouldnt this say 'The
+                  // parent company of the brand'".
+                  question: 'Who owns the brand',
+                  signal: owner,
+                  href: owner.href,
+                  help: 'The parent company of the brand.',
+                },
               ]}
             />
             <SignalTableNote />
@@ -965,7 +996,14 @@ function FlaggedRow({
         <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 3 }}>
           {[
             pi.ingredient.category,
-            pi.listPosition !== null ? `#${pi.listPosition} on the label` : null,
+            // NO "#N on the label". Michael, 2026-10-20 (8F9BrCk3kmzt):
+            // "layman will not care what number this ingredient is on the
+            // label. Remove this." Removed from BOTH meta lines, not just the
+            // flagged one he pointed at -- they render the same fact about the
+            // same ingredient, and leaving one would make the two disagree.
+            // The position is still shown where it is actually useful: as the
+            // row number down the full ingredient list, which is where a
+            // reader goes to see label order.
             pi.isTrace ? 'listed as a trace amount' : null,
             pi.concentrationNote,
             // Named here for the same reason the ingredient row names it:
@@ -1023,7 +1061,7 @@ function AuthorityRow({ pi, origin }: { pi: IngredientRows[number]; origin: stri
         <div style={{ fontSize: 12.5, color: colors.ink3, marginTop: 3 }}>
           {[
             pi.ingredient.category,
-            pi.listPosition !== null ? `#${pi.listPosition} on the label` : null,
+            // Removed here too -- see the note on the flagged list above.
             pi.isTrace ? 'listed as a trace amount' : null,
             pi.concentrationNote,
           ]

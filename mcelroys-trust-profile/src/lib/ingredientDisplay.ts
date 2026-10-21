@@ -246,16 +246,20 @@ export function glossFor(key: AdditiveKey): FamilyGloss {
 // an ingredient row, so the two can never word it differently.
 export function familyHelp(key: AdditiveKey): string {
   const g = GLOSSARY[key]
-  // Three paragraphs at most, each a different kind of statement: ours, a
-  // standards body's definition, a regulator's action. Any that is absent
-  // is omitted rather than left as an empty line.
-  return [
-    g.plain,
-    g.codex ? `${GLOSSARY_SOURCE.label}: “${g.codex}”` : null,
-    g.note,
-  ]
-    .filter(Boolean)
-    .join('\n\n')
+  // TWO paragraphs, not three. Michael, 2026-10-20 (xB1yjs1x9ltU): "remove
+  // the codex part and make it a bit easier for the layman to read this."
+  //
+  // THE QUOTE IS NOT DELETED, only moved off this surface. It is still on
+  // GLOSSARY[key].codex, still printed with its attribution on the ingredient
+  // page, and still the source `g.plain` was written from -- see the selftest
+  // witness below, which exists so that dropping it from a tooltip never
+  // quietly becomes dropping it from the data.
+  //
+  // What was wrong with it here: a hover on a two-letter chip in a list is
+  // the wrong place to serve a standards-body definition to a shopper. It
+  // doubled the length of every tooltip in order to restate, in formal
+  // language, what the first sentence had already said plainly.
+  return [g.plain, g.note].filter(Boolean).join('\n\n')
 }
 
 // The same thing for an ingredient's stored category, which is what a row
@@ -384,7 +388,11 @@ if (process.argv[1]?.includes('ingredientDisplay')) {
   )
   eq('no Codex line on seed oil', glossFor('oil').codex, undefined)
   eq('a dye quotes Codex', (glossFor('dye').codex ?? '').startsWith('A food additive'), true)
-  eq('help text carries the attribution', familyHelp('dye').includes('Codex Alimentarius'), true)
+  eq('help text no longer carries the Codex quote', familyHelp('dye').includes('Codex Alimentarius'), false)
+  // REGRESSION WITNESS for the line above. The tooltip dropping the quote must
+  // not become the glossary losing it: this is the assertion that fails if a
+  // later tidy-up deletes `codex` from the data rather than from the hover.
+  eq('but the quote itself survives on the gloss', (glossFor('dye').codex ?? '').startsWith('A food additive'), true)
   eq('help text omits attribution when there is no quote', familyHelp('oil').includes('Codex'), false)
   // The oil family carries a regulatory NOTE rather than a Codex definition.
   // One is what a class is; the other is what a regulator did.
