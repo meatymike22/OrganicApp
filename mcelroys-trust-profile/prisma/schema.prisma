@@ -307,6 +307,56 @@ model Product {
   additivesSource    String?
   additivesCheckedAt DateTime?
 
+  // THE FREE-FROM FILTERS, MATERIALISED. Added 2026-10-20 (r25), after the
+  // second outage caused by computing them at request time.
+  //
+  // WHAT THEY ARE. `ingredientCategories` is the distinct set of
+  // `Ingredient.category` across this product's ingredient rows;
+  // `hasHydrogenatedIngredient` is true when any of them has `isHydrogenated`.
+  // Both are DERIVED -- every fact in them already exists in
+  // ProductIngredient -> Ingredient, and neither is a new claim.
+  //
+  // WHY THEY EXIST. `ingredientFilterWhere` asked "does this product contain
+  // NO ingredient in category X" as a correlated NOT EXISTS per filter, which
+  // Postgres answers by probing ProductIngredient once per filter per product
+  // examined. MEASURED 2026-10-20, first page, three filters: 1,614 shared buffers,
+  // essentially all of them in ProductIngredient and Ingredient. Warm that is
+  // 3.7 ms, because LIMIT 24 lets the scan stop after examining 25 products.
+  // Cold, at 6-18 ms per block read, the same 1,614 buffers are 15-30 s -- and
+  // with eighteen of them running at once, the 60-120 s that took the site
+  // down. The cost is the BUFFERS, not the row count. Deep pagination is worse
+  // still: an OFFSET removes the early stop that makes the first page cheap.
+  //
+  // As an array test on this table it touches ProductIngredient zero times:
+  // the same index scan, plus one heap fetch per row examined.
+  //
+  // WHY TWO COLUMNS AND NOT ONE. A hydrogenated fat is a PROCESS attribute,
+  // not a category, and the two genuinely disagree: of the 451 ingredients
+  // flagged `isHydrogenated`, only 244 are categorised 'hydrogenated fat' --
+  // the other 207 carry a different category, because hydrogenated soybean
+  // oil is also a seed oil. Folding the flag into the array would either lose
+  // those 207 or invent a category value no Ingredient row actually holds.
+  //
+  // EMPTY MEANS "NOTHING ON FILE", AND THAT PASSES EVERY FILTER -- the rule
+  // ingredientFilters.ts states at the top: a product we have not assessed is
+  // not a product we can exclude. An empty array therefore does not
+  // distinguish "has ingredients, none categorised" from "has no ingredient
+  // list", and for these filters it does not need to, because both pass.
+  //
+  // THIS IS A CACHE, AND A STALE CACHE HERE PUBLISHES A FALSE CLAIM.
+  // "No seed oils" on a product that has one is exactly the kind of unsourced
+  // assertion this project exists not to make. Anything that changes
+  // Ingredient.category, Ingredient.isHydrogenated or the ProductIngredient
+  // rows -- reclassify-ingredients.ts above all -- leaves these columns wrong
+  // until they are rebuilt:
+  //   npx tsx scripts/run-long-ddl.ts product_ingredient_categories --live
+  ingredientCategories         String[]  @default([])
+  hasHydrogenatedIngredient    Boolean   @default(false)
+  // When the two columns above were last derived. They are always written
+  // together, so one timestamp covers both. Null means never built -- which
+  // is why the backfill sets it and the filters do not read it yet.
+  ingredientCategoriesSyncedAt DateTime?
+
   // THE LABEL'S OWN "CONTAINS:" LINE. OFF `allergens_tags` on 55.1% of
   // records, 94,054 of which name a US major allergen.
   //

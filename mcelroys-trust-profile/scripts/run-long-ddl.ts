@@ -260,6 +260,85 @@ const JOBS: Record<string, Job> = {
       'n_dead_tup was 19,785 before this ran.',
     ],
   },
+
+  // THE FREE-FROM FILTER BACKFILL (r25). Populates Product.ingredientCategories
+  // and Product.hasHydrogenatedIngredient from the ingredient rows.
+  //
+  // WHAT IT REPLACES. ingredientFilterWhere used to ask "does this product
+  // contain NO ingredient in category X" as a correlated NOT EXISTS, once per
+  // filter, probing ProductIngredient once per filter per product examined.
+  // MEASURED 2026-10-20, first page, three filters: 1,614 shared buffers,
+  // essentially all of them in ProductIngredient and Ingredient. Warm that is
+  // 3.7 ms, because LIMIT 24 lets the scan stop after examining 25 products.
+  // Cold, at 6-18 ms per block read, the same 1,614 buffers are 15-30 s -- and
+  // with eighteen of them running at once, the 60-120 s that took the site
+  // down. The cost is the BUFFERS, not the row count. Deep pagination is worse
+  // still: an OFFSET removes the early stop that makes the first page cheap.
+  //
+  // WHY IT BELONGS HERE. It is one statement that updates ~272,000 rows and
+  // will outlive every HTTP route to this database. It is also NOT a migration:
+  // Prisma wraps migrations in a transaction with a timeout it cannot raise.
+  //
+  // RE-RUNNING IS CHEAP AND IS EXPECTED. The guard at the bottom writes only
+  // rows whose derived values actually changed (plus any row never synced), so
+  // a resync after reclassify-ingredients.ts touches a handful of rows rather
+  // than rewriting the table. THIS JOB MUST BE RE-RUN after anything that
+  // changes Ingredient.category, Ingredient.isHydrogenated, or the
+  // ProductIngredient rows -- otherwise the site shows "no seed oils" on a
+  // product that has one, which is precisely the false claim this project
+  // exists not to make.
+  //
+  // NO `verify`: the contract there is "zero rows means it does not exist yet",
+  // and any count query returns a row, which would make this job always skip
+  // itself. The guard makes it safe to repeat instead.
+  //
+  // NO `progress`: Postgres has no pg_stat_progress_update. The runner will
+  // print elapsed time and nothing else, and that is not it hanging -- the same
+  // trap that made product_vacuum look stuck for four minutes in r24.
+  product_ingredient_categories: {
+    sql: `UPDATE "Product" p
+             SET "ingredientCategories"         = COALESCE(agg.cats, ARRAY[]::text[]),
+                 "hasHydrogenatedIngredient"    = COALESCE(agg.hyd, false),
+                 "ingredientCategoriesSyncedAt" = now()
+            FROM (
+                  SELECT pi."productId" AS pid,
+                         array_agg(DISTINCT i.category)
+                           FILTER (WHERE i.category IS NOT NULL) AS cats,
+                         bool_or(i."isHydrogenated" IS TRUE)     AS hyd
+                    FROM "ProductIngredient" pi
+                    JOIN "Ingredient" i ON i.id = pi."ingredientId"
+                   GROUP BY pi."productId"
+                 ) agg
+           WHERE p.id = agg.pid
+             AND (p."ingredientCategoriesSyncedAt" IS NULL
+               OR p."ingredientCategories"      IS DISTINCT FROM COALESCE(agg.cats, ARRAY[]::text[])
+               OR p."hasHydrogenatedIngredient" IS DISTINCT FROM COALESCE(agg.hyd, false))`,
+    note: 'Backfill Product.ingredientCategories + hasHydrogenatedIngredient from the ingredient rows. ~272,000 rows on the first run, a handful on a resync. No progress view exists for UPDATE, so only elapsed time is printed. Expect several minutes.',
+    then: [
+      'A product with NO ingredient rows is deliberately left untouched, so a',
+      'null ingredientCategoriesSyncedAt means "we hold no ingredient list for',
+      'this product" rather than "the backfill missed it". Check the split:',
+      '  SELECT count(*) FILTER (WHERE "ingredientCategoriesSyncedAt" IS NOT NULL) AS derived,',
+      '         count(*) FILTER (WHERE "ingredientCategoriesSyncedAt" IS NULL)     AS no_ingredients,',
+      '         count(*) FILTER (WHERE "hasHydrogenatedIngredient")                AS hydrogenated',
+      '    FROM "Product";',
+      '',
+      'Then prove the new column agrees with the anti-join it replaces. These',
+      'two numbers MUST match, and if they do not, do NOT deploy the query',
+      'change -- the filter would be making a false free-from claim:',
+      '  SELECT count(*) FROM "Product" p',
+      '   WHERE NOT EXISTS (SELECT 1 FROM "ProductIngredient" pi',
+      '                       JOIN "Ingredient" i ON i.id = pi."ingredientId"',
+      '                      WHERE pi."productId" = p.id AND i.category = \'seed oil\');',
+      '  SELECT count(*) FROM "Product"',
+      '   WHERE NOT ("ingredientCategories" && ARRAY[\'seed oil\']);',
+      '',
+      'This UPDATE leaves ~272,000 dead tuples on a 314 MB heap. Run the vacuum',
+      'next, or the table bloats and the scan this change exists to speed up',
+      'gets slower:',
+      '  npx tsx scripts/run-long-ddl.ts product_vacuum --live',
+    ],
+  },
 }
 
 const args = process.argv.slice(2)

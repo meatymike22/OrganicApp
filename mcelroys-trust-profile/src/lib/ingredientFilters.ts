@@ -351,10 +351,40 @@ export function removeTerm(f: IngredientFilterState, term: string): IngredientFi
 
 // THE WHERE CLAUSES.
 //
-// One `NOT: { productIngredients: { some: ... } }` per filter, which Prisma
-// renders as a NOT EXISTS and Postgres runs as an anti-join against
-// Product_sourceRank_name_id_idx. Measured on the live database: the first
-// page of results is 111 ms with two filters and 852 ms with all six.
+// REWRITTEN 2026-10-20 (r25). The category filters and the hydrogenated
+// filter now read MATERIALISED COLUMNS ON Product and touch ProductIngredient
+// zero times. What they used to do, and why it had to change:
+//
+// Each was `NOT: { productIngredients: { some: ... } }`, which Prisma renders
+// as a correlated NOT EXISTS and Postgres runs as an anti-join. The plan was
+// never wrong -- r23 checked it line by line and exonerated it -- but it has
+// to probe ProductIngredient once per filter per product examined.
+//
+// MEASURED 2026-10-20, first page, three filters: 1,614 shared buffers,
+// essentially all of them in ProductIngredient and Ingredient. Warm that is
+// 3.7 ms, because LIMIT 24 lets the scan stop after examining 25 products.
+// Cold, at 6-18 ms per block read, the same 1,614 buffers are 15-30 s -- and
+// with eighteen of them running at once, the 60-120 s that took the site
+// down. The cost is the BUFFERS, not the row count. Deep pagination is worse
+// still: an OFFSET removes the early stop that makes the first page cheap.
+//
+// The difference is not under our control: any other query that evicts
+// ProductIngredient converts this page from fast to a site-wide outage. It
+// did exactly that twice, on 2026-10-15 and 2026-10-20.
+//
+// So the fix is not a better plan, it is not asking the question at request
+// time. `Product.ingredientCategories` and `Product.hasHydrogenatedIngredient`
+// hold the same facts, derived; see prisma/schema.prisma for what keeps them
+// honest and scripts/run-long-ddl.ts product_ingredient_categories for how
+// they are built. THEY ARE A CACHE: if they go stale this file starts making
+// false "free from" claims, which is the worst failure mode this project has.
+//
+// WHAT IS DELIBERATELY NOT MATERIALISED, and still costs an anti-join:
+//   - the free-text terms below, because the shopper types them and there is
+//     no finite set to precompute
+//   - the allergen clauses, which need `allergensCheckedAt` and the
+//     disclosure status, not just a category
+// Both are bounded (MAX_TERMS is 4) and neither is on the default search.
 //
 // A free-text term matches the ingredient NAME BY SUBSTRING, not by exact
 // row, and that is the whole point. "red 40" exists in the database as eight
@@ -371,28 +401,32 @@ export function ingredientFilterWhere(f: IngredientFilterState): Prisma.ProductW
     const filter = INGREDIENT_FILTERS.find((x) => x.key === key)
     if (!filter) continue
 
-    // The process attribute reads its own column rather than `category`.
+    // The process attribute reads its own column rather than `category`,
+    // and it has to: of the 451 ingredients flagged isHydrogenated, only 244
+    // are categorised 'hydrogenated fat'. The other 207 carry a different
+    // category -- hydrogenated soybean oil is also a seed oil -- so this can
+    // never be folded into the category array without losing them.
     //
     // A NULL isHydrogenated means nobody has looked, and it is treated here
     // exactly as a null `category` is treated by the filters above: the
-    // product passes. That is the same decision, for the same reason given
+    // product passes. The backfill preserves that exactly, by aggregating
+    // `bool_or(isHydrogenated IS TRUE)` -- null contributes false. That is the same decision, for the same reason given
     // at the top of this file -- a product we have not assessed is not a
     // product we can exclude. It is deliberately NOT the stricter rule the
     // allergen filters use, because this is not an allergen.
     if (filter.processAttribute === 'hydrogenated') {
-      and.push({
-        NOT: { productIngredients: { some: { ingredient: { isHydrogenated: true } } } },
-      })
+      and.push({ hasHydrogenatedIngredient: false })
       continue
     }
 
-    and.push({
-      NOT: {
-        productIngredients: {
-          some: { ingredient: { category: { in: filter.categories } } },
-        },
-      },
-    })
+    // `hasSome` is Postgres array overlap (&&), so this is "none of the
+    // categories this filter covers appears on the product". A GIN index
+    // cannot serve the NEGATED form -- an index finds rows that DO contain a
+    // value, not rows that do not -- so this stays a scan of Product. That is
+    // the point: the ordered index scan still stops early, and the array now
+    // comes from Product's own heap instead of ~1,600 buffers spread across a
+    // 1,291 MB table that does not stay cached.
+    and.push({ NOT: { ingredientCategories: { hasSome: filter.categories } } })
   }
 
   for (const term of f.terms) {
