@@ -4,6 +4,7 @@ import { AUTHORITIES, type AuthorityKey } from '@/lib/authorities'
 import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
+import { ALLERGEN_FILTERS, INGREDIENT_FILTERS } from '@/lib/ingredientFilters'
 
 // HOW WE SOURCE — the documentation page.
 //
@@ -395,6 +396,56 @@ export default function SourcingPage() {
           ))}
         </div>
 
+        {/* --- WHAT EACH FILTER COVERS ---
+            Michael, 2026-10-22: "i want you to shorten everything heavily and
+            include the more detailed descriptions in the documentation."
+
+            The search rail's filter chips carry a one-line tooltip. That is
+            the right length for a chip and the wrong length for the question
+            a careful reader actually has, which is "what exactly does this
+            catch, and what does it let through". The long version lives here.
+
+            THE ALLERGEN HALF IS NOT DECORATION. Whether coconut counts as a
+            tree nut, whether an unqualified "flour" counts as wheat, whether
+            the molluscs are in with the crustaceans -- someone avoiding an
+            allergen can be harmed by guessing wrong, and the filter makes a
+            choice on each. Those choices are stated here rather than left to
+            be inferred from results. The chip keeps the single fact a reader
+            would most likely get wrong; everything else is on this page.
+
+            Both strings come from src/lib/ingredientFilters.ts, so the chip
+            and this page cannot drift apart. */}
+        <h2
+          id="filters"
+          style={{
+            margin: '40px 0 0',
+            fontFamily: font.display,
+            fontSize: 23,
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            scrollMarginTop: 16,
+          }}
+        >
+          What each filter covers
+        </h2>
+        <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.65, color: colors.ink2, maxWidth: '62ch' }}>
+          Every filter on the search page is an exclusion: it removes products whose ingredient list
+          names something in that group. A product with no ingredient list on file passes every
+          ingredient filter, because we cannot exclude what we have not read. The allergen filters
+          are stricter and say so below.
+        </p>
+
+        <FilterGroup
+          title="Ingredients"
+          note="These exclude on what an ingredient is. Absence from our data is not a finding."
+          rows={INGREDIENT_FILTERS}
+        />
+        <FilterGroup
+          title="Allergens"
+          note="These are stricter: a product only passes if we hold a disclosed ingredient list for it and every ingredient on it has been checked. An unchecked product is excluded rather than assumed safe."
+          rows={ALLERGEN_FILTERS}
+        />
+
         {/* --- HOW WE WORD A RECALL ---
             Linked from /recalls/[id], which says "the line before it is our
             plain-English summary — how we word these". That link has to land
@@ -571,5 +622,46 @@ export default function SourcingPage() {
 
       <SiteFooter />
     </>
+  )
+}
+
+// One filter group. `label` is the chip's own words so a reader can match
+// what they ticked; `detail` is the long version the chip has no room for.
+function FilterGroup({
+  title,
+  note,
+  rows,
+}: {
+  title: string
+  note: string
+  rows: { label: string; detail: string }[]
+}) {
+  return (
+    <div style={{ marginTop: 22 }}>
+      <h3 style={{ margin: 0, fontFamily: font.display, fontSize: 16, fontWeight: 600 }}>{title}</h3>
+      <p style={{ margin: '5px 0 0', fontSize: 12.5, lineHeight: 1.55, color: colors.ink3, maxWidth: '62ch' }}>
+        {note}
+      </p>
+      <dl style={{ margin: '12px 0 0' }}>
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            style={{
+              boxSizing: 'border-box',
+              padding: '11px 14px',
+              marginTop: 8,
+              background: colors.card,
+              border: `1px solid ${colors.line}`,
+              borderRadius: layout.radius,
+            }}
+          >
+            <dt style={{ fontSize: 13.5, fontWeight: 600, color: colors.ink }}>{r.label}</dt>
+            <dd style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.6, color: colors.ink2 }}>
+              {r.detail}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
 }

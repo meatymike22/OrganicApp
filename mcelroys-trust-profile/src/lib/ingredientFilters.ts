@@ -67,6 +67,21 @@ export const INGREDIENT_FILTERS: {
   // "an unqualified flour counts") are safety information for someone avoiding
   // an allergen, not colour.
   what: string
+  // THE LONG VERSION, shown on /sourcing rather than in the rail.
+  //
+  // Michael, 2026-10-22: "i want you to shorten everything heavily and
+  // include the more detailed descriptions in the documentation." `what` is a
+  // tooltip on a filter chip, which is the wrong place for a paragraph: a
+  // shopper deciding whether to tick a box needs to know what it catches, not
+  // to read the reasoning. `detail` keeps the reasoning, and /sourcing is
+  // where it prints.
+  //
+  // ONE SOURCE OF TRUTH, DELIBERATELY. Both strings live here rather than the
+  // short one here and the long one in the page, because a filter whose two
+  // descriptions can drift is a filter that will eventually describe itself
+  // wrongly in one of the two places. The same reason Signal carries `short`
+  // and `detail` together.
+  detail: string
   categories: string[]
   // A PROCESS ATTRIBUTE INSTEAD OF A CATEGORY. Set on the one filter that
   // asks about how an ingredient was MADE rather than what it IS, which
@@ -78,8 +93,9 @@ export const INGREDIENT_FILTERS: {
     key: 'seed-oil',
     label: 'No seed oils',
     short: 'no seed oils',
-    what:
-      'Soybean, canola, plain "vegetable oil", sunflower, corn, safflower, and hydrogenated versions of them. Not palm — that is pressed from the fruit.',
+    what: 'Soybean, canola, "vegetable oil", sunflower, corn, safflower. Not palm.',
+    detail:
+      'Seed and vegetable oils: soybean, canola, plain "vegetable oil", sunflower, corn, safflower, and hydrogenated versions of them. Palm oil is not in this category — palm is pressed from the fruit, not the seed.',
     categories: ['seed oil'],
   },
   {
@@ -89,8 +105,9 @@ export const INGREDIENT_FILTERS: {
     // have been the wrong word for what the filter does.
     label: 'No added colors',
     short: 'no added colors',
-    what:
-      'Caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide, and their lake forms.',
+    what: 'Caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide and their lakes.',
+    detail:
+      'Colourings added to the food: caramel color, red 40, yellow 5, blue 1, yellow 6, titanium dioxide, and their lake forms.',
     categories: ['artificial dye'],
   },
   {
@@ -103,16 +120,18 @@ export const INGREDIENT_FILTERS: {
     // cover both honestly. Someone avoiding sweeteners wants all of them.
     label: 'No sugar substitutes',
     short: 'no sugar substitutes',
-    what:
-      'Sweetness that is not sugar: sucralose, aspartame, acesulfame potassium, saccharin, stevia, monk fruit, and the sugar alcohols. Not sugar, honey or fruit juice.',
+    what: 'Sucralose, aspartame, acesulfame K, saccharin, stevia, monk fruit, sugar alcohols. Not sugar or honey.',
+    detail:
+      'Anything sweet that is not sugar: sucralose, acesulfame potassium, aspartame, sorbitol, stevia (across its spellings), erythritol, monk fruit, maltitol, xylitol, allulose, steviol glycoside, saccharin. Sugar, honey and fruit juice are not in this category.',
     categories: ['artificial sweetener', 'sugar substitute'],
   },
   {
     key: 'preservative',
     label: 'No preservatives',
     short: 'no preservatives',
-    what:
-      'Potassium sorbate, sodium benzoate, sodium nitrite, calcium propionate, BHT, BHA, TBHQ, propyl gallate and the parabens. Not salt, sugar or vinegar, even where they preserve.',
+    what: 'Potassium sorbate, sodium benzoate, sodium nitrite, BHT, BHA, TBHQ, parabens. Not salt or vinegar.',
+    detail:
+      'Added preservatives: potassium sorbate, sodium benzoate, sodium nitrite, calcium propionate, sorbic acid, sodium erythorbate, natamycin, potassium benzoate, BHT, BHA, TBHQ, propyl gallate, and the parabens. Salt, sugar and vinegar are not in this category even where they preserve.',
     // Three separate category values, all of which are preservatives. Mapping
     // only 'preservative' would quietly let every paraben through.
     categories: ['preservative', 'paraben preservative', 'antimicrobial preservative'],
@@ -125,16 +144,18 @@ export const INGREDIENT_FILTERS: {
     // category keeps its old name so no stored row had to be migrated.
     label: 'No emulsifiers or gums',
     short: 'no emulsifiers or gums',
-    what:
-      'Thickeners and binders: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, gum arabic, polysorbates.',
+    what: 'Soy lecithin, xanthan and guar gum, carrageenan, mono- and diglycerides, polysorbates.',
+    detail:
+      'Ingredients that thicken a mixture or hold it together: soy lecithin, xanthan gum, guar gum, carrageenan, mono- and diglycerides, cellulose gum, locust bean gum, gum arabic, polysorbates, DATEM, gellan gum.',
     categories: ['emulsifier'],
   },
   {
     key: 'hydrogenated',
     label: 'No hydrogenated fats',
     short: 'no hydrogenated fats',
-    what:
-      'Fats hardened by hydrogenation: partially hydrogenated soybean oil, and hydrogenated vegetable, palm kernel, palm or coconut oil, tallow and lard. A label that says NON-hydrogenated is not counted, and neither are hydrogenated sweeteners.',
+    what: 'Partially hydrogenated soybean oil and other hydrogenated fats. NON-hydrogenated is not counted.',
+    detail:
+      'Oils and fats hardened by hydrogenation: partially hydrogenated soybean oil, hydrogenated vegetable oil, hydrogenated palm kernel oil, hydrogenated palm oil, hydrogenated coconut oil, hydrogenated tallow and lard. A label that says NON-hydrogenated is not in this category. Neither are hydrogenated sweeteners such as hydrogenated starch hydrolysate, which is a sugar alcohol rather than a fat.',
     // EMPTY, and the processAttribute below is why.
     //
     // This filter cannot be built on `category`. Hydrogenation is a PROCESS
@@ -151,8 +172,9 @@ export const INGREDIENT_FILTERS: {
     key: 'flavoring',
     label: 'No undisclosed flavoring',
     short: 'no undisclosed flavoring',
-    what:
-      'Flavour the label does not break down: "natural flavor", "spices", "artificial flavor", "flavoring", "seasoning". About disclosure, not the flavouring itself. A named spice like cinnamon discloses itself and is not counted.',
+    what: '"Natural flavor", "spices", "artificial flavor", "seasoning". A named spice is not counted.',
+    detail:
+      'Flavour listed as a blend the label does not break down: "natural flavor", "spices", "artificial flavor", "flavoring", "seasoning". This is about disclosure, not about the flavouring itself — the point is that you cannot see what is in it. A named spice like allspice or cinnamon is not in this category, because it discloses itself.',
     categories: ['undisclosed flavoring'],
   },
 ]
@@ -197,68 +219,85 @@ export const ALLERGEN_FILTERS: {
   label: string
   short: string
   what: string
+  // See the note on INGREDIENT_FILTERS.detail. For an allergen this split
+  // carries more weight: the long version is where the inclusions and
+  // exclusions live, and those are safety information, not colour. The short
+  // version therefore keeps whichever single fact a reader would get WRONG
+  // without it -- that coconut counts as a tree nut, that an unqualified
+  // "flour" counts as wheat, that Worcestershire sauce is fish -- and sends
+  // the rest to /sourcing.
+  detail: string
 }[] = [
   {
     key: 'milk',
     label: 'No milk',
     short: 'no milk',
-    what:
+    what: 'Milk, cream, whey, cheese, butter, lactose, casein, yogurt. Not cocoa butter or coconut milk.',
+    detail:
       'Dairy in any form: milk, cream, whey, cheese and cheese cultures, butter, lactose, casein and caseinates, yogurt, ghee, curd. Cocoa butter, peanut butter, coconut milk, almond milk and cream of tartar are NOT counted — they are not dairy.',
   },
   {
     key: 'egg',
     label: 'No eggs',
     short: 'no eggs',
-    what:
+    what: 'Egg, yolk, white, albumen, mayonnaise, meringue, lysozyme. Not eggplant.',
+    detail:
       'Egg in any form: egg, yolk, white, albumen, mayonnaise, meringue, lysozyme. Eggplant is not counted.',
   },
   {
     key: 'peanut',
     label: 'No peanuts',
     short: 'no peanuts',
-    what:
+    what: 'Peanut, peanut oil, peanut butter, peanut flour, groundnut. Tree nuts are a separate filter.',
+    detail:
       'Peanut in any form: peanut, peanut oil, peanut butter, peanut flour, groundnut. Peanuts are legumes, so they are counted separately from tree nuts — filtering one does not filter the other.',
   },
   {
     key: 'tree nut',
     label: 'No tree nuts',
     short: 'no tree nuts',
-    what:
+    what: 'Almond, cashew, pecan, walnut, hazelnut, pistachio, macadamia, brazil nut — and coconut, which FDA counts.',
+    detail:
       'Almond, cashew, pecan, walnut, hazelnut, pistachio, macadamia, brazil nut, pine nut, chestnut, praline, marzipan, nougat. COCONUT IS INCLUDED, because FDA’s tree-nut list for labelling includes it — that is FDA’s classification and not ours, and it means coconut oil is filtered out too. Nutmeg, water chestnut and nutritional yeast are not tree nuts and are not counted.',
   },
   {
     key: 'wheat',
     label: 'No wheat',
     short: 'no wheat',
-    what:
+    what: 'Wheat, gluten, semolina, durum, spelt, couscous, seitan. Unqualified "flour" counts. Not a gluten-free filter.',
+    detail:
       'Wheat flour, wheat, wheat gluten, wheat starch, semolina, durum, spelt, kamut, couscous, bulgur, seitan, matzo. An unqualified "flour" or "enriched flour" counts, because under 21 CFR 137.105 that means wheat flour on a US label. Rice, corn, oat, almond, chickpea and malted barley flours do not count, and neither does buckwheat. This is a WHEAT filter, not a gluten-free filter: barley and rye contain gluten and are not here.',
   },
   {
     key: 'soy',
     label: 'No soy',
     short: 'no soy',
-    what:
+    what: 'Soy lecithin, soybean oil, soy protein, soy sauce, tofu, tempeh, miso, edamame.',
+    detail:
       'Soy lecithin, soybean oil, soybean, soy protein, soy sauce, soya, tofu, tempeh, miso, edamame, tamari. Highly refined soybean oil and soy lecithin are exempt from FALCPA allergen labelling and many soy-allergic people tolerate them — they are still counted here, because that is not our call to make for you. Tamarind and annatto are not soy.',
   },
   {
     key: 'sesame',
     label: 'No sesame',
     short: 'no sesame',
-    what:
+    what: 'Sesame seed, sesame oil, tahini, halva.',
+    detail:
       'Sesame seed, sesame oil, sesame, tahini, halva. Sesame became the ninth US major allergen under the FASTER Act on 1 January 2023.',
   },
   {
     key: 'fish',
     label: 'No fish',
     short: 'no fish',
-    what:
+    what: 'Anchovy, sardine, tuna, salmon, cod, surimi, fish oil and sauce — including Worcestershire.',
+    detail:
       'Anchovy, Worcestershire sauce (which is made with anchovies and says so nowhere in its name), sardine, tuna, salmon, cod, pollock, tilapia, surimi, fish oil, fish sauce, bonito, caviar, roe.',
   },
   {
     key: 'shellfish',
     label: 'No shellfish',
     short: 'no shellfish',
-    what:
+    what: 'Shrimp, crab, lobster, krill, and molluscs: clam, oyster, mussel, scallop, squid.',
+    detail:
       'Crustaceans — shrimp, crab, lobster, crayfish, krill, langoustine — AND molluscs: clam, oyster, mussel, scallop, squid, octopus, abalone, snail. FDA’s major-allergen list names crustacean shellfish only; molluscs are included here because someone avoiding shellfish is usually avoiding both. Oyster mushroom and scalloped potatoes are not counted.',
   },
 ]

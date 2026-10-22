@@ -1121,6 +1121,14 @@ function FilterRail({
           Products with no ingredient list on file still pass — we cannot
           exclude what we have not read.
         </p>
+        {/* The chips carry one line each (r26: "shorten everything heavily").
+            This is the route to the long version, so shortening the tooltip
+            does not mean deleting what it said. */}
+        <p style={{ margin: '6px 0 0', fontSize: 11, lineHeight: 1.45, color: colors.ink4 }}>
+          <Link href="/sourcing#filters" style={{ color: colors.link }}>
+            What each filter covers
+          </Link>
+        </p>
 
         <div
           style={{
@@ -1212,6 +1220,14 @@ function FilterRail({
           ingredient list we hold — not the label&apos;s own &ldquo;Contains&rdquo; line, which we
           do not store. It cannot see &ldquo;may contain traces of&rdquo; warnings, and it cannot
           see inside &ldquo;natural flavor&rdquo;.
+        </p>
+        {/* The chips carry one line each (r26: "shorten everything heavily").
+            This is the route to the long version, so shortening the tooltip
+            does not mean deleting what it said. */}
+        <p style={{ margin: '6px 0 0', fontSize: 11, lineHeight: 1.45, color: colors.ink4 }}>
+          <Link href="/sourcing#filters" style={{ color: colors.link }}>
+            What each filter covers
+          </Link>
         </p>
         <p style={{ margin: '7px 0 0', fontSize: 11, lineHeight: 1.5, color: colors.ink4 }}>
           Unlike the filters above, a product we hold no ingredient list for is excluded rather
