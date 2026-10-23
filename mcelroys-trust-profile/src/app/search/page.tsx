@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { FilterRow } from '@/components/FilterRow'
 import type { CSSProperties } from 'react'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -1421,96 +1422,10 @@ function Pagination({
   )
 }
 
-// ONE FILTER ROW, used by both the ingredient filters and the allergens.
-//
-// It was written inline in the ingredient list and copied into the allergen
-// list in a first draft, which is how the two would have drifted: the drawn
-// checkbox, the hover explainer and the on/off weight are presentation and
-// have no business being stated twice.
-function FilterRow({
-  href,
-  label,
-  what,
-  on,
-}: {
-  href: string
-  label: string
-  what: string
-  on: boolean
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '5px 0',
-        fontSize: 13,
-        textDecoration: 'none',
-        color: on ? colors.ink : colors.ink2,
-        fontWeight: on ? 600 : 400,
-      }}
-    >
-      {/* A drawn box rather than a real checkbox: these are links, so they
-          work with JavaScript off and each one is a URL somebody can paste.
-          A checkbox would need a form and a submit to do the same job less
-          well. */}
-      <span
-        aria-hidden
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 14,
-          height: 14,
-          flexShrink: 0,
-          borderRadius: 3,
-          border: `1.5px solid ${on ? status.confirmed.fg : '#C9C2B2'}`,
-          background: on ? status.confirmed.fg : colors.paper,
-          color: colors.paper,
-          fontSize: 10,
-          lineHeight: 1,
-        }}
-      >
-        {on ? '\u2713' : ''}
-      </span>
-      <span style={{ flexGrow: 1, minWidth: 0 }}>{label}</span>
-
-      {/* Michael, 2026-10-07: "there needs to be a little hover over
-          explainer to explain what each of these broad categories. a little
-          'i' symbol would be perfect."
-          `what` names real ingredients from our own data with their product
-          counts rather than describing the category in the abstract — "no
-          seed oils" is only meaningful once you know it catches soybean and
-          canola. Native title: keyboard-reachable, no state, nothing to
-          hydrate. */}
-      <span
-        title={what}
-        aria-label={what}
-        role="img"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 14,
-          height: 14,
-          flexShrink: 0,
-          borderRadius: '50%',
-          border: `1px solid ${colors.ink4}`,
-          fontSize: 9.5,
-          fontWeight: 700,
-          fontStyle: 'italic',
-          lineHeight: 1,
-          color: colors.ink3,
-          cursor: 'help',
-        }}
-      >
-        i
-      </span>
-    </Link>
-  )
-}
+// FilterRow moved to src/components/FilterRow.tsx in r27 and became a client
+// component so the checkbox flips the instant it is clicked rather than when
+// the server responds ~500 ms later. The reasoning, and what deliberately did
+// not change about it, is on that file.
 
 // A COLLAPSIBLE PANEL IN THE SEARCH RAIL.
 //
