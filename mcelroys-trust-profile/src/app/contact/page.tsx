@@ -25,9 +25,10 @@ import { AisleBar, SiteFooter, TopNav } from '@/components/SiteChrome'
 //   first, and a backend to deliver the mail. A mailto needs neither and
 //   works today. Upgrade later; do not block the dispute channel on it.
 //
-//   NO LINK TO /corrections. It does not exist yet, and linking it from here
-//   would recreate the exact bug this page fixes. The practice is described
-//   in prose instead. ADD THE LINK when that page is built.
+//   /corrections IS NOW LINKED (built 2026-10-24). Until then this page
+//   described the practice in prose only, because linking a page that did
+//   not exist would have recreated the exact bug this page fixes. If that
+//   page is ever removed, remove the link here in the same change.
 //
 //   NO DISCLAIMERS. Michael, repeatedly and most recently 2026-10-20: the
 //   caveats live on /disclaimer and nowhere else. This page links there once
@@ -107,7 +108,12 @@ export default function ContactPage() {
             keep the correction visible rather than quietly editing the page. If the record itself
             is wrong at the source — a register entry, a recall notice — we will say so on the page
             and link what you have told us, because we can correct our reading of a public record
-            but we cannot change the record.
+            but we cannot change the record. Every correction we make is listed, dated, with what
+            the page said before, in the{' '}
+            <Link href="/corrections" style={{ color: colors.link }}>
+              corrections log
+            </Link>
+            .
           </P>
           <P>
             A correction to a factual record does not require a lawyer and will not get one.
