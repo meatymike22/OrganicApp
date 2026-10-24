@@ -792,14 +792,14 @@ function AssessmentRow({ a, first }: { a: AuthorityAssessment; first: boolean })
   const meaning = classificationMeaning(a.classificationCode)
   return (
     <div
+      // Track list and breakpoint live in globals.css (.rt-assessrow): a
+      // media query cannot be expressed in a style prop. Same reason as
+      // .rt-inglist and .rt-searchbody.
+      className="rt-assessrow"
       style={{
-        display: 'grid',
-        gridTemplateColumns: '200px 1fr',
-        gap: 16,
         boxSizing: 'border-box',
         padding: '14px 16px',
         borderTop: first ? undefined : `1px solid ${colors.line}`,
-        alignItems: 'baseline',
       }}
     >
       <div style={{ minWidth: 0 }}>
@@ -873,14 +873,14 @@ function Rules({ rules }: { rules: Ingredient['regulatoryStatuses'] }) {
             {rules.map((r, i) => (
               <div
                 key={r.id}
+                // 410px of fixed track before the notes column got a
+                // pixel, so this row overflowed its own card on a phone.
+                // Track list and breakpoint in globals.css (.rt-rulerow).
+                className="rt-rulerow"
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '200px 210px 1fr',
-                  gap: 16,
                   boxSizing: 'border-box',
                   padding: '13px 16px',
                   borderTop: i === 0 ? undefined : `1px solid ${colors.line}`,
-                  alignItems: 'baseline',
                 }}
               >
                 <div style={{ fontFamily: font.display, fontSize: 16, fontWeight: 600 }}>{r.jurisdiction}</div>

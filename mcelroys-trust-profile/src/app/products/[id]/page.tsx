@@ -402,14 +402,18 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         </Suspense>
       </VisitTrail>
 
-      {/* HEADER */}
+      {/* HEADER
+
+          The layout is a named-area grid in globals.css (.rt-prodhead),
+          because what changes on a phone is which cell the signal table
+          occupies, and a media query cannot be expressed in a style prop.
+          Michael's instruction and the measurement are in the comment
+          there. */}
       <div
+        className="rt-prodhead"
         style={{
           boxSizing: 'border-box',
           padding: `26px ${layout.gutter}px 0`,
-          display: 'flex',
-          gap: 24,
-          alignItems: 'flex-start',
         }}
       >
         {/* No `credit` here. The CC-BY-SA attribution moved to this
@@ -418,22 +422,24 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             sore. The licence is still satisfied: the credit is one click
             from the image, named and linked, on a page reachable from here.
             Worth confirming at legal review. */}
-        <ProductThumb
-          product={product}
-          category={product.category}
-          productType={product.productType}
-          // The one place a product's photograph is shown large, so it gets
-          // the most room — and fluid, so it does not take over a phone.
-          // Same em-based sizing as the search row; see ProductThumb.
-          size="clamp(112px, 13vw, 184px)"
-          intrinsic={320}
-          label={title}
-          // Portrait frame, so a package photograph fills it instead of
-          // shrinking to fit a square. See the note on `tall` in
-          // ProductThumb.tsx.
-          tall
-        />
-        <div style={{ flexGrow: 1, minWidth: 0 }}>
+        <div style={{ gridArea: 'thumb', alignSelf: 'start' }}>
+          <ProductThumb
+            product={product}
+            category={product.category}
+            productType={product.productType}
+            // The one place a product's photograph is shown large, so it gets
+            // the most room — and fluid, so it does not take over a phone.
+            // Same em-based sizing as the search row; see ProductThumb.
+            size="clamp(112px, 13vw, 184px)"
+            intrinsic={320}
+            label={title}
+            // Portrait frame, so a package photograph fills it instead of
+            // shrinking to fit a square. See the note on `tall` in
+            // ProductThumb.tsx.
+            tall
+          />
+        </div>
+        <div style={{ gridArea: 'meta', minWidth: 0 }}>
           <div
             style={{
               display: 'flex',
@@ -504,7 +510,22 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               <CopyBarcode value={product.upc} />
             </div>
           )}
+        </div>
 
+        {/* THE SIGNAL TABLE GETS ITS OWN GRID CELL.
+
+            Michael, 2026-10-22, from a phone: "on the product page, under
+            the title / barcode, the initial table needs to be more to the
+            left and under the photo on the phone. On the web it looks
+            fine."
+
+            It was nested inside the title column, so every row started at
+            the photo's right edge and lost that width. On a wide screen
+            that indent is the thing he wants kept; on a phone the table
+            needs the full measure. So it moves cell rather than being
+            duplicated — one table, one place in the markup, and only its
+            grid area changes under 640px. See .rt-prodhead. */}
+        <div style={{ gridArea: 'signals', minWidth: 0 }}>
           {/* WHAT THE RECORD SAYS — one labelled row per question.
 
               Michael, 2026-10-07: "how are they supposed to know what isn't
