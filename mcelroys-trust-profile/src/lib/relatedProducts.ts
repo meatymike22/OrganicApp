@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { VETTED_COMPANIES } from '@/lib/vetting'
+import { PUBLISHED_PRODUCTS } from '@/lib/publication'
 // The three image columns ProductThumb needs, as ONE type rather than three
 // restated fields. The first draft of this file invented an
 // `imageAttribution` column that does not exist — Product has imageUrl,
@@ -296,6 +297,8 @@ export async function getRelatedProducts(product: {
       category: product.category,
       companyId: { not: product.companyId },
       company: VETTED_COMPANIES,
+      // "You might also look at" must not point at a page that 404s.
+      ...PUBLISHED_PRODUCTS,
     },
     // Still no orderBy: these are already the products worth looking at, and
     // the ranking that matters happens on the overlap below.

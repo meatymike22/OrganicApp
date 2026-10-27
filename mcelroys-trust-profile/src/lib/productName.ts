@@ -262,6 +262,43 @@ if (process.argv[1]?.endsWith('productName.ts')) {
   eq('', '')
   eq('   ', '   ')
   console.log(bad === 0 ? 'titleCaseName: all cases pass' : `titleCaseName: ${bad} FAILURES`)
+
+  // ---- trimRedundantTail ----
+  let badTrim = 0
+  const tt = (src: string, want: string) => {
+    const got = trimRedundantTail(src)
+    const ok = got === want
+    if (!ok) badTrim++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${JSON.stringify(src)} -> ${JSON.stringify(got)}${ok ? '' : ` want ${JSON.stringify(want)}`}`)
+  }
+  // The shape this exists for, from the FDC recovery log.
+  tt('SWEETENED RICE CEREAL, SWEETENED', 'SWEETENED RICE CEREAL')
+  tt('GUAVA NECTAR, GUAVA', 'GUAVA NECTAR')
+  tt('PEANUT BUTTER PLANT PROTEIN BARS, PEANUT BUTTER', 'PEANUT BUTTER PLANT PROTEIN BARS')
+  tt('GARLIC BUTTER SMOKED OYSTERS, GARLIC BUTTER', 'GARLIC BUTTER SMOKED OYSTERS')
+  tt('AGUAS FRESCAS STRAWBERRY ENERGY DRINK, STRAWBERRY', 'AGUAS FRESCAS STRAWBERRY ENERGY DRINK')
+  // Repeated more than once.
+  tt('CREAMY MILK CHOCOLATE, CREAMY MILK CHOCOLATE, CREAMY MILK CHOCOLATE', 'CREAMY MILK CHOCOLATE')
+  // A doubled flavour list unwinds one item per pass, leaving the real name.
+  tt(
+    'CHERRY, GRAPE, LEMON-LIME, MIXED BERRY, ORANGE ELECTROLYTE FREEZER POPS, CHERRY, GRAPE, LEMON-LIME, MIXED BERRY, ORANGE',
+    'CHERRY, GRAPE, LEMON-LIME, MIXED BERRY, ORANGE ELECTROLYTE FREEZER POPS'
+  )
+  // MUST NOT TOUCH: nothing repeats.
+  tt('Water, Sugar', 'Water, Sugar')
+  tt('La Tourangelle, Inc.', 'La Tourangelle, Inc.')
+  tt('Ham, Original', 'Ham, Original')
+  tt('Chocolate Chip Cookies', 'Chocolate Chip Cookies')
+  // MUST NOT MATCH ON A SUBSTRING. "ran" is inside "orange" but is not a
+  // token of it, and "cola" is inside "chocolate" by letters only.
+  tt('ORANGE SODA, RAN', 'ORANGE SODA, RAN')
+  tt('CHOCOLATE BAR, COLA', 'CHOCOLATE BAR, COLA')
+  // A tail too short to be worth judging is left alone.
+  tt('MILK, 2%', 'MILK, 2%')
+  // Never strip down to nothing.
+  tt('Oz, Oz', 'Oz, Oz')
+  tt('', '')
+  console.log(badTrim === 0 ? 'trimRedundantTail: all cases pass' : `trimRedundantTail: ${badTrim} FAILURES`)
 }
 
 // ------------------------------------------------- the brand, said once
@@ -343,12 +380,58 @@ function startsWithBrand(name: string, brand: string): boolean {
   return true
 }
 
+// FDC'S REDUNDANT TAIL CLAUSE.
+//
+// USDA FoodData Central writes a product name as "DESCRIPTION, MODIFIER", and
+// the modifier usually just repeats part of the description:
+//
+//   "SWEETENED RICE CEREAL, SWEETENED"
+//   "GUAVA NECTAR, GUAVA"
+//   "PEANUT BUTTER PLANT PROTEIN BARS, PEANUT BUTTER"
+//
+// 333 of the 552 names recovered from FDC carry it (recover-product-names.ts,
+// 2026-10-26), so without this 60% of those titles would read badly. The
+// stored value stays verbatim — that is the record — and this is display only.
+//
+// IT REMOVES A REPETITION, NOT INFORMATION, and that is what makes it safe
+// under the project's rule about never inventing a name the record does not
+// carry: every word dropped already appears earlier in the same string.
+//
+// CONSERVATIVE ON PURPOSE. The clause goes only when the WHOLE tail already
+// appears in the head as a complete run of words — compared on the normalised
+// form and padded with spaces so a token boundary is required. Substring
+// matching would be a disaster here: "ORANGE" must not match inside
+// "...ORANGE ELECTROLYTE..." by accident, and a genuine flavour list whose
+// last item merely resembles an earlier one must keep it.
+//
+// It loops because FDC sometimes repeats more than once ("VANILLA, VANILLA,
+// VANILLA"), and because unwinding a doubled flavour list takes one pass per
+// item. It never returns something too short to identify a product.
+export function trimRedundantTail(name: string): string {
+  let out = name.trim()
+  for (let i = 0; i < 8; i++) {
+    const comma = out.lastIndexOf(',')
+    if (comma <= 0) break
+    const head = out.slice(0, comma).trim()
+    const tail = out.slice(comma + 1).trim()
+    const h = head.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const tl = tail.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    if (tl.length < 3) break
+    // Token-boundary containment, not substring.
+    if (!` ${h} `.includes(` ${tl} `)) break
+    // Never trim away so much that nothing identifiable is left.
+    if (head.replace(/[^a-z0-9]/gi, '').length < 3) break
+    out = head
+  }
+  return out
+}
+
 export function productDisplayName(
   rawName: string,
   companyName: string | null | undefined,
   dbaNames: string[] = []
 ): string {
-  const cleaned = displayName(rawName)
+  const cleaned = trimRedundantTail(displayName(rawName))
   if (!companyName && dbaNames.length === 0) return cleaned
 
   const candidates = [companyName ?? '', ...dbaNames]

@@ -109,3 +109,34 @@ export function normalizeUpc(raw: unknown): UpcResult {
   }
   return { ok: true, upc: digits }
 }
+
+// EVERY SPELLING OF A BARCODE WORTH ASKING AN OUTSIDE SOURCE ABOUT.
+//
+// Moved here from scripts/ingest-fooddata-central.ts, which learned it the
+// expensive way: our UPCs are stored inconsistently (12-digit UPC-A, 13-digit
+// EAN with a leading zero) and USDA FoodData Central commonly holds the
+// 12-digit form. Searching "0038000332128" when FDC says "038000332128"
+// returns nothing, and an early version of that script reported 51 of 54
+// products "not in FDC" — including household brands that are certainly in it.
+//
+// This lives in src/lib because it is now used by more than one script, and
+// the backlog's most-repeated lesson (item 20, seven occurrences) is that a
+// helper copied into a second place is a helper that drifts. NOTE:
+// ingest-fooddata-central.ts still has its own local copy from before this
+// move; it should import this one next time that file is touched.
+//
+// Returns forms in the order most likely to match, so a caller can stop at
+// the first hit. Deduplicated, because for most barcodes several of these
+// collapse to the same string.
+export function upcQueryForms(upc: string): string[] {
+  const digits = upc.replace(/\D/g, '')
+  const stripped = digits.replace(/^0+/, '')
+  const forms = new Set<string>([
+    digits,
+    stripped,
+    stripped.padStart(12, '0'),
+    stripped.padStart(13, '0'),
+    stripped.padStart(14, '0'),
+  ])
+  return [...forms].filter(Boolean)
+}

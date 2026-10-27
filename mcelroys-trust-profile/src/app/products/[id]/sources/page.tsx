@@ -43,6 +43,9 @@ import { StatusChip } from '@/components/StatusChip'
 const FIELDS = {
   id: true,
   name: true,
+  // See the note on PRODUCT_FIELDS in ../page.tsx: selected so this page can
+  // refuse a withheld record, since findUnique cannot filter on it.
+  publicationStatus: true,
   upc: true,
   importSource: true,
   imageUrl: true,
@@ -107,7 +110,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function ProductSourcesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const product = await prisma.product.findUnique({ where: { id }, select: FIELDS })
-  if (!product) notFound()
+  // A withheld product has no page, so it has no sources page either —
+  // otherwise this route would be a way to reach the record the gate is
+  // meant to withhold.
+  if (!product || product.publicationStatus !== 'published') notFound()
 
   const name = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
   const recalls = await getProductRecalls(id)

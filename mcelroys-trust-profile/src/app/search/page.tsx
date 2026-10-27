@@ -18,6 +18,7 @@ import { normalizeUpc } from '@/lib/upc'
 import { brandLookupWhere, pickBrand, searchWhere, tokenise } from '@/lib/productSearch'
 // Only a confirmed company gets a page worth linking an example card to.
 import { VETTED_COMPANIES } from '@/lib/vetting'
+import { PUBLISHED_PRODUCTS } from '@/lib/publication'
 import {
   EMPTY_FILTERS,
   ALLERGEN_FILTERS,
@@ -122,6 +123,18 @@ async function buildWhere(
   filters: IngredientFilterState
 ): Promise<Prisma.ProductWhereInput> {
   const and: Prisma.ProductWhereInput[] = []
+
+  // WITHHELD RECORDS NEVER APPEAR IN RESULTS.
+  //
+  // A product we cannot name is not published — see PUBLISHED_PRODUCTS. This
+  // is the same class of rule as the rejected-company exclusion below, and
+  // that comment's line applies here word for word: order of rows can be
+  // stale; what appears at all cannot.
+  //
+  // Cheaper than that one, though. publicationStatus is a plain column on
+  // Product, so this is a filter on a row the scan already has — not the
+  // relation form that cost 1.03 s.
+  and.push(PUBLISHED_PRODUCTS)
 
   // A product whose company a reviewer has rejected (junk brand text, a
   // duplicate) is kept in the database only so bulk ingestion does not
@@ -631,7 +644,9 @@ async function exampleProducts(): Promise<Map<string, ExampleProduct>> {
   const upcs = EXAMPLES.map((e) => e.upc).filter((u): u is string => Boolean(u))
   if (upcs.length === 0) return new Map<string, ExampleProduct>()
   const rows = await prisma.product.findMany({
-    where: { upc: { in: upcs } },
+    // Curated examples are still records. One that got withheld must not be
+    // shown here either, or the front page would advertise a page that 404s.
+    where: { upc: { in: upcs }, ...PUBLISHED_PRODUCTS },
     select: {
       upc: true,
       name: true,

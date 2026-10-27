@@ -395,6 +395,90 @@ model Product {
   ingredientsTextRawSource    String?
   ingredientsTextRawCheckedAt DateTime?
 
+  // WHAT OFF CALLS THE PRODUCT, BESIDES ITS NAME.
+  //
+  // Michael, on Vercel comments Tm_0VJusD8nD and WoEtf4NLax-m: product
+  // titles are often useless. Measured across the catalogue: 2,015 products
+  // whose name IS their company's name ("Celsius"), 8,424 with a name of six
+  // characters or fewer ("Berry"), 20,930 single-word names.
+  //
+  // These are crowdsourced OFF titles and we cannot improve them by writing
+  // better ones — that would be inventing a name the record does not carry.
+  // What we CAN do is record two other fields OFF already holds and let the
+  // display compose from them:
+  //
+  //   genericName  OFF `generic_name` — the category-ish name, "Energy drink"
+  //   quantity     OFF `quantity` — the net contents AS PRINTED, "12 fl oz"
+  //
+  // `quantity` is deliberately the printed string and not OFF's numeric
+  // product_quantity + product_quantity_unit. "12 fl oz (355 ml)" is what is
+  // on the package; "355 g" is a derivation, and this column is for what the
+  // record says. backfill-off-names.ts counts the numeric-only case and
+  // reports it rather than synthesising from it.
+  //
+  // THREE STATES, same as the image columns:
+  //   value set,  checkedAt set  -> OFF carries it
+  //   value NULL, checkedAt set  -> we looked, OFF has none
+  //   value NULL, checkedAt NULL -> not in the export; nobody has looked
+  //
+  // One source/checkedAt pair covers both fields because one pass fetches
+  // both — the same shape as ingredientsTextRaw and ingredientsTextLang
+  // sharing ingredientsTextRawSource.
+  genericName          String?
+  quantity             String?
+  genericNameSource    String?
+  genericNameCheckedAt DateTime?
+
+  // WHETHER THIS RECORD IS FIT TO PUBLISH.
+  //
+  // Michael, 2026-10-25, on a search row whose title was the company name:
+  // "if the title is the same as the product without any additional
+  // information then it shouldnt go into the database because its not a real
+  // product unless the photo or barcode gives us more information about it in
+  // which case we should try to research to get the product name. If we cant
+  // in the end then it should be in a part of the database that has a
+  // 'missing info' category and doesnt get displayed on the website."
+  //
+  // This is the three-state rule applied to the product's own identity. The
+  // site's whole claim is that every page reports a record; a page that
+  // cannot name the product it describes reports nothing, and dressing it up
+  // with a category we guessed would be worse than withholding it.
+  //
+  // VALUES — the canonical list is PUBLICATION_STATUS in src/lib/publication.ts,
+  // and every display query must filter through `publishedOnly` from that same
+  // file rather than writing its own condition. A gate copied into a dozen
+  // query sites is a gate that leaks the first time someone adds a thirteenth
+  // (item 20: the duplicated-component bug, seven occurrences and counting).
+  //
+  //   'published'    normal. The default, so adding this column changed nothing.
+  //   'missing_info' withheld: we hold a barcode and a company but nothing
+  //                  that says what the product is. Not shown in search,
+  //                  browse, related products, the sitemap or a scan result.
+  //
+  // WITHHELD IS NOT DELETED. The row stays, because the barcode and the
+  // company are real and a later pass — USDA FoodData Central, a package
+  // photograph, a user's camera — may recover the name and promote it back.
+  // publicationNote records why it was withheld, so a human reading the row
+  // later does not have to re-derive it.
+  publicationStatus String   @default("published")
+  publicationNote   String?
+
+  // PROVENANCE FOR THE NAME ITSELF, which this table has never had.
+  //
+  // Every other column here carries a source and a checked-at date; `name`
+  // arrived from whichever importer won and was never attributed. That was
+  // tolerable while every name came from one bulk import. It stops being
+  // tolerable the moment a name can be adopted from USDA FoodData Central or
+  // transcribed from a photograph — then "where did this name come from, and
+  // when" is a question a reader is entitled to ask about the biggest text on
+  // the page.
+  //
+  // NULL means the name came from the original import and predates this
+  // column. Not "unknown provenance" as a claim — just not recorded yet.
+  nameSource    String?
+  nameSourceUrl String?
+  nameCheckedAt DateTime?
+
   // PIXEL DIMENSIONS OF imageUrl. Item 32: without them the hero frame
   // letterboxes every portrait photograph, because it has to assume a shape.
   //

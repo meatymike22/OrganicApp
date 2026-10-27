@@ -59,6 +59,10 @@ const GOVERNMENT_NOTICE =
 const PRODUCT_FIELDS = {
   id: true,
   name: true,
+  // Selected so the page can refuse to render a withheld record. findUnique
+  // cannot filter on it — publicationStatus is not unique — so the check
+  // happens after the fetch, exactly as the rejected-company check does.
+  publicationStatus: true,
   upc: true,
   category: true,
   categorySource: true,
@@ -188,9 +192,24 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   const product = await prisma.product.findUnique({ where: { id }, select: PRODUCT_FIELDS })
 
+  // Two reasons a record exists but is not a page.
+  //
   // A product whose company a reviewer rejected is kept only so bulk
   // ingestion will not recreate it. Treated the same as not existing.
-  if (!product || product.company.vettingStatus === 'rejected') notFound()
+  //
+  // A product we cannot NAME is withheld for a different reason: the barcode
+  // and the company are real, but nothing in the record says what the product
+  // is, so a page here would describe nothing. See src/lib/publication.ts.
+  // Both are a real 404 rather than a thin page, and because
+  // generateStaticParams returns [] the 404 is cached per path like any other
+  // response.
+  if (
+    !product ||
+    product.company.vettingStatus === 'rejected' ||
+    product.publicationStatus !== 'published'
+  ) {
+    notFound()
+  }
 
   // The company name is printed as its own line and in the breadcrumb, so
   // the brand comes off the front of the product name. Computed once here so

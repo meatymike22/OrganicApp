@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { PUBLISHED_PRODUCTS } from '@/lib/publication'
 import { colors, font, isoDate, layout, status } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import {
@@ -88,13 +89,20 @@ export default async function CompanyPage({
   const isUnvetted = company.vettingStatus !== 'vetted'
 
   // Products: counted in full, listed up to PRODUCTS_SHOWN by name.
+  // ALL THREE ARE GATED, and the counts matter as much as the list: a page
+  // saying "48 products" above a list of 47 is a number a reader can catch us
+  // on, and the withheld one is not something we can show them.
   const [productCount, organicCount, products] = await Promise.all([
-    prisma.product.count({ where: { companyId: company.id } }),
+    prisma.product.count({ where: { companyId: company.id, ...PUBLISHED_PRODUCTS } }),
     prisma.product.count({
-      where: { companyId: company.id, certifications: { some: { certificationStatus: 'Certified' } } },
+      where: {
+        companyId: company.id,
+        certifications: { some: { certificationStatus: 'Certified' } },
+        ...PUBLISHED_PRODUCTS,
+      },
     }),
     prisma.product.findMany({
-      where: { companyId: company.id },
+      where: { companyId: company.id, ...PUBLISHED_PRODUCTS },
       select: {
         id: true,
         name: true,
