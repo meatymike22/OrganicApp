@@ -52,6 +52,26 @@ export const PUBLISHED_PRODUCTS = {
   publicationStatus: 'published',
 } satisfies Prisma.ProductWhereInput
 
+// THE COMPLEMENT, for the one query that must find what the gate hides.
+//
+// A barcode we hold but have withheld is not "no results". Searching it has
+// to say so, or the site tells a shopper we have nothing on a product whose
+// barcode is sitting in our database — see the EmptyState in search/page.tsx.
+//
+// `not: 'published'` rather than `equals: 'missing_info'` ON PURPOSE. With two
+// states they are the same query, but if a third state is ever added this one
+// keeps catching it, and the note above about a third state being "neither
+// shown nor findable" is exactly the failure that would cause. A record we
+// are not publishing should always be explainable to the person who asked
+// for it by barcode.
+//
+// This is NOT a general-purpose "show me the hidden ones" filter. It answers
+// one question — did we withhold the exact thing you just asked for — and any
+// other reader-facing query still uses PUBLISHED_PRODUCTS.
+export const WITHHELD_PRODUCTS = {
+  publicationStatus: { not: 'published' },
+} satisfies Prisma.ProductWhereInput
+
 // The allowed values, kept in one place so a typo like "published " cannot
 // silently create a third state — and a third state here means a record that
 // is neither shown nor findable by the pass meant to fix it.

@@ -18,7 +18,7 @@ import { normalizeUpc } from '@/lib/upc'
 import { brandLookupWhere, pickBrand, searchWhere, tokenise } from '@/lib/productSearch'
 // Only a confirmed company gets a page worth linking an example card to.
 import { VETTED_COMPANIES } from '@/lib/vetting'
-import { PUBLISHED_PRODUCTS } from '@/lib/publication'
+import { PUBLISHED_PRODUCTS, WITHHELD_PRODUCTS } from '@/lib/publication'
 import {
   EMPTY_FILTERS,
   ALLERGEN_FILTERS,
@@ -237,6 +237,38 @@ async function buildWhere(
 // Extracted from the page component so the default /search can simply not
 // call it. That is the whole mechanism behind "the landing page does not
 // touch the database": not a flag, not a short-circuit inside the query, just
+// A BARCODE WE HOLD BUT HAVE WITHHELD IS NOT "NO RESULTS".
+//
+// The publication gate hides a record whose product name we cannot establish.
+// That means searching such a record's barcode returns zero rows, and the
+// empty state would then say "Nothing in our records matches 0028400755795" —
+// which is false. We have that barcode. What we do not have is a product name
+// worth printing at the top of a page.
+//
+// Michael, 2026-10-25, approving the wording: "we have this barcode but not
+// enough to describe the product yet: sounds like a good message to me."
+//
+// RUNS ONLY ON THE DEAD END — a barcode-shaped query that returned nothing
+// with no ingredient filter applied. An ordinary search never reaches it, and
+// when it does run it is a single indexed equality on Product.upc.
+//
+// IT USES THE SAME `upc` VALUE AS buildWhere, deliberately, rather than the
+// more forgiving upcQueryForms. The two queries must differ in exactly one
+// respect — the publication gate — because that difference is the entire
+// claim the message makes. Widen this one and not the other, and the page
+// could announce that we are withholding a product we are in fact showing,
+// which is a worse failure than the false "no results" it replaces.
+async function withheldBarcode(q: string | undefined): Promise<string | null> {
+  if (!q) return null
+  const upc = normalizeUpc(q)
+  if (!upc.ok) return null
+  const held = await prisma.product.findFirst({
+    where: { upc: upc.upc, ...WITHHELD_PRODUCTS },
+    select: { upc: true },
+  })
+  return held?.upc ?? null
+}
+
 // an await that never happens.
 async function loadResults(
   q: string | undefined,
@@ -303,7 +335,14 @@ async function loadResults(
     }))
     .sort((a, b) => mostToReadAbout(a.signals, b.signals))
 
-  return { total, hasMore, results }
+  // Asked only when the answer can matter: nothing came back, and no filter
+  // is on to explain why. A filtered-empty result is not a gap in our data at
+  // all, so a message about withholding would be the wrong explanation even
+  // if the barcode happened to be one we hold.
+  const heldUpc =
+    results.length === 0 && !hasAnyFilter(filters) ? await withheldBarcode(q) : null
+
+  return { total, hasMore, results, heldUpc }
 }
 
 type Loaded = Awaited<ReturnType<typeof loadResults>>
@@ -497,7 +536,12 @@ export default async function SearchPage({
               </div>
 
               {loaded.results.length === 0 ? (
-                <EmptyState q={q} aisle={aisle} filtered={hasAnyFilter(filters)} />
+                <EmptyState
+                  q={q}
+                  aisle={aisle}
+                  filtered={hasAnyFilter(filters)}
+                  heldUpc={loaded.heldUpc}
+                />
               ) : (
                 <>
                   {/* glyphs MUST match the SignalStrip on the rows below,
@@ -1297,20 +1341,78 @@ function FilterRail({
 // What a shopper sees when nothing matched. An empty result is our gap, not
 // a statement that the product does not exist — so the page says which, and
 // offers the one useful next step.
-// NOTHING MATCHED. Three different reasons, and they must not be blurred:
-// we have no such product, the aisle is empty, or the filters excluded
-// everything we do have. The third is not a gap in our data at all, and
-// telling someone "we haven't read this one yet" when they filtered out six
-// ingredient categories would be plainly false.
+// NOTHING MATCHED. FOUR different reasons, and they must not be blurred: we
+// hold the barcode but have withheld the record, we have no such product, the
+// aisle is empty, or the filters excluded everything we do have. The last is
+// not a gap in our data at all, and telling someone "we haven't read this one
+// yet" when they filtered out six ingredient categories would be plainly
+// false.
 function EmptyState({
   q,
   aisle,
   filtered,
+  heldUpc,
 }: {
   q?: string
   aisle?: string
   filtered: boolean
+  // The barcode, when the reason this page is empty is that we withheld the
+  // record we hold for it.
+  heldUpc?: string | null
 }) {
+  // TESTED FIRST, because it is the only one of the four where we know
+  // exactly why the page is empty. When the specific answer is available,
+  // offering a vaguer one is a worse answer, not a safer one.
+  if (heldUpc) {
+    return (
+      <div
+        style={{
+          boxSizing: 'border-box',
+          padding: '26px 24px',
+          background: colors.card,
+          border: `1px solid ${colors.line}`,
+          borderRadius: layout.radius,
+        }}
+      >
+        <div style={{ fontFamily: font.display, fontSize: 20, fontWeight: 600 }}>
+          We have this barcode
+        </div>
+        <p
+          style={{
+            margin: '9px 0 0',
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: colors.ink2,
+            maxWidth: 560,
+          }}
+        >
+          Our record for{' '}
+          <strong style={{ fontFamily: font.mono, fontSize: 13, wordBreak: 'break-all' }}>
+            {heldUpc}
+          </strong>{' '}
+          does not carry a product name we can point at a source for, so there is nothing worth
+          showing you yet. We would rather hold the record back than publish a guess at what the
+          product is.
+        </p>
+        <p
+          style={{
+            margin: '9px 0 0',
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: colors.ink2,
+            maxWidth: 560,
+          }}
+        >
+          If you know what this one is,{' '}
+          <Link href="/contact" style={{ color: colors.ink, textDecoration: 'underline' }}>
+            tell us
+          </Link>{' '}
+          and we will check it against the public record.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div
       style={{
