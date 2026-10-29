@@ -100,9 +100,23 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const product = await prisma.product.findUnique({
     where: { id },
-    select: { name: true, company: { select: { legalName: true, dbaNames: true } } },
+    select: {
+      name: true,
+      publicationStatus: true,
+      company: { select: { legalName: true, dbaNames: true } },
+    },
   })
-  if (!product) return { title: 'Product not found' }
+  // A WITHHELD RECORD HAS NO TITLE EITHER.
+  //
+  // The page below calls notFound() for an unpublished record, but this
+  // function runs separately and had no gate, so the 404 went out carrying
+  // the withheld product's name and company in its <title> — observed on
+  // production 2026-10-29 as "Doritos — Doritos · Rootify". Noindexed, and
+  // still published: a name in a title is a name we put on the internet,
+  // which is the one thing the gate exists to prevent.
+  //
+  // Same title as the missing-record case, because the response IS a 404.
+  if (!product || product.publicationStatus !== 'published') return { title: 'Product not found' }
   const name = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
   return { title: `Sources — ${shortProductName(name)}` }
 }

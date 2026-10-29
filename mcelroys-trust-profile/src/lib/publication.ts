@@ -27,12 +27,24 @@
 // that skipped withheld rows could never fix them. The same split VETTED_COMPANIES
 // makes — a visibility rule, not a data rule.
 //
-// WHY A SHARED CONSTANT AND NOT A CONDITION PER QUERY. There are eight
-// product query sites today. A gate copied into eight places is a gate that
-// leaks the first time someone adds a ninth, and the failure is silent: a
-// withheld record simply reappears. Item 20 in the backlog is the same bug
-// seven times over, and the answer has been the same every time — make it one
-// thing.
+// WHY A SHARED CONSTANT AND NOT A CONDITION PER QUERY. A gate copied into
+// every query site is a gate that leaks the first time someone adds another,
+// and the failure is silent: a withheld record simply reappears. Item 20 in
+// the backlog is the same bug seven times over, and the answer has been the
+// same every time — make it one thing.
+//
+// THE FIRST AUDIT SAID "EIGHT SITES" AND MISSED TWO, which is worth recording
+// because of HOW it missed them. It enumerated the queries that put product
+// ROWS on a page — search, browse, a company's list, related products, the
+// two product pages. Both generateMetadata functions also query Product, and
+// neither renders a row: they render a <title>. So the audit's own framing —
+// "where do product rows come from" — could not see them, and the 404 for a
+// withheld product shipped to production carrying its name and company in the
+// title.
+//
+// When auditing this gate again, enumerate every call site mechanically
+// (grep for prisma.product) and justify each one, rather than reasoning from
+// what appears on screen. A leak that is not a visible row is still a leak.
 //
 // findUnique CANNOT USE THIS. publicationStatus is not unique, so a product
 // page has to select the column and check it after the fetch, the way the
