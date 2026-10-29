@@ -248,6 +248,20 @@ export function splitCompoundName(name: string, opts: ParseOptions = {}): string
 // synonyms — dropped as ingredient names, though a trace note may be extracted.
 const NOTE_PREFIXES = ['contains', 'may contain', 'trace of', 'traces of', 'from', 'as a', 'for ']
 
+// A PHRASE THAT INTRODUCES OR ATTRIBUTES A LIST, never the name of a
+// substance. Used to stop such a phrase being stored as an ingredient.
+//
+// DELIBERATELY EXCLUDES "processed" and "prepared", which begin real
+// ingredient names — "PROCESSED CHEESE: MILK, SALT" is a compound ingredient
+// whose header must be kept, and "prepared mustard" is an ingredient outright.
+// Being wrong in that direction deletes a substance a reader needs, which is
+// worse than leaving a prose row for the cleanup pass.
+//
+// The attribution phrases require their preposition ("produced by", not bare
+// "bottled") for the same reason: "bottled water" is a thing you can eat.
+const DECLARATION_LABEL =
+  /^(?:ingredients?\b|made\s+(?:of|with|from)\b|produced(?:\s+(?:by|for|under|in)\b|$)|manufactured(?:\s+(?:by|for|in)\b|$)|distributed\s+(?:by|for)\b|(?:packed|packaged|bottled|canned)\s+(?:by|for|in)\b)/i
+
 // Cleanup applied to the WHOLE declaration before it is split into items.
 // These artefacts come from the sources themselves, and were found by
 // comparing our Open Food Facts data against USDA FoodData Central:
@@ -279,8 +293,18 @@ function prepareDeclaration(raw: string): string {
     // word — "high-oleic", "l-tyrosine" — has no spaces and is untouched.)
     .replace(/\s*;\s*/g, ', ')
     .replace(/\s+[-–—]\s+/g, ', ')
-    // Drop a leading "INGREDIENTS:" / "INGREDIENT LIST:" label
-    .replace(/^\s*ingredients?(\s+list)?\s*:\s*/i, '')
+    // Drop a leading declaration label: "INGREDIENTS:", "INGREDIENT LIST:",
+    // "MADE OF:", "MADE WITH", "MADE FROM".
+    //
+    // THE COLON IS OPTIONAL, which is the part that matters. "MADE WITH PORK"
+    // has no colon, so without this the whole phrase was stored as an
+    // ingredient called "made with pork" — 35 products — when the ingredient
+    // it names is pork. Stripping the label recovers the real one. Same for
+    // "MADE OF CARROT", "MADE OF SUGAR", "MADE OF PEPPER".
+    //
+    // Reported 2026-10-28 on 0022000285287, whose declaration opens
+    // "MADE OF: CORN SYRUP, ...": "Made of ??? How is this an ingredient?"
+    .replace(/^\s*(?:ingredients?(?:\s+list)?|made\s+(?:of|with|from))\s*:?\s*/i, '')
     // Separate a footnote or allergen statement that was run together with the
     // preceding word, e.g. "*ORGANICCONTAINS: SOY"
     .replace(/(\*\s*organic)(contains)/gi, '$1. $2')
@@ -478,6 +502,18 @@ export function parseIngredientsText(rawInput: string, opts: ParseOptions = {}):
       // "May contain: soy", "Contains: milk, wheat" — allergen statements,
       // not ingredients. Nothing after them is added.
       if (/^(may\s+(also\s+)?(not\s+)?contain|contains?|allerg(en|y)\w*)\b/i.test(header)) return
+      // A DECLARATION LABEL IS NOT A GROUP. "Vitamins:" names a group whose
+      // header is worth keeping; "INGREDIENTS OF SEASONING:" and "MADE OF:"
+      // only introduce or attribute a list. Pushing those produced 173 rows
+      // beginning "ingredient(s)" across 285 products, and a row literally
+      // named "made of" on 42 of them.
+      //
+      // The rest of the item is still processed — the real ingredients follow
+      // the label, and dropping them with it would lose the list.
+      if (rest && DECLARATION_LABEL.test(header)) {
+        processItem(rest)
+        return
+      }
       if (rest && header.split(/\s+/).length <= 4) {
         push(header, isMarkedOrganic(header), false, null)
         processItem(rest)
@@ -535,6 +571,30 @@ export function parseIngredientsText(rawInput: string, opts: ParseOptions = {}):
 
     // MID-NAME SYNONYM: more name follows the parenthetical, e.g.
     // "Citrus Grandis (Grapefruit) Seed Extract" — one ingredient, not three.
+    //
+    // A CONJUNCTION IS A SEPARATOR, NOT A CONTINUATION. "Colors (Red 40,
+    // Blue 1) and Bioengineered Food Products" is two entries; joining them
+    // gave one row named "mineral o colors and bioengineered food product",
+    // reported 2026-10-28. "Citrus Grandis (Grapefruit) Seed Extract" has no
+    // conjunction and still joins, which is the case this branch exists for.
+    // The conjunction case is handled HERE rather than by falling through,
+    // because every branch below consumes `before` and `inside` and ignores
+    // `after` entirely. The first attempt at this fix relied on the
+    // fall-through and silently DELETED the trailing entry: "Milk Chocolate
+    // (Sugar, Cocoa Butter) and Peanuts" lost its peanuts. A malformed row is
+    // recoverable; a dropped allergen is not. Caught by diffing the parser's
+    // output against the unmodified version, which is the only way a
+    // disappearance shows up at all.
+    const conjunction = /^(?:and\/or|and|or|&|plus)\b/i.exec(after)
+    if (conjunction) {
+      // The parenthetical belongs to what precedes it; what follows the
+      // conjunction is its own entry. Recursion terminates because the
+      // reconstructed item has no text after its parenthesis.
+      processItem(`${before} (${inside})`)
+      processItem(after.slice(conjunction[0].length).replace(/^[\s,]+/, ''))
+      return
+    }
+
     if (after && !after.startsWith(',')) {
       const joined = `${before} ${after}`.replace(/\s+/g, ' ')
       // The remainder may itself contain another parenthetical that still
@@ -605,4 +665,89 @@ export function parseIngredientsText(rawInput: string, opts: ParseOptions = {}):
   // Assign 1-indexed positions in final order — this is the concentration
   // signal, so it must reflect the order the label actually presented them
   return [...byName.values()].map((r, i) => ({ ...r, listPosition: i + 1 }))
+}
+
+// --------------------------------------------------------------- selftest
+//   npx tsx src/lib/ingredientParsing.ts --selftest
+//
+// Added 2026-10-28. This file had none, and the two defects fixed that day
+// were both found by a reader on a live page rather than by a test: a row
+// called "made of" on 42 products, and "mineral o colors and bioengineered
+// food product" as a single ingredient.
+//
+// THE CASES THAT MATTER MOST HERE ARE THE ONES THAT MUST NOT CHANGE.
+// A parser like this is one regex away from quietly deleting a substance, and
+// the first attempt at the conjunction fix did exactly that — "Milk Chocolate
+// (Sugar, Cocoa Butter) and Peanuts" lost its peanuts, because every branch
+// after the one being changed consumes `before` and ignores `after`. The
+// expectations below therefore spell out the FULL list each declaration
+// produces, not just the part under test: a dropped entry is invisible to an
+// assertion that only checks the entry it cares about.
+if (process.argv[1]?.endsWith('ingredientParsing.ts')) {
+  let bad = 0
+  const fmt = (ps: ParsedIngredient[]) =>
+    ps.map((p) => (p.isOrganicSourced ? `${p.name}*` : p.name) + (p.isTrace ? '[trace]' : ''))
+  const eq = (raw: string, want: string[]) => {
+    const got = fmt(parseIngredientsText(raw))
+    const ok = JSON.stringify(got) === JSON.stringify(want)
+    if (!ok) bad++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${JSON.stringify(raw).slice(0, 70)}`)
+    if (!ok) {
+      console.log(`      got  ${JSON.stringify(got)}`)
+      console.log(`      want ${JSON.stringify(want)}`)
+    }
+  }
+
+  console.log('\nA declaration label is not an ingredient')
+  // The record that prompted the fix. "mineral o colors" is left as it is on
+  // purpose: the SOURCE says "MINERAL O COLORS", and "mineral oil" would be a
+  // substance we invented. The damaged name staying visible is the signal.
+  eq(
+    'MADE OF: CORN SYRUP, SUGAR, WATER, MODIFIED CORN STARCH, GELATIN: LESS THAN 2% OF: CITRIC ACID, NATURAL AND ARTIFICIAL FLAVORS, MINERAL O COLORS (RED 40, BLUE 1, YELLOW 5) and Bioengineered Food Products.',
+    ['corn syrup', 'sugar', 'water', 'modified corn starch', 'gelatin[trace]', 'citric acid[trace]',
+     'natural and artificial flavor[trace]', 'mineral o color[trace]', 'red 40[trace]', 'blue 1[trace]',
+     'yellow 5[trace]', 'bioengineered food product[trace]']
+  )
+  // The label is stripped WITH OR WITHOUT a colon, which is what recovers the
+  // real ingredient from "MADE WITH PORK" (35 products) and "MADE OF CARROT".
+  eq('MADE OF CARROT', ['carrot'])
+  eq('MADE WITH PORK', ['pork'])
+  eq('MADE OF: CORN SYRUP, SUGAR', ['corn syrup', 'sugar'])
+  // "organic" leaves the name and becomes the flag — it is not lost.
+  eq('MADE FROM ORGANIC WHEAT FLOUR, WATER', ['wheat flour*', 'water'])
+  // A declaration label appearing mid-list is dropped, its list kept.
+  eq('MILK, INGREDIENTS OF SEASONING: SALT, PEPPER', ['milk', 'salt', 'pepper'])
+  eq('INGREDIENTS: WATER, SALT', ['water', 'salt'])
+  eq('INGREDIENT LIST: WATER, SALT', ['water', 'salt'])
+
+  console.log('\nMUST NOT be treated as labels — these name real substances')
+  // If DECLARATION_LABEL ever grows "processed" or "prepared", these break,
+  // and breaking them deletes a substance from a reader's ingredient list.
+  eq('PROCESSED CHEESE: MILK, SALT', ['processed cheese', 'milk', 'salt'])
+  eq('PREPARED MUSTARD', ['prepared mustard'])
+  // A genuine group header is still kept ("vitamins" itself is discarded
+  // downstream by the normalizer, which is why it does not appear).
+  eq('VITAMINS: VITAMIN A', ['vitamin a'])
+
+  console.log('\nA conjunction after a parenthetical separates; a continuation does not')
+  eq('COLORS (RED 40, BLUE 1) and Bioengineered Food Products',
+     ['color', 'red 40', 'blue 1', 'bioengineered food product'])
+  // THE DROPPED-ALLERGEN CASE. Peanuts must be in this list.
+  eq('Milk Chocolate (Sugar, Cocoa Butter) and Peanuts',
+     ['milk chocolate', 'sugar', 'cocoa butter', 'peanut'])
+  eq('Tocopherols (Vitamin E) and Ascorbyl Palmitate', ['tocopherols', 'ascorbyl palmitate'])
+  // A comma already separated correctly and must keep doing so.
+  eq('Milk Chocolate (Sugar, Cocoa Butter), Peanuts',
+     ['milk chocolate', 'sugar', 'cocoa butter', 'peanut'])
+  // The case the mid-name branch exists for: no conjunction, so it joins.
+  eq('Citrus Grandis (Grapefruit) Seed Extract', ['citrus grandis seed extract'])
+  eq('Citrus Grandis (Grapefruit) Seed Extract (Contains Trace of Benzalkonium Chloride)',
+     ['citrus grandis seed extract', 'benzalkonium chloride[trace]'])
+  // "and" INSIDE a parenthetical is part of one name, not a separator.
+  eq('Sodium Phosphate (Mono- and Dibasic)', ['sodium phosphate'])
+  eq('Flour (Wheat) and/or Rice Flour', ['flour', 'rice flour'])
+  eq('water, sugar', ['water', 'sugar'])
+
+  console.log(bad === 0 ? '\nparseIngredientsText: all cases pass' : `\nparseIngredientsText: ${bad} FAILURES`)
+  if (bad > 0) process.exitCode = 1
 }

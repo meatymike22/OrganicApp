@@ -193,10 +193,43 @@ const TITLE_STOPWORDS = new Set([
 // lowering. `shouting` is a property of the WHOLE name. The two are separate
 // because conflating them is what produced "Bbq Sauce".
 function recase(token: string, forced: boolean, shouting: boolean): string {
-  // Not pure letters: a digit, a symbol, an apostrophe, an ampersand. Leave
-  // it exactly as the source wrote it.
-  if (!/^[A-Za-z]+$/.test(token)) return token
+  // TRAILING SENTENCE PUNCTUATION CARRIES NO CASE INFORMATION, so it is set
+  // aside and reattached instead of disqualifying the word.
+  //
+  // This was a real defect, reported 2026-10-28 on a USDA-recovered name:
+  // "the capital letters here are not professional and need to go away".
+  // The name came out as
+  //
+  //   STRAWBERRY, Red RASPBERRY, BLACKBERRY, Black RASPBERRY, White GRAPE, ...
+  //
+  // Every word still shouting had a comma stuck to it; every word that got
+  // cased did not. The pure-letters guard below exists to protect case that
+  // MEANS something — "M &M'S", "55g", "1%", "iPhone" — and a comma means
+  // nothing, so a comma should not buy a word an exemption. FDC writes
+  // comma-separated flavour lists and 554 of the 611 names recovered from it
+  // are ALL CAPS, so this was most of what that recovery put on screen.
+  //
+  // ONLY `,.;:` AND ONLY AT THE END. Not brackets, not apostrophes, not
+  // ampersands, not leading characters. Each of those appears in a case the
+  // selftest pins: "(preservative)" stays lower-case inside its parentheses,
+  // "&M'S" keeps its shape, "Inc." is already mixed case and untouched. A
+  // wider peel would start repairing punctuation, which is ingestion's job
+  // and a guess at the label.
+  const edge = /^(.*?)([,.;:]+)$/.exec(token)
+  const core = edge ? edge[1] : token
+  const trailing = edge ? edge[2] : ''
 
+  // Not pure letters: a digit, a symbol, an apostrophe, an ampersand. Leave
+  // it exactly as the source wrote it. An empty core — a token that was
+  // nothing but punctuation — lands here too.
+  if (!/^[A-Za-z]+$/.test(core)) return token
+
+  const recased = recaseWord(core, forced, shouting)
+  return recased === core ? token : recased + trailing
+}
+
+// The decision itself, on a bare word with no punctuation attached.
+function recaseWord(token: string, forced: boolean, shouting: boolean): string {
   const lower = token.toLowerCase()
   const isAllLower = token === lower
   const isAllUpper = token === token.toUpperCase()
@@ -258,6 +291,24 @@ if (process.argv[1]?.endsWith('productName.ts')) {
   eq('Snickers Creamy Peanut Butter 55g', 'Snickers Creamy Peanut Butter 55g')
   eq('organic valley 1% lowfat milk', 'Organic Valley 1% Lowfat Milk')
   eq('sodium benzoate (preservative)', 'Sodium Benzoate (preservative)')
+  // TRAILING PUNCTUATION MUST NOT EXEMPT A WORD. The defect reported on
+  // 2026-10-28: a comma-separated shouted flavour list came back half
+  // shouting, because every word with a comma stuck to it skipped the recase
+  // entirely. This is the actual stored name of 0022000285287, after
+  // trimRedundantTail has removed its doubled tail.
+  eq(
+    'STRAWBERRY, RED RASPBERRY, BLACKBERRY, BLACK RASPBERRY, WHITE GRAPE, CHERRY BERRY FLAVORED WILD BERRIES GUMMIES',
+    'Strawberry, Red Raspberry, Blackberry, Black Raspberry, White Grape, Cherry Berry Flavored Wild Berries Gummies'
+  )
+  eq('CHERRY, GRAPE, LEMON-LIME, MIXED BERRY', 'Cherry, Grape, LEMON-LIME, Mixed Berry')
+  eq('MILK, 2%', 'Milk, 2%')
+  eq('CHICKEN; BEEF: PORK.', 'Chicken; Beef: Pork.')
+  // A stopword with a comma is still a stopword, and still not lowered when
+  // it is the last word.
+  eq('SOUP OF THE DAY, OF', 'Soup of the Day, Of')
+  // Tokens that are nothing but punctuation survive untouched.
+  eq('...', '...')
+  eq('A , B', 'A , B')
   // Degenerate input must come back unchanged rather than empty.
   eq('', '')
   eq('   ', '   ')
