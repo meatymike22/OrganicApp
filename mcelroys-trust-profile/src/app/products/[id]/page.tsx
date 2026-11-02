@@ -9,6 +9,7 @@ import { AdditiveMark } from '@/components/AdditiveMark'
 import { baseDyeOf, categoryHelp, familiesPresent, familyFor, familyHelp } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
+import { canAssertAbsence, hasAnyIngredientList, PARTIAL_LIST_NOTE } from '@/lib/ingredientDisclosure'
 import {
   companyDisplayName,
   headingWithBrand,
@@ -117,6 +118,9 @@ const PRODUCT_FIELDS = {
       reviewDate: true,
     },
   },
+  // Required by ProductImageFields, so a forgotten select is a compile error
+  // rather than a nutrition panel back on the page.
+  imageKind: true,
   imageUrl: true,
   imageSource: true,
   imageSourceUrl: true,
@@ -368,7 +372,20 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           label: `${count} ingredient${count === 1 ? '' : 's'}`,
           detail: hasOrder ? 'Listed in label order' : 'Label order was not recorded',
         }
-      : product.ingredientDisclosureStatus === 'not_disclosed'
+      : product.ingredientDisclosureStatus === 'partial'
+        ? {
+            column: 'flagged',
+            state: 'unchecked',
+            // NEITHER of the two branches below was true for these 11,920
+            // products before 2026-11-02. `ingredientCount` returns null for
+            // a partial list -- correctly, since we cannot state the label's
+            // length -- and a null count fell through this chain to "Not
+            // checked", which says we never looked. We looked, and we hold
+            // part of it.
+            label: 'List cut off',
+            detail: PARTIAL_LIST_NOTE,
+          }
+        : product.ingredientDisclosureStatus === 'not_disclosed'
         ? {
             column: 'flagged',
             state: 'nothingOnFile',
@@ -1751,11 +1768,28 @@ function Ingredients({
       open
     >
       <div style={{ marginTop: 4 }}>
-        {product.ingredientDisclosureStatus !== 'disclosed' ? (
+        {!hasAnyIngredientList(product.ingredientDisclosureStatus) ? (
           <Callout state={signal.state}>{signal.detail}</Callout>
         ) : (
           <>
-            <IngredientSummary ingredients={ingredients} />
+            {/* A CUT-OFF LIST IS STILL SHOWN. This branch used to be
+                `!== 'disclosed'`, which hid the list behind a callout -- so
+                introducing 'partial' would have deleted real label text from
+                11,920 pages, the opposite of the decision it implements.
+                What we hold is genuine, sourced text and the reader is
+                better off seeing it.
+
+                The callout sits ABOVE the list so nobody reads the
+                ingredients before learning they stop early, and
+                `IngredientSummary` is suppressed below: its three numbers
+                are framed as the label's totals, and on a truncated list
+                they are floors. */}
+            {!canAssertAbsence(product.ingredientDisclosureStatus) && (
+              <Callout state="unchecked">{PARTIAL_LIST_NOTE}</Callout>
+            )}
+            {canAssertAbsence(product.ingredientDisclosureStatus) && (
+              <IngredientSummary ingredients={ingredients} />
+            )}
             <AdditiveLegend ingredients={ingredients} />
             <div className="rt-inglist" style={{ marginTop: 11 }}>
               {ingredients.map((pi) => (

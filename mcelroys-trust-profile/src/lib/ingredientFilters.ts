@@ -464,6 +464,30 @@ export function ingredientFilterWhere(f: IngredientFilterState): Prisma.ProductW
     // allergen filters use, because this is not an allergen.
     if (filter.processAttribute === 'hydrogenated') {
       and.push({ hasHydrogenatedIngredient: false })
+      // AND the list must not be one we know is cut off. This is NOT a
+      // reversal of the null-passes rule argued above -- those are two
+      // different unknowns and only one of them is safe to pass.
+      //
+      //   null isHydrogenated: we hold the WHOLE label and have not
+      //   classified one of its ingredients. Excluding those would empty the
+      //   filter (144,430 products) to guard against a remote chance.
+      //
+      //   'partial': we do not know what the label says. 11,920 products
+      //   whose list the SOURCE truncated at 255 characters -- and
+      //   hydrogenated oils sit late in an ingredient list, which is exactly
+      //   where the cut lands.
+      //
+      // The coverage argument therefore does not transfer: this is 2.9% of
+      // the catalogue, not 35%. `not: 'partial'` and not `= 'disclosed'` for
+      // the same reason -- switching to 'disclosed' here would silently
+      // adopt the stricter allergen rule for additives and drop those
+      // 144,430, which is a different decision nobody made.
+      //
+      // Michael, 2026-11-02, deciding this: the page "stops asserting
+      // absence -- no 'None flagged', no 'no hydrogenated'". Passing this
+      // filter IS that assertion, made to a shopper who asked for its
+      // opposite.
+      and.push({ ingredientDisclosureStatus: { not: 'partial' } })
       continue
     }
 

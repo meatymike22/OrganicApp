@@ -176,6 +176,19 @@ model Product {
   //                     what is in the product. Note it means "not found in
   //                     the sources we check", not "does not exist anywhere",
   //                     so the UI should word it that way.
+  //   "partial"       — a list was found and the SOURCE truncated it. Open
+  //                     Food Facts cuts `ingredients_text` at 255 characters;
+  //                     11,920 products are affected and the data does not
+  //                     exist upstream to recover (verified by re-fetching 40
+  //                     barcodes against a 40-barcode control group).
+  //                     THE APP MUST SHOW THE PART WE HOLD AND ASSERT NOTHING
+  //                     ABOUT WHAT IS MISSING. Read it through
+  //                     lib/ingredientDisclosure.ts `canAssertAbsence`, never
+  //                     by comparing this string, because every "none of X"
+  //                     claim on the site keys off it — "None flagged", the
+  //                     free-from filters, the allergen filters. An allergen
+  //                     statement is the LAST line of a label, so the cut
+  //                     destroys the most dangerous thing to lose first.
   ingredientDisclosureStatus String @default("unchecked")
 
   // When the disclosure status was last determined, so the UI can say how
@@ -496,6 +509,50 @@ model Product {
   // and a day.
   imageWidth  Int?
   imageHeight Int?
+
+  // WHAT THE PHOTOGRAPH ACTUALLY SHOWS — see src/lib/imageKind.ts for the
+  // taxonomy, the prompt and the pilot that produced them.
+  //
+  // Michael, 2026-10-23: "some of the photos of our products simply have a
+  // nutrition label without a photo of the product. we would rather have no
+  // photo than a picture of the nutrition label."
+  //
+  // THE THREE STATES, and the one that is easy to get wrong:
+  //   imageKind set, imageJudgedAt set  → we looked and this is what it shows
+  //   imageKind 'unreadable'            → we looked and could not tell
+  //   both null                         → NOT YET JUDGED, and it still DISPLAYS
+  //
+  // That last line is load-bearing. 184,099 photographs are unjudged, so a
+  // display rule of "show only what is known good" would strip every photo
+  // off the site the day this column landed. The rule is the opposite — hide
+  // only what we have judged and found wanting:
+  //
+  //   imageKind === null || USABLE_IMAGE_KINDS.includes(imageKind)
+  //
+  // Same shape as publicationStatus defaulting to 'published': a column that
+  // starts hiding rows the moment it exists cannot be reviewed.
+  //
+  // imageKindModel IS NOT DECORATION. This is the only materialised column on
+  // Product that CANNOT be re-derived from the source tables — no query can
+  // check a verdict about a photograph. So the model that produced it has to
+  // travel with it, or a future change of model leaves a mix of verdicts with
+  // no way to tell which came from where. The hand-scored pilot is evidence
+  // about one prompt and one model, and nothing else.
+  //
+  // THE PROMPT IS PART OF THE PROVENANCE TOO and is deliberately NOT stored
+  // here: it lives in one place in src/lib/imageKind.ts, where its own
+  // comment records that changing it invalidates the scoring. A copy in the
+  // database would drift from the one actually being sent.
+  //
+  // NO INDEX, on purpose. The resume query filters on imageJudgedAt IS NULL,
+  // but it runs once per invocation of the backfill rather than once per
+  // image, so a sequential scan over 416,382 rows is paid a handful of times
+  // in total. If that changes, the right fix is a partial index on
+  // ("imageJudgedAt") WHERE "imageJudgedAt" IS NULL, which shrinks to nothing
+  // as the job finishes — added after measuring, not before.
+  imageKind      String?
+  imageKindModel String?
+  imageJudgedAt  DateTime?
 
   // HOW GOOD THE RECORD BEHIND THIS PRODUCT IS, as one small number, so the
   // database can sort by it.

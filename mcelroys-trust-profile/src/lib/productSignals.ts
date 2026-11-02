@@ -43,6 +43,7 @@ import { isoDate, isoYear } from '@/lib/design'
 import { RELEVANT_DOMAINS_BY_TYPE, type ProductType } from '@/lib/productTypes'
 import type { RecallItem } from '@/lib/recalls'
 import { companyDisplayName } from '@/lib/productName'
+import { canAssertAbsence, PARTIAL_LIST_NOTE } from '@/lib/ingredientDisclosure'
 
 // One cell in the five-column strip.
 export type Signal = {
@@ -145,6 +146,42 @@ export function flaggedSignal(p: ProductForSignals): Signal {
   }
 
   const flagged = p.productIngredients.filter((pi) => pi.ingredient.flaggedForResearch).length
+
+  // A PARTIAL LIST CANNOT CARRY A CLAIM ABOUT ABSENCE.
+  //
+  // 11,920 products hold a list Open Food Facts cut off at 255 characters.
+  // Counting zero flagged ingredients in the part we hold says nothing about
+  // the part we do not, and 3,038 of these products printed "Nothing on the
+  // label is an additive we track" off exactly that reasoning. The cut is
+  // biased against the worst thing to lose: an allergen statement is the LAST
+  // line of a label, so a fixed-length truncation destroys it preferentially.
+  //
+  // `canAssertAbsence` rather than `=== 'partial'` ON PURPOSE. unchecked and
+  // not_disclosed have already returned above, so this guard also catches any
+  // status added later. The bug being fixed here IS a new status falling
+  // through to the confident branch by default, and the shape of the guard is
+  // what stops a fifth one doing it again.
+  if (!canAssertAbsence(p.ingredientDisclosureStatus)) {
+    if (flagged === 0) {
+      return {
+        column: 'flagged',
+        state: 'unchecked',
+        label: 'List cut off',
+        detail: `${PARTIAL_LIST_NOTE} Nothing in the part we hold is an additive we track; we cannot speak for the rest.`,
+        short: 'Ingredient list is cut off \u2014 we cannot speak for the rest',
+        asOf,
+      }
+    }
+    // Presence IS still reportable. An ingredient we can SEE is really in the
+    // product; only the count is a floor, which is what the "+" carries.
+    return {
+      column: 'flagged',
+      state: 'openResearch',
+      label: `${flagged}+ flagged`,
+      detail: `${PARTIAL_LIST_NOTE} At least ${flagged} ingredient${flagged === 1 ? '' : 's'} in the part we hold ${flagged === 1 ? 'is one' : 'are ones'} we are researching.`,
+      asOf,
+    }
+  }
 
   if (flagged === 0) {
     return {

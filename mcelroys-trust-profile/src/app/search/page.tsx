@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, layout, status, thumbTint } from '@/lib/design'
 import { describeCategory } from '@/lib/categoryDisplay'
 import { mostToReadAbout, productSignals, type ProductForSignals, type Signal } from '@/lib/productSignals'
+import { canAssertAbsence } from '@/lib/ingredientDisclosure'
 import { getRecallsListingProducts } from '@/lib/recalls'
 import {
   companyDisplayName,
@@ -88,6 +89,9 @@ const ROW_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
+  // Required by ProductImageFields, so a forgotten select is a compile error
+  // rather than a nutrition panel back on the page.
+  imageKind: true,
   imageUrl: true,
   imageSource: true,
   imageSourceUrl: true,
@@ -696,6 +700,7 @@ async function exampleProducts(): Promise<Map<string, ExampleProduct>> {
       name: true,
       category: true,
       productType: true,
+      imageKind: true,
       imageUrl: true,
       imageSource: true,
       imageSourceUrl: true,
@@ -709,6 +714,7 @@ type ExampleProduct = {
   name: string
   category: string | null
   productType: string
+  imageKind: string | null
   imageUrl: string | null
   imageSource: string | null
   imageSourceUrl: string | null
@@ -910,6 +916,7 @@ function ResultRow({
     ingredientDisclosureStatus: string
     ingredientSource: string | null
     productIngredients: { listPosition: number | null; ingredient: { name: string; flaggedForResearch: boolean } }[]
+    imageKind: string | null
     imageUrl: string | null
     imageSource: string | null
     imageSourceUrl: string | null
@@ -1095,6 +1102,13 @@ function IngredientPreview({
         </span>
       ))}
       {rest > 0 && <span style={{ color: colors.ink4 }}>{` + ${rest} more`}</span>}
+      {/* Without this the row reads as a complete list with more of it
+          off-screen, which is the one thing a truncated record must not
+          imply. "+ 3 more" is true of the rows we hold; it is not true of
+          the label. */}
+      {!canAssertAbsence(product.ingredientDisclosureStatus) && (
+        <span style={{ color: colors.ink4, fontStyle: 'italic' }}>{' \u2014 list cut off at source'}</span>
+      )}
     </div>
   )
 }

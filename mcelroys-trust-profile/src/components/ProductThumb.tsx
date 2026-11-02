@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { colors } from '@/lib/design'
+import { imageIsShowable } from '@/lib/imageKind'
 import { CategoryGlyph } from './CategoryGlyph'
 
 // THE PRODUCT THUMBNAIL — a photograph when we have one, the aisle glyph when
@@ -24,6 +25,22 @@ export type ProductImageFields = {
   imageUrl: string | null
   imageSource: string | null
   imageSourceUrl: string | null
+  // WHAT THE PHOTOGRAPH SHOWS — required, not optional, ON PURPOSE.
+  //
+  // This component is the single place every product photograph on the site
+  // is rendered, so the "is it showable" test only has to exist once. The
+  // risk is the other half: a query that selects imageUrl and forgets this
+  // column would render a nutrition panel again, silently.
+  //
+  // Making it REQUIRED turns that into a compile error. `npx tsc --noEmit`
+  // names every call site that has not been updated, which is precisely what
+  // the publication gate lacked — that one was enforced by remembering to add
+  // a where-clause, and it leaked into generateMetadata the first time
+  // someone added a query site nobody had counted.
+  //
+  // null is legitimate and means "not yet judged", which still displays. See
+  // imageIsShowable.
+  imageKind: string | null
 }
 
 // Human-readable credit for a source key. Driven by the stored `imageSource`
@@ -94,9 +111,18 @@ export function ProductThumb({
 }) {
   const source = describeSource(product.imageSource)
 
-  // No photo, or a photo whose source we cannot describe. The second case is
-  // deliberate: an image we cannot credit is an image we do not show.
-  if (!product.imageUrl || !source) {
+  // THREE REASONS NOT TO SHOW A PHOTOGRAPH, and all three fall back to the
+  // aisle glyph:
+  //   - there is no photograph
+  //   - we cannot describe its source, so we cannot credit it, so we do not
+  //     show it (a licence breach, not a styling gap)
+  //   - we have judged what it shows and it is not the product
+  //
+  // Michael, 2026-10-23: "we would rather have no photo than a picture of the
+  // nutrition label." Measured over the whole catalogue, that is 2,157
+  // photographs — 1,115 nutrition panels, 450 ingredient panels, 342
+  // barcodes and 250 frames showing nothing identifiable.
+  if (!product.imageUrl || !source || !imageIsShowable(product.imageKind)) {
     return (
       <CategoryGlyph category={category} productType={productType} size={size} label={label} tall={tall} />
     )
@@ -181,7 +207,12 @@ export function PhotoCredit({ products }: { products: ProductImageFields[] }) {
   const sources = new Set<string>()
   for (const p of products) {
     const s = describeSource(p.imageSource)
-    if (p.imageUrl && s) sources.add(`${s.label}, ${s.licence}`)
+    // MUST MATCH THE RENDER CONDITION ABOVE, including the kind test. A
+    // credit for a photograph we have decided not to show is worse than
+    // noise: CC-BY-SA attaches the attribution obligation to USE of the
+    // image, so crediting one we are not using tells the reader we are
+    // showing something we are not.
+    if (p.imageUrl && s && imageIsShowable(p.imageKind)) sources.add(`${s.label}, ${s.licence}`)
   }
   if (sources.size === 0) return null
 

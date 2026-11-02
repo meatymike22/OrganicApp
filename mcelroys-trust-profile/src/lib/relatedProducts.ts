@@ -310,6 +310,7 @@ export async function getRelatedProducts(product: {
       category: true,
       categorySource: true,
       productType: true,
+      imageKind: true,
       imageUrl: true,
       imageSource: true,
       imageSourceUrl: true,

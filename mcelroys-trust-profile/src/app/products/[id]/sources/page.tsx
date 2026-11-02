@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { colors, font, isoDate, layout, type StatusKey } from '@/lib/design'
 import { productDisplayName, shortProductName } from '@/lib/productName'
 import { getProductRecalls, groupRecalls } from '@/lib/recalls'
+import { imageIsShowable } from '@/lib/imageKind'
+import { hasAnyIngredientList } from '@/lib/ingredientDisclosure'
 import { AisleBar, BackTo, SiteFooter, TopNav } from '@/components/SiteChrome'
 import { Collapsible } from '@/components/Collapsible'
 import { StatusChip } from '@/components/StatusChip'
@@ -48,6 +50,7 @@ const FIELDS = {
   publicationStatus: true,
   upc: true,
   importSource: true,
+  imageKind: true,
   imageUrl: true,
   imageSource: true,
   imageSourceUrl: true,
@@ -145,8 +148,23 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
   const recallRecords = recallGroups.reduce((n, g) => n + g.items.length, 0)
 
   const fromOff = isFromOpenFoodFacts(product)
-  const hasPhoto = Boolean(product.imageUrl) && product.imageSource === 'open_food_facts'
-  const hasIngredients = product.ingredientDisclosureStatus === 'disclosed'
+  // MATCHES WHAT THE READER CAN ACTUALLY SEE. This page documents where the
+  // displayed record came from, so a photograph we have judged and chosen not
+  // to show is not one of its sources — citing it would describe a page that
+  // is not the page in front of them. It is also the CC-BY-SA position: the
+  // attribution obligation attaches to USE of the image.
+  const hasPhoto =
+    Boolean(product.imageUrl) &&
+    product.imageSource === 'open_food_facts' &&
+    imageIsShowable(product.imageKind)
+  // `hasAnyIngredientList`, not `=== 'disclosed'`, and the licensing is the
+  // reason as much as the honesty. A partial list IS displayed on the product
+  // page, so Open Food Facts has to be credited for it here -- under
+  // `=== 'disclosed'` this page would have said "Not looked up yet" about
+  // text the product page was showing, which is both false and an
+  // unattributed use of CC-BY-SA content.
+  const hasIngredients = hasAnyIngredientList(product.ingredientDisclosureStatus)
+  const partialIngredients = product.ingredientDisclosureStatus === 'partial'
 
   // THE LEDGER. One row per source, in the order the cards appear below.
   // `state` is the three-state rule: confirmed (we hold it), nothingOnFile
@@ -169,16 +187,22 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
     {
       key: 'ingredients',
       what: 'Ingredient list',
-      state: hasIngredients
-        ? 'confirmed'
-        : product.ingredientDisclosureStatus === 'not_disclosed'
-          ? 'nothingOnFile'
-          : 'unchecked',
-      said: hasIngredients
-        ? (product.ingredientSource ?? 'Source not recorded')
-        : product.ingredientDisclosureStatus === 'not_disclosed'
-          ? 'None found'
-          : 'Not looked up yet',
+      // A cut-off list is not 'confirmed': the three-state rule is about
+      // what we can stand behind, and we can stand behind only part of this.
+      state: partialIngredients
+        ? 'unchecked'
+        : hasIngredients
+          ? 'confirmed'
+          : product.ingredientDisclosureStatus === 'not_disclosed'
+            ? 'nothingOnFile'
+            : 'unchecked',
+      said: partialIngredients
+        ? `${product.ingredientSource ?? 'Source not recorded'}, cut off at source`
+        : hasIngredients
+          ? (product.ingredientSource ?? 'Source not recorded')
+          : product.ingredientDisclosureStatus === 'not_disclosed'
+            ? 'None found'
+            : 'Not looked up yet',
     },
     {
       key: 'recalls',
@@ -359,7 +383,11 @@ export default async function ProductSourcesPage({ params }: { params: Promise<{
           <Card id="ingredients" title="Ingredient list">
             {hasIngredients ? (
               <Row
-                what="The ingredient list, in label order"
+                what={
+                  partialIngredients
+                    ? 'The ingredient list, in label order (cut off at 255 characters by the source)'
+                    : 'The ingredient list, in label order'
+                }
                 who={product.ingredientSource ?? 'Not recorded'}
                 url={product.ingredientSourceUrl}
                 date={isoDate(product.ingredientCheckedAt)}

@@ -109,6 +109,7 @@ export default async function CompanyPage({
         category: true,
         categorySource: true,
         productType: true,
+        imageKind: true,
         imageUrl: true,
         imageSource: true,
         imageSourceUrl: true,
@@ -482,6 +483,7 @@ function Products({
     category: string | null
     categorySource: string | null
     productType: string
+    imageKind: string | null
     imageUrl: string | null
     imageSource: string | null
     imageSourceUrl: string | null
