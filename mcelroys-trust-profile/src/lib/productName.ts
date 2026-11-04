@@ -543,7 +543,10 @@ const CORPORATE_WORDS = new Set([
   'the', 'and', 'of', 'north', 'america', 'usa', 'us', 'international',
 ])
 
-function significantWords(name: string): Set<string> {
+// Exported so scripts/probe-brand-prepend.ts can hold a frozen copy of the
+// PRE-FIX productBrand logic beside the fixed one and diff the two. Nothing
+// else should need it.
+export function significantWords(name: string): Set<string> {
   const out = new Set<string>()
   for (const w of name.toLowerCase().split(/[^a-z0-9]+/)) {
     if (w.length < 2) continue
@@ -553,28 +556,270 @@ function significantWords(name: string): Set<string> {
   return out
 }
 
-export function productBrand(legalName: string, dbaNames: string[]): string | undefined {
-  const legal = significantWords(companyDisplayName(legalName))
-  // Shortest first: given several distinct candidates, the shortest is the
-  // most likely to be the plain brand rather than a divisional name.
-  const candidates = [...dbaNames]
-    .map((d) => companyDisplayName(d))
-    .filter((d) => d.length > 0)
-    .sort((a, b) => a.length - b.length)
-
-  for (const cand of candidates) {
-    const words = significantWords(cand)
-    if (words.size === 0) continue
-    let shares = false
-    for (const w of words) {
-      if (legal.has(w)) {
-        shares = true
-        break
-      }
+// IS THIS CANDIDATE JUST THE LEGAL NAME, SPELLED DIFFERENTLY?
+//
+// `productBrand` below decides a dbaName is a DISTINCT brand when it shares
+// no significant word with the legal name. That premise is sound for
+// `CROPP Cooperative` / `Organic Valley`. It is defeated by a misspelling,
+// and dbaNames come from crowdsourced OFF brand strings, so misspellings are
+// everywhere. Member's Mark carries ten of them:
+//
+//   Member Mark · Member's Marks · Memberd Mark · Membermark · Members Mrk
+//   Memebers Mark · Menmbers Mark · Members Mark Sparkling Water · ...
+//
+// `significantWords` splits on non-alphanumerics and drops tokens under two
+// characters, so `Member's Mark` yields {member, mark} and the possessive
+// vanishes. `Membermark` yields {membermark}: no overlap, so it was judged a
+// different brand and printed as an <h1> on every Member's Mark product.
+// THE SITE WAS PUBLISHING A BRAND NAME THAT DOES NOT EXIST.
+//
+// Same root cause as `Fritolay` vs `Frito-Lay Company`, which was logged
+// separately as a data defect. It is one bug in one function.
+//
+// Three tests, cheapest first:
+//   1. identical once punctuation is removed
+//   2. identical to the legal name's significant words run together, which
+//      is what dropping a possessive or a space produces
+//   3. within a small edit distance, which is what a typo produces
+//
+// Edit distance applies ONLY at eight characters or more. Below that a single
+// character is a large share of the word and real brands collide: `Dove` and
+// `Dave` are one substitution apart and are not the same company.
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      )
     }
-    if (!shares) return cand
+    prev = cur
   }
-  return undefined
+  return prev[b.length]
+}
+
+// FOLD ACCENTS, DO NOT DELETE THEM.
+//
+// `[^a-z0-9]` removes an accented letter outright, so `Muller` and `Müller`
+// compared as `muller` against `mller` and read as two different brands. The
+// 2026-11-03 probe found about twenty of these still printing a "distinct
+// brand" that was the company's own name with its diacritics:
+//
+//   Muller -> "Müller" · Kras -> "Kraš" · Stok -> "STOK" · Zursun -> "Zürsun"
+//   Bequet -> "Bequet" · Sacla Italia -> "Sacla" · Manoa -> "Manoa"
+//
+// Nestle was worse than cosmetic: `Nestlé` squashed to `nestl`, five
+// characters, which fell under the six-character floor and was never tested
+// at all - so the typo `Neslet` printed as the brand on 560 products.
+//
+// NFD splits a letter into its base plus a combining mark; stripping the
+// U+0300-U+036F block then leaves the base letter.
+function squashed(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+// A RATIO, NOT A FIXED BUDGET.
+//
+// The first version allowed `max(1, 20% of the shorter string)` edits and
+// required eight characters. The probe showed what that misses:
+//
+//   Wegmans            Wegman     -> Wegmen        4,189 products
+//   Whole Foods Market wholefoods -> While Foods   2,219
+//   Food Lion          FoodLion   -> Food Line     1,909
+//   Kellogg's          Kellog     -> Kelligs         966
+//
+// `Wegmen` is six characters, so the eight-character floor skipped it
+// without testing. `Food Line` is two edits from `Food Lion` at eight
+// characters, where the budget was one.
+//
+// SIX CHARACTERS IS THE FLOOR, AND IT IS DOING THE REAL WORK. `Dove` and
+// `Dave` are one edit apart in four characters - 25%, the same ratio as
+// `foodline`/`foodlion` - so no threshold separates them. Length does.
+//
+// THIS IS SAFER THAN IT LOOKS because of WHERE it runs: a candidate is only
+// ever compared against the legal name of THE SAME COMPANY RECORD, never
+// across the catalogue. Two genuinely different brands filed under one
+// company (CROPP Cooperative / Organic Valley) are nothing alike as strings.
+// The loose end of this threshold is spent on misspellings of a name we are
+// already holding, which is exactly the population it is for.
+function nearlyEqual(a: string, b: string): boolean {
+  if (a === b) return true
+  if (Math.min(a.length, b.length) < 6) return false
+  return editDistance(a, b) / Math.max(a.length, b.length) <= 0.34
+}
+
+// EVERY word, longest prefix first - NOT significantWords.
+//
+//   "Ghiradelli Chocolate" -> ["ghiradellichocolate", "ghiradelli"]
+//
+// THE DISTINCTION THAT COST A RUN. `significantWords` drops CORPORATE_WORDS,
+// and `foods` is one of them, so it reports
+// `significantWords("Whole Foods Market") = ['whole', 'market']`. That is
+// right for the question it was built for - whether a dbaName names a
+// DIFFERENT COMPANY, where `Acme Foods` and `Acme` are the same firm - and
+// wrong for the question here, which is whether one string is a misspelling
+// of another. `While Foods` and `Whole Foods Market` differ by one letter in
+// the word that filter deletes.
+//
+// So the spelling test splits on punctuation only and keeps everything. The
+// overlap test further down still uses significantWords, because it is still
+// asking the other question.
+function rawPrefixes(name: string): string[] {
+  const words = companyDisplayName(name)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+  const out: string[] = []
+  for (let n = words.length; n >= 1; n--) out.push(words.slice(0, n).join(''))
+  return out
+}
+
+export function isSpellingOfLegalName(candidate: string, legalName: string): boolean {
+  const c = squashed(candidate)
+  if (c.length === 0) return false
+  // Two ways to write the legal name: verbatim minus punctuation, and its
+  // significant words run together (which is what dropping a possessive or a
+  // corporate suffix produces).
+  const refs = [squashed(legalName), [...significantWords(companyDisplayName(legalName))].join('')]
+
+  // PREFIXES ON ONE SIDE AT A TIME, NEVER BOTH.
+  //
+  // Two different shortenings are needed, for two different shapes:
+  //
+  //   candidate prefix vs legal whole - `Ghiradelli Chocolate` is the legal
+  //     name plus a descriptor, and the typo in `Ghiradelli` breaks a plain
+  //     substring test, so the first word has to be compared on its own.
+  //
+  //   candidate whole vs legal prefix - `While Foods` is a misspelling of a
+  //     legal name that carries an extra word, `Whole Foods Market`. Against
+  //     the full legal name it is six edits (37%) and misses; against the
+  //     prefix `wholefoods` it is one (10%).
+  //
+  // PREFIX AGAINST PREFIX IS NOT DONE, and that restraint is the point. It
+  // would reduce both names to their first word, so any shared leading word
+  // of six characters would merge two brands: `Organic Girl` and
+  // `Organic Valley` both begin `organic` and are not the same thing.
+  for (const prefix of rawPrefixes(candidate).concat(c)) {
+    if (prefix.length === 0) continue
+    for (const ref of refs) {
+      if (ref.length === 0) continue
+      if (nearlyEqual(prefix, ref)) return true
+    }
+  }
+  for (const ref of rawPrefixes(legalName)) {
+    if (ref.length === 0) continue
+    if (nearlyEqual(c, ref)) return true
+  }
+  return false
+}
+
+// IS THIS CANDIDATE A SUB-BRAND, A PRODUCT LINE, OR A TRUNCATION?
+//
+// Added 2026-11-03 after the first probe run. Suppressing the squashed
+// candidate made productBrand fall through to the NEXT dbaName, and for 87
+// companies (~13,000 products) that was worse than what it replaced:
+//
+//   Hy-Vee       Hyvee        -> Hyvee Select
+//   Del Monte    delmonte     -> Delmonte Quality
+//   Larabar      Lara Bar     -> LARABAR KIDS
+//   Bumble Bee   Bumblebee    -> Bumblebee Tiny Shrimp
+//
+// None of those is a different brand; each is the same brand plus a product
+// line. The containment test is exact and needs no threshold: `hyveeselect`
+// contains `hyvee`, while `organicvalley` has no such relationship to
+// `croppcooperative` and survives.
+//
+// IT RUNS IN BOTH DIRECTIONS, because the dbaName is sometimes the shorter
+// one: `Realgood Foods Co.` offers `Real Good Foods`, which is the legal name
+// with the corporate suffix dropped.
+//
+// FIVE CHARACTERS MINIMUM. A three- or four-letter legal name appears inside
+// unrelated words by coincidence, and a coincidence here deletes a real
+// brand from every one of that company's pages.
+function isBrandLineOfLegalName(candidate: string, legalName: string): boolean {
+  const c = squashed(candidate)
+  const refs = [squashed(legalName), [...significantWords(companyDisplayName(legalName))].join('')]
+  for (const ref of refs) {
+    if (ref.length < 5 || c.length < 5) continue
+    if (c === ref) continue // handled by isSpellingOfLegalName
+    if (c.includes(ref) || ref.includes(c)) return true
+  }
+  return false
+}
+
+// THE BRAND, FROM A HAND-VERIFIED LIST - NOT FROM dbaNames.
+//
+// WHAT THIS REPLACED, AND WHY. Until 2026-11-03 this function searched a
+// company's crowdsourced `dbaNames` for one that shared no significant word
+// with the legal name, and treated that as a distinct shelf brand. The probe
+// measured the result across all 6,312 companies that have any dbaName:
+//
+//   ~600 products got a correct brand
+//   ~15,900 got a wrong one           -- 96% wrong
+//
+// and the largest cases were the worst:
+//
+//   Kroger      -> "Car master"              6,704 products
+//   Weis        -> "weis2GO"                 2,595
+//   Aldi        -> "Appetites"               1,533
+//   Publix      -> "GreenJise"               1,379   (typo of GreenWise)
+//   Lidl        -> "Alesto"                  1,108   (a nut line, not a brand)
+//   Walmart     -> "Markerside"              1,772   (typo of Marketside)
+//
+// THE PREMISE WAS UNFIXABLE, not mis-tuned. Four rounds of guards -
+// squashed-spelling, typo tolerance, containment, accent folding - removed
+// 95,734 bad prepends and could not touch these, because `Markerside` and
+// `GreenJise` really are not spellings of `Walmart` or `Publix`. They are
+// misspellings of real SUB-BRANDS, and no comparison against the legal name
+// can tell a sub-brand from a brand. A heuristic that cannot distinguish its
+// own successes from its failures does not get to run on a page.
+//
+// This also follows what Michael asked for on 2026-11-02: "The title also
+// should not have the parent company / brand in it." In the three-line
+// layout the brand line is the COMPANY RECORD, which is a sourced fact.
+//
+// WHY THE LIST IS SHORT, AND WHY IT SHOULD STAY SHORT. One company maps to
+// one brand here, and that is only true when the company sells under a
+// single consumer brand. It is FALSE for a multi-brand parent, so Procter &
+// Gamble, Kimberly-Clark, Campbell Soup Supply and TOMY are deliberately
+// absent even though the probe found a real brand for each: mapping
+// Kimberly-Clark to "Huggies" would label its Kleenex products Huggies.
+// Add an entry only after checking that the company has no second brand in
+// the catalogue.
+//
+// Keys are the legal name, lowercased. Values are printed verbatim.
+const CURATED_BRAND = new Map<string, string>([
+  // Michael, 2026-10-08: "this should say 'Organic Valley 1% Lowfat Milk'.
+  // it should be 'brand, then, concise product name'." CROPP is the
+  // co-operative that owns the brand; Organic Valley is what is on the
+  // carton, and it is the only consumer brand CROPP sells under.
+  ['cropp cooperative', 'Organic Valley'],
+  ['nurture llc', 'Happy Baby'],
+  ['irish breeze limited', 'WaterWipes'],
+  ['handi-craft company', "Dr. Brown's"],
+])
+
+/**
+ * The shelf brand, when it is not the company name.
+ *
+ * `dbaNames` is accepted and DELIBERATELY IGNORED. The parameter is kept so
+ * the two call sites stay unchanged, and because the argument documents what
+ * this function used to read. Deriving a brand from it is the defect
+ * described above; do not reinstate it.
+ */
+export function productBrand(legalName: string, dbaNames: string[]): string | undefined {
+  void dbaNames
+  return CURATED_BRAND.get(companyDisplayName(legalName).trim().toLowerCase())
 }
 
 // Prepends the brand to a heading, unless the name already carries it.
@@ -750,4 +995,119 @@ export function shortProductName(name: string): string {
 // knows it owes the reader the full version.
 export function isShortened(name: string): boolean {
   return shortProductName(name) !== name.trim()
+}
+
+
+// ----------------------------------------------- selftest, part two
+//
+// A SECOND BLOCK, AT THE END OF THE FILE ON PURPOSE.
+//
+// These cases call significantWords, which reads CORPORATE_WORDS - a `const`
+// declared BELOW the first selftest block. Running them up there threw
+// `ReferenceError: Cannot access 'CORPORATE_WORDS' before initialization`:
+// the temporal dead zone. The original block only exercised titleCaseName and
+// trimRedundantTail, neither of which touches that set, so it never hit it.
+//
+// Anything added here that reaches a module-level const must live after that
+// const is initialised. Keeping the brand tests at the bottom makes that
+// automatic rather than something to remember.
+if (process.argv[1]?.endsWith('productName.ts')) {
+  // ---- productBrand / isSpellingOfLegalName ----
+  //
+  // Every MEMBERS_MARK case below is a real dbaName on the live Member's Mark
+  // company record, 2026-11-03. The first of them, `Membermark`, was being
+  // printed as the <h1> brand on every Member's Mark product page.
+  let badBrand = 0
+  const sp = (cand: string, legal: string, want: boolean) => {
+    const got = isSpellingOfLegalName(cand, legal)
+    const ok = got === want
+    if (!ok) badBrand++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} spelling ${JSON.stringify(cand)} of ${JSON.stringify(legal)} -> ${got}${ok ? '' : ` want ${want}`}`)
+  }
+  const MM = "Member's Mark"
+  sp('Membermark', MM, true)        // squashed, the reported defect
+  sp('Members Mrk', MM, true)       // typo
+  sp('Memebers Mark', MM, true)     // typo
+  sp('Menmbers Mark', MM, true)     // typo
+  sp('Memberd Mark', MM, true)      // typo
+  sp("Member's Marks", MM, true)    // plural
+  sp('Member Mark', MM, true)       // possessive dropped
+  sp('Fritolay', 'Frito-Lay Company', true)   // the same bug, logged separately
+  // GENUINELY DIFFERENT BRANDS MUST SURVIVE. This is the case the function
+  // exists for, and over-merging would silently delete it.
+  sp('Organic Valley', 'CROPP Cooperative', false)
+  sp('Ben & Jerry', 'Unilever', false)
+  // SHORT NAMES GET NO TYPO TOLERANCE: one character is too large a share,
+  // and these ratios are identical to real typo pairs. Length separates them.
+  sp('Dove', 'Dave', false)
+  sp('Oreo', 'Oreq', false)
+  // The four that defeated the fixed budget, all real, from the probe.
+  sp('Wegmen', 'Wegmans', true)              // 6 chars, under the old floor
+  sp('While Foods', 'Whole Foods Market', true) // legal has an extra word
+  sp('Food Line', 'Food Lion', true)         // 2 edits in 8 characters
+  sp('Kelligs', "Kellogg's", true)
+  sp('Philsburry', 'Pillsbury', true)
+  sp('Arizono', 'Arizona', true)
+  sp('Cheese its', 'Cheez-It', true)
+  // A typo in the FIRST word must not let a line extension through.
+  sp('Ghiradelli Chocolate', 'Ghirardelli', true)
+  sp('Kiolbasa Smoked Meats', 'Kiolbassa', true)
+  sp('Wellesley Farms Bacon', 'Wellsley Farms', true)
+  // GENUINELY DIFFERENT CORPORATE NAMES MUST SURVIVE the looser threshold.
+  // The risk introduced by prefixing the legal name: a shared leading word.
+  // These must NOT merge.
+  // ACCENTS ARE THE SAME LETTER. All real, from the 2026-11-03 probe.
+  sp('Müller', 'Muller', true)
+  sp('Kraš', 'Kras', true)
+  sp('Zürsun', 'Zursun Ltd.', true)
+  sp('Neslet', 'Nestlé', true)   // only reachable once the accent folds
+  sp('Tajín Clasico', 'Tajin', true)
+  sp('Ragú Kettle', 'Ragu', true)
+  sp('Organic Girl', 'Organic Valley', false)
+  sp('General Foods', 'General Electric', false)
+  sp('Natrual Bliss', 'Coffee mate', false)
+  sp('SUNWICK ALMONDS', '180 Snacks Inc.', false)
+  sp('Western Heart', "Van De Kamp's", false)
+  sp('North American Bison Cooperative', 'TenderBison', false)
+
+  let badPB = 0
+  const pb = (legal: string, dbas: string[], want: string | undefined) => {
+    const got = productBrand(legal, dbas)
+    const ok = got === want
+    if (!ok) badPB++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} productBrand ${JSON.stringify(legal)} -> ${JSON.stringify(got)}${ok ? '' : ` want ${JSON.stringify(want)}`}`)
+  }
+  // The live record, verbatim. Before the guard this returned 'Membermark'.
+  pb(MM, [
+    'Member Mark', "Member's Mark / FullSan", "Member's Mark food service",
+    "Member's Marks", 'Memberd Mark', 'Membermark',
+    'Members Mark Sparkling Water', 'Members Mrk', 'Memebers Mark', 'Menmbers Mark',
+  ], undefined)
+  // Still finds a real brand.
+  // SUB-BRANDS AND PRODUCT LINES, all real cases from the 2026-11-03 probe.
+  pb('Hy-Vee', ['Hyvee', 'Hyvee Select'], undefined)
+  pb('Del Monte', ['delmonte', 'Delmonte Quality'], undefined)
+  pb('Larabar', ['Lara Bar', 'LARABAR KIDS'], undefined)
+  pb('Bumble Bee', ['Bumblebee', 'Bumblebee Tiny Shrimp'], undefined)
+  // The legal name is the LONGER one: a corporate suffix dropped.
+  pb('Realgood Foods Co.', ['Real Good Foods'], undefined)
+  // A short legal name must not swallow an unrelated candidate by
+  // coincidental containment.
+  // NOT on the curated list, so no brand - whatever its dbaNames say. This
+  // case previously asserted the opposite: that an unrelated dbaName WAS the
+  // brand. That expectation is the defect, so the test now asserts the fix.
+  pb('Coop', ['Something Unrelated Entirely'], undefined)
+  pb('Kroger', ['Car master'], undefined)
+  pb('Publix', ['GreenJise'], undefined)
+  pb('Walmart', ['Markerside'], undefined)
+  // Multi-brand parents stay off the list on purpose.
+  pb('Procter & Gamble', ['Pampers'], undefined)
+  pb('Kimberly-Clark Worldwide, Inc.', ['Huggies'], undefined)
+  // The curated entries, including the one Michael asked for.
+  pb('CROPP Cooperative', [], 'Organic Valley')
+  pb('cropp cooperative', ['anything'], 'Organic Valley')
+  pb('Nurture LLC', [], 'Happy Baby')
+  console.log(badBrand === 0 && badPB === 0
+    ? 'productBrand: all cases pass'
+    : `productBrand: ${badBrand + badPB} FAILURES`)
 }
