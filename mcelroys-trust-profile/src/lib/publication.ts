@@ -98,4 +98,23 @@ export const PUBLICATION_NOTES = {
     'Product name duplicates the company name and the record carries nothing else that identifies the product.',
   nameNotRecovered:
     'Product name duplicates the company name; USDA FoodData Central and the package photograph were both checked and neither yielded a name.',
+
+  // ADDED 2026-11-03, when the name became decisive on its own.
+  //
+  // Until this date a record whose name was useless stayed PUBLISHED if it
+  // carried anything else identifying -- a photograph, an ingredient list,
+  // categories. Michael reversed that after seeing the live page for a Publix
+  // product named only "Pepitas": "Pepitas isnt enough information. What
+  // kinds of seeds are they?" It has a photograph AND three ingredients, and
+  // was rescued by the old rule.
+  //
+  // THE TEXT OF `nameIsCompanyName` IS DELIBERATELY NOT CHANGED, even though
+  // its trailing clause is now wrong for some records. 306 rows in production
+  // carry that exact string, RELEASABLE_NOTES matches notes by value, and a
+  // note the gate does not recognise is one it will never promote back. So
+  // the old wording keeps its old meaning and the new cases get new notes.
+  nameDoesNotIdentifyProduct:
+    'Product name duplicates the company name, so the page has no title that says which product this is. Other data on the record does not substitute for a name.',
+  nameIsCategoryWord:
+    'Product name is a single generic word used across many unrelated brands, so the page has no title that says which product this is.',
 } as const

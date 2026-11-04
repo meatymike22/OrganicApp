@@ -57,7 +57,7 @@
 // SAFE TO RE-RUN. Idempotent in both directions.
 import 'dotenv/config'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 import * as fs from 'fs'
 import * as path from 'path'
 import { PUBLICATION_NOTES, PUBLICATION_STATUSES } from '@/lib/publication'
@@ -87,7 +87,82 @@ const MISSING_INFO = PUBLICATION_STATUSES[1] // 'missing_info'
 const RELEASABLE_NOTES: string[] = [
   PUBLICATION_NOTES.nameIsCompanyName,
   PUBLICATION_NOTES.nameNotRecovered,
+  PUBLICATION_NOTES.nameDoesNotIdentifyProduct,
+  PUBLICATION_NOTES.nameIsCategoryWord,
 ]
+
+// THE CATEGORY-WORD RULE, ADDED 2026-11-03.
+//
+// A one-word product name used by many unrelated companies is a CATEGORY, not
+// a product: five firms all selling something called "pepitas" are selling
+// pumpkin seeds, not the same item. Measured over the published catalogue,
+// real brands sit at one to four companies (cheerios 1, nutella 4, spam 2)
+// and category words at five or more (pepitas 8, muffin 13, cereal 37,
+// candy 100). FIVE is where the two populations separate.
+//
+// The threshold cannot do the whole job, which is why this list exists:
+// `oreo` is sold by 5 companies and `smarties` by 6, and both are real
+// products. Michael read all 528 names at 5+ companies on 2026-11-03 and
+// these three are the only ones that are products rather than categories.
+// `calm`, `chewy`, `fuel` and `snackers` were considered and rejected -- a
+// texture and three descriptions of an effect.
+//
+// ADD A NAME HERE ONLY AFTER READING IT. The set is small enough to read.
+const CATEGORY_WORD_ALLOWLIST = new Set(['oreo', 'smarties', 'bit-o-honey'])
+
+// Five or more distinct companies. Computed from the live catalogue rather
+// than baked into the file, the same way loadFoodVocabulary works, so it
+// cannot drift as products are added.
+const CATEGORY_WORD_MIN_COMPANIES = 5
+
+export function nameIsCategoryWord(productName: string, categoryWords: Set<string>): boolean {
+  const n = productName.trim().toLowerCase()
+  if (n === '' || /\s/.test(n)) return false
+  return categoryWords.has(n)
+}
+
+async function loadCategoryWords(): Promise<Set<string>> {
+  const rows = await prisma.$queryRaw<{ nm: string; co: bigint }[]>`
+    SELECT lower(btrim(p.name)) AS nm, count(DISTINCT p."companyId") AS co
+      FROM "Product" p
+     WHERE p."publicationStatus" = ${PUBLISHED}
+       -- NO BACKSLASH, DELIBERATELY. This read '\\s+' until 2026-11-03, and
+       -- inside a TypeScript template literal \\s is not a valid escape, so
+       -- the backslash was dropped and Postgres received 's+' -- splitting
+       -- names on the LETTER S. The 2026-11-04 dry run therefore selected
+       -- "names containing no lowercase s": it caught SODA and missed salsa,
+       -- and missed "pepitas" entirely, the one case this rule was written
+       -- for. A POSIX class carries no backslash and cannot be mangled by
+       -- the template literal it travels through.
+       --
+       -- NO BACKTICKS IN HERE EITHER: this comment sits inside a TypeScript
+       -- template literal, so a backtick ends the string. That was the second
+       -- quoting bug in this one block on the same afternoon.
+       AND btrim(p.name) !~ '[[:space:]]'
+     GROUP BY 1
+    HAVING count(DISTINCT p."companyId") >= ${CATEGORY_WORD_MIN_COMPANIES}
+  `
+  const out = new Set<string>()
+  for (const r of rows) {
+    // FAIL LOUDLY IF THE SQL SINGLE-WORD TEST IS WRONG.
+    //
+    // The 2026-11-04 dry run produced 2,484 "category words" instead of 528
+    // and nobody would have known from the output alone -- the number simply
+    // looked big. The cause was an escape mangled on the way into the SQL,
+    // and the symptom was a set that still looked like a set of words.
+    //
+    // This is cheap and it turns that class of failure into a crash. A
+    // multi-word entry here means the WHERE clause is not doing what it says.
+    if (/\s/.test(r.nm)) {
+      throw new Error(
+        `loadCategoryWords returned a multi-word name ${JSON.stringify(r.nm)} — ` +
+        'the SQL single-word test is not working. Do not trust this run.'
+      )
+    }
+    if (!CATEGORY_WORD_ALLOWLIST.has(r.nm)) out.add(r.nm)
+  }
+  return out
+}
 
 const LOG_FILE = path.join(
   './logs',
@@ -308,7 +383,16 @@ type Row = {
 // join, which a Prisma where clause cannot express. Loads BOTH directions in
 // one query: everything whose name matches its company (candidates to
 // withhold) and everything already withheld (candidates to promote).
-async function load(): Promise<Row[]> {
+async function load(categoryWords: Set<string>): Promise<Row[]> {
+  // Built from the set rather than recomputing the HAVING here, so the
+  // threshold and the allowlist live in ONE place. A second copy would drift
+  // from loadCategoryWords the first time either changed.
+  const names = [...categoryWords]
+  const categoryArm =
+    names.length > 0
+      ? Prisma.sql`OR lower(btrim(p.name)) IN (${Prisma.join(names)})`
+      : Prisma.empty
+
   return prisma.$queryRaw<Row[]>`
     SELECT p.id, p.name, p.upc, c."legalName",
            p."publicationStatus", p."publicationNote",
@@ -320,6 +404,7 @@ async function load(): Promise<Row[]> {
      WHERE lower(regexp_replace(p.name,        '[^a-zA-Z0-9]+', '', 'g'))
          = lower(regexp_replace(c."legalName", '[^a-zA-Z0-9]+', '', 'g'))
         OR p."publicationStatus" <> ${PUBLISHED}
+        ${categoryArm}
      ORDER BY p.id
   `
 }
@@ -430,6 +515,27 @@ function selfTest(): boolean {
   check('empty-string ingredients do NOT save it',
     identifiesTheProduct({ ...bare, ingredientsTextRaw: '' }), null)
 
+  // ---- nameIsCategoryWord, added 2026-11-03 ----
+  //
+  // The set is built from the live catalogue, so these use a fixed stand-in.
+  // What is being tested is the PREDICATE: one word, in the set, allowlist
+  // already removed by loadCategoryWords before it gets here.
+  const cat = new Set(['pepitas', 'candy', 'cereal', 'soda', 'x'])
+  check('a category word is caught', nameIsCategoryWord('Pepitas', cat), true)
+  check('case does not matter', nameIsCategoryWord('CANDY', cat), true)
+  check('surrounding space does not matter', nameIsCategoryWord('  soda  ', cat), true)
+  // The junk the rule also sweeps up: six published products are named "x".
+  check('a junk single character is caught', nameIsCategoryWord('x', cat), true)
+  // TWO WORDS IS ENOUGH TO IDENTIFY A PRODUCT, and this is the whole reason
+  // the rule is restricted to single words. "Flour Tortillas" and "Salted
+  // Butter" are 89,231 products that must not be touched.
+  check('two words are never a category word', nameIsCategoryWord('Pepitas Roasted', cat), false)
+  check('a word not in the set is kept', nameIsCategoryWord('Nutella', cat), false)
+  check('empty name is not a category word', nameIsCategoryWord('   ', cat), false)
+  // The allowlist is applied when the set is BUILT, so a name that reached
+  // this predicate is already past it. Proven by absence from the set.
+  check('allowlisted names never reach the set', nameIsCategoryWord('oreo', cat), false)
+
   log(failures === 0 ? '\nAll self-tests passed.' : `\n${failures} self-test(s) FAILED.`)
   return failures === 0
 }
@@ -442,12 +548,16 @@ async function main() {
   }
 
   log(`${DRY_RUN ? 'DRY RUN' : 'LIVE RUN'} — classifying products whose name is their company name.`)
-  const rows = await load()
-  log(`Loaded ${rows.length.toLocaleString()} rows (name matches its company, or already withheld).`)
+  const categoryWords = await loadCategoryWords()
+  log(`Category words (one word, ${CATEGORY_WORD_MIN_COMPANIES}+ companies, allowlist removed): ${categoryWords.size.toLocaleString()}`)
+  log(`Allowlisted as real products: ${[...CATEGORY_WORD_ALLOWLIST].join(', ')}`)
+  const rows = await load(categoryWords)
+  log(`Loaded ${rows.length.toLocaleString()} rows (name is its company's, name is a category word, or already withheld).`)
 
-  const toWithhold: Row[] = []
+  // Each withheld row carries the note explaining WHY: there are now two
+  // different reasons, and one shared note would make the table unauditable.
+  const toWithhold: { row: Row; note: string }[] = []
   const toPromote: Row[] = []
-  let researchable = 0
   let alreadyCorrect = 0
   let heldForAnotherReason = 0
   // Rows the SQL loaded on a loose match that the exact predicate then
@@ -460,7 +570,9 @@ async function main() {
   const samplesPromote: string[] = []
 
   for (const r of rows) {
-    const unnameable = nameIsCompanyName(r.name, r.legalName)
+    const isCompanyName = nameIsCompanyName(r.name, r.legalName)
+    const isCategoryWord = nameIsCategoryWord(r.name, categoryWords)
+    const unnameable = isCompanyName || isCategoryWord
 
     if (!unnameable) {
       // Only reachable for rows loaded by the second half of the WHERE: this
@@ -505,32 +617,49 @@ async function main() {
     // nameNamesAFood is kept and still tested, because it IS valid on a name
     // that differs from the company name (the widened rule in the open
     // question below). It is simply void on this population.
+    // THE NAME IS NOW DECISIVE. THIS IS THE REVERSAL OF 2026-11-03.
+    //
+    // identifiesTheProduct is still called, but ONLY to report what is being
+    // withheld in spite of it. It no longer rescues anything.
+    //
+    // The old rule kept a record published when it carried a photograph, an
+    // ingredient list or categories, reasoning that such a record is
+    // researchable rather than empty. That is true, and it is the wrong
+    // question: a page whose TITLE does not say which product it is cannot be
+    // read, however much sits underneath it. The Publix record named only
+    // "Pepitas" has a photograph AND three ingredients and was kept by the old
+    // rule. Michael, 2026-11-03: "Pepitas isnt enough information. What kinds
+    // of seeds are they?"
+    //
+    // The caveat printed further down anticipated this: it said these keeps
+    // were provisional "until the image classifier runs", because a page
+    // titled with a brand name over a nutrition-panel photograph is a faulty
+    // record by our own standard. The classifier ran in round 30. The keeps
+    // are no longer provisional, and they are no longer keeps.
     const saved = identifiesTheProduct(r)
-    if (saved) {
-      researchable++
-      savedBy.set(saved, (savedBy.get(saved) ?? 0) + 1)
-      // A record that is researchable must be PUBLISHED. If a previous run
-      // withheld it and it has since gained a photograph, release it.
-      if (r.publicationStatus === MISSING_INFO && r.publicationNote && RELEASABLE_NOTES.includes(r.publicationNote)) {
-        toPromote.push(r)
-        if (samplesPromote.length < 15) {
-          samplesPromote.push(`${r.upc ?? '(no barcode)'}  "${r.name}"  (now ${saved})`)
-        }
-      }
-      continue
-    }
+    if (saved) savedBy.set(saved, (savedBy.get(saved) ?? 0) + 1)
 
     if (r.publicationStatus === MISSING_INFO) {
       alreadyCorrect++
       continue
     }
-    toWithhold.push(r)
+    toWithhold.push({
+      row: r,
+      // The pre-2026-11-03 wording is kept for the records it is still true
+      // of -- name is the company name AND nothing else identifies the
+      // product -- so the 306 rows already carrying that exact string stay
+      // consistent with it and remain releasable.
+      note: isCompanyName
+        ? saved
+          ? PUBLICATION_NOTES.nameDoesNotIdentifyProduct
+          : PUBLICATION_NOTES.nameIsCompanyName
+        : PUBLICATION_NOTES.nameIsCategoryWord,
+    })
   }
 
   log(`\nTo withhold: ${toWithhold.length.toLocaleString()}`)
   log(`To promote back: ${toPromote.length.toLocaleString()}`)
   log(`Already withheld and still correct: ${alreadyCorrect.toLocaleString()}`)
-  log(`Name still useless but researchable, left published: ${researchable.toLocaleString()}`)
   if (heldForAnotherReason > 0) {
     log(`Withheld for a reason this script does not release: ${heldForAnotherReason.toLocaleString()}`)
   }
@@ -538,7 +667,7 @@ async function main() {
     log(`Loaded but not actually named after their company, left alone: ${noLongerInScope.toLocaleString()}`)
   }
   const accounted =
-    toWithhold.length + toPromote.length + alreadyCorrect + researchable +
+    toWithhold.length + toPromote.length + alreadyCorrect +
     heldForAnotherReason + noLongerInScope
   if (accounted !== rows.length) {
     log(`\n!! ACCOUNTING DOES NOT CLOSE: ${accounted.toLocaleString()} of ${rows.length.toLocaleString()} loaded rows are accounted for.`)
@@ -551,19 +680,21 @@ async function main() {
   }
 
   if (savedBy.size > 0) {
-    log('\nWhat is keeping the researchable ones published:')
+    log('\nWITHHELD DESPITE CARRYING THIS — read it, it is the cost of the rule:')
     for (const [k, v] of [...savedBy.entries()].sort((a, b) => b[1] - a[1])) {
       log(`    ${String(v).padStart(7)}  ${k}`)
     }
-    log('    These go to the photograph pass; withholding them now would skip')
-    log('    the research step the rule specifies.')
     log('')
-    log('    CAVEAT on "has a package photograph", which is doing most of the')
-    log('    work above: we cannot yet tell a photograph of the PACKAGE from a')
-    log('    photograph of the NUTRITION PANEL. A page titled with nothing but')
-    log('    a brand name, over a picture of a nutrition label, is a faulty')
-    log('    record by our own standard. The image classifier is what closes')
-    log('    this, and until it runs these keeps are provisional.')
+    log('    Before 2026-11-03 every one of these stayed published, on the')
+    log('    reasoning that a record with a photograph or an ingredient list')
+    log('    is researchable rather than empty. That is true and it is the')
+    log('    wrong question: a page whose TITLE does not say which product it')
+    log('    is cannot be read, however much sits underneath it.')
+    log('')
+    log('    The caveat that used to print here said these keeps were')
+    log('    provisional until the image classifier could tell a package')
+    log('    photograph from a nutrition panel. It ran in round 30 — 184,099')
+    log('    images judged — so the question it was waiting on is answered.')
   }
 
   if (toWithhold.length > 0) {
@@ -573,9 +704,12 @@ async function main() {
     // vocabulary is missing a word and that is a one-line fix — which is
     // exactly the kind of thing a 20-row sample hides.
     log(`\nEVERY record that would be withheld (${toWithhold.length.toLocaleString()}) — read this before --live:`)
-    for (const r of [...toWithhold].sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const { row: r, note } of [...toWithhold].sort((a, b) => a.row.name.localeCompare(b.row.name))) {
       const same = a_eq(r.name, r.legalName) ? '' : `  (company "${r.legalName}")`
-      log(`    ${(r.upc ?? '(no barcode)').padEnd(15)}  "${r.name}"${same}`)
+      // Which rule caught it, so a wrong entry can be traced to the rule that
+      // produced it rather than to the pile.
+      const why = note === PUBLICATION_NOTES.nameIsCategoryWord ? 'category' : 'company'
+      log(`    [${why.padEnd(8)}] ${(r.upc ?? '(no barcode)').padEnd(15)}  "${r.name}"${same}`)
     }
   }
   if (samplesPromote.length > 0) {
@@ -587,13 +721,15 @@ async function main() {
     if (toWithhold.length > 0) {
       log(`\nWithholding ${toWithhold.length.toLocaleString()}...`)
       let n = 0
-      for (const r of toWithhold) {
+      for (const { row: r, note } of toWithhold) {
         try {
           await prisma.product.update({
             where: { id: r.id },
             data: {
               publicationStatus: MISSING_INFO,
-              publicationNote: PUBLICATION_NOTES.nameIsCompanyName,
+              // The row's OWN note, not a single shared constant. Two rules
+              // withhold here now and the table has to say which one did.
+              publicationNote: note,
             },
           })
           n++
@@ -622,12 +758,21 @@ async function main() {
   }
 
   log(`\n===== ${DRY_RUN ? 'DRY RUN — nothing was written' : 'CLASSIFICATION COMPLETE'} =====`)
-  log('\nOPEN QUESTION for Michael, not decided here. This withholds only the')
-  log('one shape his rule named: a name identical to the company name. A name')
-  log('like "Bla" on a pizza sauce, or a bare "Berry", is just as useless to a')
-  log('reader but is not covered, and widening a rule that HIDES records is')
-  log('not a call to make quietly. If it should widen, the measurement to ask')
-  log('for first is how many such records also have nothing else on file.')
+  log('\nOPEN QUESTION for Michael — PARTLY ANSWERED 2026-11-03.')
+  log('')
+  log('This used to withhold one shape only: a name identical to the company')
+  log('name. It now also withholds a one-word name used by five or more')
+  log('companies, which covers the bare "Berry" this note used to cite —')
+  log('"berry" is on 8 companies and is withheld.')
+  log('')
+  log('STILL OPEN: a SHORT BUT UNIQUE nonsense name. "Bla" on a pizza sauce')
+  log('is useless to a reader and no rule here touches it. It is one word,')
+  log('but only one company uses it, so the category test reads it as a')
+  log('brand — which is exactly how it reads "cheerios". Telling a one-off')
+  log('brand from a one-off typo cannot be done by counting companies, and')
+  log('widening a rule that HIDES records is not a call to make quietly.')
+  log('The measurement to ask for first is how many one-word, one-company')
+  log('names also have nothing else on file.')
   if (DRY_RUN) log('\nNothing was written. Read the samples above before running --live.')
   log(`\nLog written to ${path.resolve(LOG_FILE)}`)
 }
