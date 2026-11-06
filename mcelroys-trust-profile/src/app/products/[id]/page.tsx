@@ -18,6 +18,7 @@ import {
   productDisplayName,
   shortProductName,
 } from '@/lib/productName'
+import { splitAndOrient } from '@/lib/titleOrientation'
 import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
 import { plainReason } from '@/lib/plainRecall'
 import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
@@ -157,8 +158,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   //
   // Same title as the missing-record case, because the response IS a 404.
   if (!product || product.publicationStatus !== 'published') return { title: 'Product not found' }
+  // Oriented, for the same reason the h1 is: a browser tab and a search
+  // result must lead with the words the page itself calls the product. An
+  // unoriented <title> would read "Our Speciality — Rich Products Corp."
+  // over a page whose heading says "Strawberry Frosted Sugar Cookies".
   const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
-  return { title: `${title} — ${companyDisplayName(product.company.legalName)}` }
+  const oriented = splitAndOrient(title)
+  const full = oriented.secondary ? `${oriented.title}, ${oriented.secondary}` : oriented.title
+  return { title: `${full} — ${companyDisplayName(product.company.legalName)}` }
 }
 
 // CACHED, which is the whole point of the back-link change below.
@@ -233,6 +240,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   // the brand comes off the front of the product name. Computed once here so
   // the breadcrumb, the glyph label and the h1 cannot disagree.
   const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
+
+  // THE SECONDARY TITLE. Michael, 2026-11-02, on a Member's Mark record:
+  // "remove this and simply put the secondary title beneath the product
+  // title, which in this case is 'Peanut butter filled wafer sticks with
+  // strawberry dip'".
+  //
+  // Open Food Facts stores `product_name` as a comma-delimited field list,
+  // so 29,209 products carry a title and a secondary already separated by a
+  // delimiter nobody was reading. splitAndOrient splits on it and then
+  // decides which side is the product, from a lexicon generated out of the
+  // catalogue itself. See round-37-comma-delimited-names.md; 47,862 products
+  // print a comma inside their title today.
+  const oriented = splitAndOrient(title)
+
+  // ONE LINE, LEADING WITH THE SAME WORDS AS THE <h1>.
+  //
+  // The trail entry and the photograph's label have no room for a second
+  // line, so they keep the whole name. But they must not lead with DIFFERENT
+  // words than the heading: when orientation swaps the two halves, the
+  // stored order no longer matches what the page says the product is, and a
+  // trail reading "Our Speciality, Strawberry Frosted Sugar Cookies" beside
+  // an h1 reading "Strawberry Frosted Sugar Cookies" is the disagreement the
+  // comment above exists to prevent. So this recomposes from the oriented
+  // halves rather than reusing `title`.
+  const oneLineTitle = oriented.secondary
+    ? `${oriented.title}, ${oriented.secondary}`
+    : oriented.title
 
   const forSignals = product as unknown as ProductForSignals
 
@@ -436,7 +470,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           falls back to BackLink when there is only one stop, so there is one
           bar and never two. See the long note in VisitTrail.tsx for why this
           is not the breadcrumb returning. */}
-      <VisitTrail label={title}>
+      <VisitTrail label={oneLineTitle}>
         {/* THE SUSPENSE BOUNDARY IS LOAD-BEARING. A static page that calls
             useSearchParams from a client component MUST wrap it, or `next build`
             fails with "Missing Suspense boundary with useSearchParams" -- and
@@ -482,7 +516,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             // Same em-based sizing as the search row; see ProductThumb.
             size="clamp(112px, 13vw, 184px)"
             intrinsic={320}
-            label={title}
+            label={oneLineTitle}
             // Portrait frame, so a package photograph fills it instead of
             // shrinking to fit a square. See the note on `tall` in
             // ProductThumb.tsx.
@@ -528,7 +562,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 any tail cut, so "A2/A2 100% Grass-fed Regenerative Organic
                 Probiotic Kefir" reads "Probiotic Kefir" rather than losing the
                 word "Kefir" off the end — which is what it did before.
-              The stored name in full is on the line below. */}
+
+              r37 added a THIRD half: the name is split on Open Food Facts'
+              own comma delimiter, so the h1 now carries only the product
+              title and the secondary sits on its own line below. What was
+              "the stored name in full is on the line below" is now two
+              lines: the secondary always, and the "On the label" line only
+              when the title half is itself being trimmed. */}
           <h1
             style={{
               margin: '7px 0 0',
@@ -540,18 +580,48 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             }}
           >
             {headingWithBrand(
-              shortProductName(title),
+              shortProductName(oriented.title),
               productBrand(product.company.legalName, product.company.dbaNames)
             )}
           </h1>
 
-          {/* The stored name in full, whenever the heading is showing less
-              than all of it. This line is what makes shortening safe —
-              nothing is hidden, it is just no longer the first thing you
-              have to read. See shortProductName in productName.ts. */}
-          {isShortened(title) && (
+          {/* THE SECONDARY TITLE, BENEATH THE PRODUCT TITLE — exactly what
+              Michael asked for on 2026-11-02. It is smaller and lighter than
+              the h1 but larger than the "On the label" line below it,
+              because it is part of the product's name rather than a note
+              about the record. */}
+          {oriented.secondary && (
+            <div
+              style={{
+                fontFamily: font.display,
+                fontSize: 17,
+                lineHeight: 1.3,
+                fontWeight: 400,
+                color: colors.ink2,
+                marginTop: 4,
+                maxWidth: '54ch',
+              }}
+            >
+              {oriented.secondary}
+            </div>
+          )}
+
+          {/* The title in full, whenever the heading is showing less than all
+              of it. This line is what makes shortening safe — nothing is
+              hidden, it is just no longer the first thing you have to read.
+              See shortProductName in productName.ts.
+
+              IT TESTS THE ORIENTED TITLE, NOT THE STORED NAME. Michael asked
+              for this line to be REPLACED by the secondary, and for the
+              wafer-sticks case it is: the split accounts for the whole name,
+              so isShortened is false and this does not render. But when the
+              title HALF is itself long enough to be trimmed, words would
+              otherwise disappear with nothing saying so — and "nothing is
+              hidden" is a guarantee r29 and r33 both built on. So the line
+              survives, scoped to the half the heading is actually showing. */}
+          {isShortened(oriented.title) && (
             <div style={{ fontSize: 13, lineHeight: 1.5, color: colors.ink3, marginTop: 7, maxWidth: '68ch' }}>
-              On the label: {title}
+              On the label: {oriented.title}
             </div>
           )}
 
