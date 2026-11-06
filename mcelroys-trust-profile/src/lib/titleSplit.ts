@@ -42,6 +42,13 @@ export type SplitVerdict = {
   title: string
   secondary: string | null
   typography: string
+  // Set when the package plainly shows a different product or brand from the
+  // stored string. A FINDING, not a failure: the first pilot turned up a
+  // Heinz record whose package reads Ore-Ida, a "Wild Berries" spread whose
+  // package reads Raspberry, and a Ben & Jerry's record photographed as a
+  // different flavour. Those are data defects worth collecting, and making
+  // the model refuse the split over them threw the information away.
+  package_note: string
   confidence: 'high' | 'low'
 }
 
@@ -89,12 +96,19 @@ The brand is: ${company}
 
 Split that stored string into up to three consecutive parts:
 
-1. leading_brand - the part at the START of the string that is the brand or
-   manufacturer name, if the string begins with it. Null if it does not.
+1. leading_brand - ONLY if the string literally begins with the brand name.
+   It usually does not. **Null is the normal, expected, correct answer here,
+   and it is NEVER a reason to lower your confidence.** The brand is shown
+   separately on our page; this field exists only to strip it when it happens
+   to be duplicated at the front of the string.
 2. title - what the product is CALLED. The name a person would use to ask for
    it.
 3. secondary - the smaller descriptive line: flavour, variety, preparation,
    count, size. Null if the whole remainder is the title.
+
+YOUR CONFIDENCE IS ABOUT THE TITLE/SECONDARY BOUNDARY AND NOTHING ELSE.
+Not about the brand. Not about whether the stored string matches the package
+word for word. Those are reported separately below and are not your problem.
 
 ${withImage
   ? `DECIDE FROM THE PACKAGE TYPOGRAPHY. The designer already made this
@@ -106,7 +120,16 @@ decision and printed it. Weigh, in roughly this order:
     secondary line is usually set in a plainer face.
   - POSITION: the secondary line normally sits directly below the title.
 The BRAND is often the largest text of all and is often at the top in its own
-styling. Do not mistake the brand for the title. The brand is "${company}".`
+styling. Do not mistake the brand for the title. The brand is "${company}".
+
+THE PACKAGE AND THE STORED STRING OFTEN DIFFER, AND THAT IS FINE. The package
+may show a different flavour, a sub-brand, extra words, or a shorter name.
+You are NOT checking the string against the package. You are using the
+package's LAYOUT - which words are big and which are small - to decide where
+the stored string divides. If the package shows "CLASSIC CHICKEN NOODLE" large
+and "with white meat chicken" small, then split the stored string at that
+boundary, even though the string is one unbroken line and the brand is
+nowhere in it. THAT IS THE WHOLE JOB.`
   : `DECIDE FROM HOW THE WORDS READ. Weigh:
   - A product title is usually the shortest phrase that names the thing
     itself - the words a person would say to ask for it.
@@ -127,14 +150,20 @@ HARD CONSTRAINTS - a response that breaks any of these is discarded:
 - Never write a name that is not in the stored string. If the package shows a
   better name than the string does, you still may not use it.
 - title must not be the brand.
-- If you cannot do this confidently - the photo is unreadable, the package
-  shows a different product, the string does not correspond to what is
-  printed, or the string is already just a title - set confidence to "low".
-  "low" is a normal, useful answer. Prefer it to a guess.
+- Set confidence to "low" ONLY when the title/secondary BOUNDARY is genuinely
+  unclear: the photo is unreadable, or the string is a single phrase with no
+  descriptive tail to separate. "low" is a normal, useful answer for those.
+  Do NOT set "low" because the brand is missing from the string, because the
+  package wording differs from the string, or because the string is stored as
+  one line - none of those bear on where the boundary falls.
+
+- If the package plainly shows a DIFFERENT product or a different brand from
+  the stored string, that is a useful finding for us, not a failure. Say so in
+  package_note and still give your best split of the string you were handed.
 
 Reply with ONLY a JSON object, no other text:
 
-{"leading_brand": string or null, "title": string, "secondary": string or null, "typography": "one short sentence naming the size/colour/font/position evidence you used", "confidence": "high" or "low"}`
+{"leading_brand": string or null, "title": string, "secondary": string or null, "typography": "one short sentence naming the size/colour/font/position evidence you used", "package_note": "a short note ONLY if the package shows a different product or brand than the stored string, otherwise empty string", "confidence": "high" or "low"}`
 }
 
 // STRICT. Anything that is not exactly the shape above is a parse failure,
@@ -162,6 +191,7 @@ export function parseSplit(raw: string): SplitCheck {
   const secondary = strOrNull(o.secondary)
   const title = typeof o.title === 'string' ? o.title : undefined
   const typography = typeof o.typography === 'string' ? o.typography : ''
+  const package_note = typeof o.package_note === 'string' ? o.package_note : ''
   const confidence = o.confidence === 'high' || o.confidence === 'low' ? o.confidence : undefined
 
   if (leading_brand === undefined) return { ok: false, reason: 'bad_leading_brand' }
@@ -169,7 +199,7 @@ export function parseSplit(raw: string): SplitCheck {
   if (title === undefined) return { ok: false, reason: 'bad_title' }
   if (confidence === undefined) return { ok: false, reason: 'bad_confidence' }
 
-  return { ok: true, verdict: { leading_brand, title, secondary, typography, confidence } }
+  return { ok: true, verdict: { leading_brand, title, secondary, typography, package_note, confidence } }
 }
 
 // THE CHECK THAT MAKES FABRICATION IMPOSSIBLE RATHER THAN UNLIKELY.
@@ -220,7 +250,7 @@ export function selftest(log: (s?: string) => void): boolean {
   }
 
   const v = (p: Partial<SplitVerdict>): SplitVerdict => ({
-    leading_brand: null, title: '', secondary: null, typography: '', confidence: 'high', ...p,
+    leading_brand: null, title: '', secondary: null, typography: '', package_note: '', confidence: 'high', ...p,
   })
 
   // the intended answer
@@ -280,7 +310,7 @@ export function selftest(log: (s?: string) => void): boolean {
   total++
   const fenced = parseSplit('```json\n{"leading_brand":null,"title":"x","secondary":null,"typography":"t","confidence":"high"}\n```')
   if (fenced.ok) pass++; else log('  FAIL parse: rejected fenced JSON')
-  total++; if (parseSplit('{"leading_brand":null,"title":"x","secondary":null,"typography":"t","confidence":"maybe"}').ok === false) pass++
+  total++; if (parseSplit('{"leading_brand":null,"title":"x","secondary":null,"typography":"t","package_note":"","confidence":"maybe"}').ok === false) pass++
   else log('  FAIL parse: accepted bad confidence')
 
   log(`selftest: ${pass}/${total} pass`)
