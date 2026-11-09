@@ -172,6 +172,31 @@ export function isProductNoun(
   return s.commaFree / s.all >= minRatio
 }
 
+// THE OTHER SIDE OF THE SAME TEST.
+//
+// isProductNoun asks "does this word name a product type". This asks the
+// opposite: the catalogue knows the word well enough to judge it, and it
+// came back BELOW the ratio -- so it is a flavour, a fruit, a nut or a
+// preparation modifier. The 113 words this identifies are listed in full at
+// the top of this file and were read by hand.
+//
+// A word ABSENT from the lexicon is not a flavour, it is unknown. That
+// distinction is the whole point: "Onederful" and "Nusco" are absent, and
+// treating absence as a flavour would sweep every invented brand name into
+// the secondary.
+export function isFlavourWord(
+  word: string,
+  lexicon: Lexicon = PRODUCT_NOUNS,
+  minCompanies: number = MIN_COMPANIES,
+  minRatio: number = MIN_COMMA_FREE_RATIO
+): boolean {
+  const s = lexicon.get(word)
+  if (s === undefined) return false
+  if (s.all < minCompanies) return false
+  if (s.all === 0) return false
+  return s.commaFree / s.all < minRatio
+}
+
 export function orientSplit(
   head: string,
   tail: string,
@@ -368,6 +393,27 @@ if (process.argv[1]?.endsWith('titleOrientation.ts')) {
     else failures.push(`  isProductNoun(${JSON.stringify(word)}) expected ${want}, got ${got}  (${why})`)
   }
 
+  // isFlavourWord is the OTHER side of the same test, and the asymmetry
+  // matters: absent is not flavour, it is unknown.
+  const flavourChecks: [string, boolean, string][] = [
+    ['pepper', true, '.61 - below the ratio, so a flavour'],
+    ['vanilla', true, '.57'],
+    ['mild', true, '.38'],
+    ['strawberry', true, '.50'],
+    ['sauce', false, '.91 - a product noun, not a flavour'],
+    ['cheese', false, '.85'],
+    ['honey', false, '.80'],
+    ['lentil', false, 'under the 50-company floor: not judged either way'],
+    ['speciality', false, 'one company'],
+    ['onederful', false, 'ABSENT is not flavour - this is the asymmetry'],
+    ['', false, 'empty string'],
+  ]
+  for (const [word, want, why] of flavourChecks) {
+    const got = isFlavourWord(word, lex)
+    if (got === want) pass++
+    else failures.push(`  isFlavourWord(${JSON.stringify(word)}) expected ${want}, got ${got}  (${why})`)
+  }
+
   const nounCases: [string, string][] = [
     ['Country Dijon Mustard', 'mustard'],
     ['MUSTARD!', 'mustard'],
@@ -472,11 +518,239 @@ if (process.argv[1]?.endsWith('titleOrientation.ts')) {
       )
   }
 
-  const total = cases.length + nounChecks.length + nounCases.length + e2e.length
+  // ---- splitByProductNoun, against the real shipped lexicon.
+  // Every row below was run and hand-checked against Michael's definition
+  // on 2026-11-06 before being written here.
+  type NS = {
+    in: string
+    title: string
+    secondary?: string
+    dropped?: string
+    foundNoun: boolean
+    why: string
+  }
+  const ns: NS[] = [
+    // --- the motto he objected to, now dropped ---------------------------
+    { in: 'Our Speciality, Strawberry Frosted Sugar Cookies',
+      title: 'Strawberry Frosted Sugar Cookies', dropped: 'Our Speciality',
+      foundNoun: true, why: 'a motto is not a description of the product' },
+    // --- a real descriptor, kept -----------------------------------------
+    { in: 'Country Dijon Mustard, White Wine',
+      title: 'Country Dijon Mustard', secondary: 'White Wine',
+      foundNoun: true, why: 'white wine is the variety, and is in the ingredients' },
+    // --- THE FALLBACK. No field has a product noun, so nothing is dropped.
+    // Without this, a real title disappears whenever its own noun happens to
+    // be missing from the lexicon.
+    { in: 'Angel Food Mini-Cakes, Strawberry',
+      title: 'Angel Food Mini-Cakes', secondary: 'Strawberry',
+      foundNoun: false, why: 'minicakes absent, strawberry is a flavour' },
+    // --- three-plus fields now split, which r37 said they could not ------
+    { in: 'Premium Potato Chips, Chipotle, Ranch',
+      title: 'Premium Potato Chips', secondary: 'Chipotle, Ranch',
+      foundNoun: true, why: 'chips is the noun; the rest describes it' },
+    { in: 'Heart To Heart, Instant Oatmeal, Apple Cinnamon',
+      title: 'Instant Oatmeal', secondary: 'Apple Cinnamon', dropped: 'Heart To Heart',
+      foundNoun: true, why: 'the product line is neither title nor description' },
+    { in: 'Pizzeria, Medium Crust Hand Tossed Style Pizza, Cheese',
+      title: 'Medium Crust Hand Tossed Style Pizza', secondary: 'Cheese',
+      dropped: 'Pizzeria', foundNoun: true, why: 'noun is in the middle field' },
+    // --- product lines, dropped ------------------------------------------
+    { in: 'Fresh Selections, Portobello Whole Mushrooms',
+      title: 'Portobello Whole Mushrooms', dropped: 'Fresh Selections',
+      foundNoun: true, why: 'a Kroger line' },
+    { in: 'Steamfresh, Tuscan Vegetables With Marinara Sauce',
+      title: 'Tuscan Vegetables With Marinara Sauce', dropped: 'Steamfresh',
+      foundNoun: true, why: 'a Birds Eye line' },
+    // --- branches that must never be carved up by field index ------------
+    { in: 'Broccoli, Cauliflower & Carrots',
+      title: 'Broccoli, Cauliflower & Carrots',
+      foundNoun: false, why: 'one enumerated field that contains commas' },
+    { in: 'Pepitas', title: 'Pepitas', foundNoun: false, why: 'nothing to split' },
+
+    // --- A LEADING FLAVOUR IS RESCUED, NOT DROPPED ----------------------
+    // Michael, 2026-11-08: "anything that is a food or can be classified as
+    // a flavor needs to be delineated." The model, asked to label these,
+    // called all three product lines -- which would have put a flavour in a
+    // brand slot. The lexicon knew better with no call at all.
+    { in: 'Thai Lime Rice Coconut, Simmer Sauce',
+      title: 'Simmer Sauce', secondary: 'Thai Lime Rice Coconut',
+      foundNoun: true, why: 'coconut .56 is a flavour, so it describes rather than brands' },
+    { in: 'Popsicle Orange, Ice Pops',
+      title: 'Ice Pops', secondary: 'Popsicle Orange',
+      foundNoun: true, why: 'orange .43' },
+    // Both at once: a brand dropped, a flavour kept, from the same name.
+    { in: 'Medallion, Tortilla Chip, Nacho Cheese',
+      title: 'Nacho Cheese', secondary: 'Tortilla Chip', dropped: 'Medallion',
+      foundNoun: true, why: 'chip .60 is rescued; Medallion is absent and goes' },
+    // ABSENCE IS NOT FLAVOUR. An invented brand word must still be dropped,
+    // or every made-up name sweeps into the secondary.
+    { in: 'Lindor, Assorted Chocolate Truffles',
+      title: 'Assorted Chocolate Truffles', dropped: 'Lindor',
+      foundNoun: true, why: 'lindor is absent from the lexicon, not a flavour' },
+  ]
+  for (const c of ns) {
+    const got = splitByProductNoun(c.in)
+    const ok =
+      got.title === c.title &&
+      (got.secondary ?? undefined) === (c.secondary ?? undefined) &&
+      (got.dropped ?? undefined) === (c.dropped ?? undefined) &&
+      got.foundNoun === c.foundNoun
+    if (ok) pass++
+    else
+      failures.push(
+        `  splitByProductNoun(${JSON.stringify(c.in)})   (${c.why})\n` +
+          `    expected title=${JSON.stringify(c.title)} secondary=${JSON.stringify(c.secondary)} dropped=${JSON.stringify(c.dropped)} foundNoun=${c.foundNoun}\n` +
+          `    got      title=${JSON.stringify(got.title)} secondary=${JSON.stringify(got.secondary)} dropped=${JSON.stringify(got.dropped)} foundNoun=${got.foundNoun}`
+      )
+  }
+
+  const total = cases.length + nounChecks.length + flavourChecks.length + nounCases.length + e2e.length + ns.length
   console.log(`selftest: ${pass}/${total} pass`)
   if (failures.length > 0) {
     console.log('')
     for (const f of failures) console.log(f + '\n')
     process.exitCode = 1
+  }
+}
+
+// ===========================================================================
+// THE PRODUCT-NOUN SPLIT — Michael's definition, 2026-11-06.
+//
+//   "The title should be the title of the product and the secondary title
+//    should be the more nuanced description of that title and should include
+//    flavors, etc"
+//
+//   "Dont find something to put in the secondary if there is nothing else to
+//    put there"
+//
+//   "if that info is a motto, not a legitimate title that can help
+//    distinguish that product from similar ones, then sure. but any
+//    information that is superfluous, like mottos or anything else that
+//    doesnt include a branch of the product itself, it shouldnt be in the
+//    secondary title"
+//
+// This REPLACES two earlier decisions, both of which he overturned by
+// looking at four pages:
+//
+//   1. "the other side of the comma is the secondary". It is not. It put
+//      "Our Speciality" under "Strawberry Frosted Sugar Cookies" -- a motto
+//      presented as a description, which is inventing a secondary.
+//
+//   2. "three or more fields are left alone". r37 said no fixed rule could
+//      handle them, because the first field is sometimes the product line
+//      (Kashi, Heart To Heart, Instant Oatmeal, Apple Cinnamon) and
+//      sometimes the product. That was true with no way to tell them apart.
+//      The product-noun lexicon IS that way, so the rule now works:
+//
+//        Premium Potato Chips, Chipotle, Ranch
+//          -> title "Premium Potato Chips"   secondary "Chipotle, Ranch"
+//        Heart To Heart, Instant Oatmeal, Apple Cinnamon
+//          -> title "Instant Oatmeal"        secondary "Apple Cinnamon"
+//             dropped "Heart To Heart"
+//
+// THE RULE: the FIRST field carrying a product-type noun is the title.
+// Everything after it is the secondary. Anything before it is neither a
+// product nor a description of one -- it is a brand, a product line, or a
+// motto -- and does not belong in either.
+//
+// THE FALLBACK MATTERS AS MUCH AS THE RULE. When NO field carries a product
+// noun, nothing is dropped and the first field stays the title:
+//
+//   Angel Food Mini-Cakes, Strawberry
+//     "minicakes" is absent from the lexicon and "strawberry" is a flavour,
+//     so no field qualifies -> title stays "Angel Food Mini-Cakes".
+//
+// Without that fallback this would drop a real title whenever the product's
+// own noun happened to be missing from a catalogue-derived lexicon, which is
+// exactly the class of error r33's productBrand was retired for.
+//
+// WHAT HAPPENS TO THE DROPPED FIELD IS NOT DECIDED HERE. It is returned, not
+// discarded, because Michael's distinction -- a product line that
+// distinguishes the product from similar ones is worth keeping, a motto is
+// not -- is not yet measurable. `dropped` is reported so a probe can census
+// it and that question can be answered from data rather than from guessing.
+
+export interface NounSplit {
+  title: string
+  secondary?: string
+  // Fields that led the name but are FLAVOURS, not brands. Michael,
+  // 2026-11-08: "anything that is a food or can be classified as a flavor
+  // needs to be delineated." They are moved into the secondary rather than
+  // dropped, because a flavour is a description of the product and belongs
+  // under the title. Measured: 13 phrases / 81 products in a 200-phrase
+  // sample, about 4% of the dropped set.
+  rescued?: string
+  // The field(s) before the product noun: a brand, a product line, or a
+  // motto. NOT shown by the caller until the line-vs-motto question is
+  // settled -- returned so it can be measured.
+  dropped?: string
+  // True when a product noun was actually found. False means the fallback
+  // ran and nothing was dropped.
+  foundNoun: boolean
+  branch: TitleBranch
+}
+
+export function splitByProductNoun(
+  displayed: string,
+  lexicon: Lexicon = PRODUCT_NOUNS
+): NounSplit {
+  const parts = splitTitleParts(displayed)
+
+  // An enumerated list is one field that happens to contain commas, so it
+  // must not be carved up by field index. Left exactly as it is.
+  if (parts.branch === 'short_head_list' || parts.branch === 'no_comma') {
+    return { title: parts.title, foundNoun: false, branch: parts.branch }
+  }
+
+  const fields = parts.title
+    .split(',')
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0)
+  if (parts.secondary !== undefined) fields.push(parts.secondary)
+  if (fields.length < 2) {
+    return { title: parts.title, foundNoun: false, branch: parts.branch }
+  }
+
+  const at = fields.findIndex((f) => isProductNoun(lastNoun(f), lexicon))
+
+  // THE FALLBACK. No field names a product type, so nothing is confidently
+  // the title and nothing is confidently droppable. Keep the first field and
+  // hand the rest over as the description.
+  if (at === -1) {
+    return {
+      title: fields[0],
+      secondary: fields.length > 1 ? fields.slice(1).join(', ') : undefined,
+      foundNoun: false,
+      branch: parts.branch,
+    }
+  }
+
+  const after = fields.slice(at + 1)
+  const before = fields.slice(0, at)
+
+  // A LEADING FIELD THAT IS A FLAVOUR IS NOT A BRAND.
+  //
+  //   "Thai Lime Rice Coconut, <product>"   coconut .56
+  //   "Popsicle Orange, <product>"          orange  .43
+  //   "Medallion, Tortilla Chip, <product>" chip    .60
+  //
+  // The first version of this rule dropped all three, and a model asked to
+  // label them called them product lines -- which would have put a flavour
+  // in a brand slot. The lexicon already knew better, for free. The test is
+  // the LAST noun of the field, the same one that picks the title, so there
+  // is one definition of "flavour" in this file and not two.
+  const rescued = before.filter((f) => isFlavourWord(lastNoun(f), lexicon))
+  const stillDropped = before.filter((f) => !isFlavourWord(lastNoun(f), lexicon))
+
+  // Rescued fields keep their original position relative to each other and
+  // lead the secondary, because they led the stored name.
+  const secondaryParts = [...rescued, ...after]
+  return {
+    title: fields[at],
+    secondary: secondaryParts.length > 0 ? secondaryParts.join(', ') : undefined,
+    dropped: stillDropped.length > 0 ? stillDropped.join(', ') : undefined,
+    rescued: rescued.length > 0 ? rescued.join(', ') : undefined,
+    foundNoun: true,
+    branch: parts.branch,
   }
 }

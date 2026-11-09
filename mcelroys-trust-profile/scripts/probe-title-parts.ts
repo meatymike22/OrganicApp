@@ -43,7 +43,7 @@ import path from 'node:path'
 import { productDisplayName } from '../src/lib/productName'
 import { splitTitleParts, type TitleBranch } from '../src/lib/titleParts'
 import {
-  orientSplit, lastNoun, isProductNoun,
+  orientSplit, lastNoun, isProductNoun, splitByProductNoun,
   MIN_COMPANIES, MIN_COMMA_FREE_RATIO,
   type Orientation,
 } from '../src/lib/titleOrientation'
@@ -216,6 +216,21 @@ async function main() {
     const inverted: Row[] = []
     const unknown: Row[] = []
 
+    // THE PRODUCT-NOUN RULE (Michael, 2026-11-06), measured alongside the
+    // rule the page currently uses. Nothing here changes a page; this exists
+    // to answer ONE question with data instead of a guess: the field this
+    // rule drops is sometimes a product LINE that distinguishes the product
+    // ("Fresh Selections", "Steamfresh") and sometimes a MOTTO that does not
+    // ("Our Speciality"). He wants the first kept and the second gone. So
+    // every dropped phrase is censused by product and by DISTINCT COMPANY,
+    // because a line belongs to one company and a motto spreads across many
+    // -- the same shape as r34's category-word rule.
+    const nounOutcome = new Map<string, number>()
+    const droppedPhrase = new Map<string, { products: number; companies: Set<string> }>()
+    const droppedSamples: { row: Row; dropped: string }[] = []
+    let gainedSecondary = 0
+    let lostSecondary = 0
+
     let scanned = 0
     let cursor = ''
     for (;;) {
@@ -237,6 +252,23 @@ async function main() {
 
         const bucket = samples.get(parts.branch)!
         if (bucket.length < SAMPLES_PER_BRANCH && commas > 0) bucket.push(r)
+
+        // ---- the product-noun rule, measured in the same pass
+        const ns = splitByProductNoun(displayed)
+        const key = ns.dropped ? (ns.secondary ? 'title+secondary, dropped' : 'title only, dropped')
+                  : ns.secondary ? (ns.foundNoun ? 'title+secondary' : 'title+secondary (fallback)')
+                  : 'title only'
+        nounOutcome.set(key, (nounOutcome.get(key) ?? 0) + 1)
+        if (ns.secondary !== undefined && parts.secondary === undefined) gainedSecondary++
+        if (ns.secondary === undefined && parts.secondary !== undefined) lostSecondary++
+        if (ns.dropped) {
+          const d = ns.dropped.toLowerCase()
+          let e = droppedPhrase.get(d)
+          if (e === undefined) { e = { products: 0, companies: new Set() }; droppedPhrase.set(d, e) }
+          e.products++
+          if (r.legalName) e.companies.add(r.legalName)
+          if (droppedSamples.length < 25) droppedSamples.push({ row: r, dropped: ns.dropped })
+        }
 
         if (parts.branch === 'split' && parts.secondary !== undefined) {
           for (const rr of RATIOS) {
@@ -290,6 +322,51 @@ async function main() {
     log('  The count-only version of this test scored 16/20 on hand-read rows;')
     log('  the ratio version scores 19/20. The remaining miss is a mis-SPLIT')
     log('  ("boneless, skinless"), ~41 products, deliberately unguarded.')
+
+    // ========================== 4. the product-noun rule, measured
+    log('\n===== 4. THE PRODUCT-NOUN RULE (not wired to the page) =====')
+    log('  first field carrying a product noun is the TITLE; after it is the')
+    log('  SECONDARY; before it is DROPPED (a brand, a line, or a motto).')
+    log('')
+    for (const [k, v] of [...nounOutcome].sort((a, b) => b[1] - a[1]))
+      log(`  ${v.toLocaleString().padStart(8)}  ${k}`)
+    log('')
+    log(`  products that GAIN a secondary vs the current rule: ${gainedSecondary.toLocaleString()}`)
+    log(`  products that LOSE a secondary vs the current rule: ${lostSecondary.toLocaleString()}`)
+    log(`  distinct dropped phrases: ${droppedPhrase.size.toLocaleString()}`)
+
+    log('\n  ===== DROPPED PHRASES: IS IT A LINE OR A MOTTO? =====')
+    log('  A product LINE belongs to one company and distinguishes its own')
+    log('  products. A MOTTO spreads across many companies and distinguishes')
+    log('  nothing. If that holds, "companies" below separates them and the')
+    log('  rule writes itself. If it does not, read the list and say so.')
+    log('')
+    log('   products | companies | phrase')
+    log('  ----------+-----------+----------------------------------------')
+    const census = [...droppedPhrase.entries()]
+      .map(([phrase, v]) => ({ phrase, products: v.products, companies: v.companies.size }))
+      .sort((a, b) => b.products - a.products)
+    for (const c of census.slice(0, 70))
+      log(`  ${c.products.toLocaleString().padStart(9)} | ${String(c.companies).padStart(9)} | ${c.phrase}`)
+    log('')
+    const oneCo = census.filter((c) => c.companies === 1)
+    const manyCo = census.filter((c) => c.companies >= 5)
+    log(`  phrases used by exactly ONE company:  ${oneCo.length.toLocaleString()}` +
+        `  (${oneCo.reduce((n, c) => n + c.products, 0).toLocaleString()} products)`)
+    log(`  phrases used by FIVE or more:         ${manyCo.length.toLocaleString()}` +
+        `  (${manyCo.reduce((n, c) => n + c.products, 0).toLocaleString()} products)`)
+
+    log('\n  --- sample rows where something is dropped ---')
+    for (const d of droppedSamples) {
+      const displayed = productDisplayName(d.row.name, d.row.legalName, d.row.dbaNames ?? [])
+      const ns = splitByProductNoun(displayed)
+      log('')
+      log(`  ${d.row.upc ?? '(no upc)'}   company: ${d.row.legalName ?? '(none)'}`)
+      log(`    TODAY:     ${displayed}`)
+      log(`    title      ${ns.title}`)
+      log(`    secondary  ${ns.secondary ?? '(none)'}`)
+      log(`    DROPPED    ${ns.dropped}`)
+    }
 
     // ---------------------------------------------------------- hand scoring
     log('\n===== EVERY SAMPLE ROW, FOR HAND SCORING =====')
