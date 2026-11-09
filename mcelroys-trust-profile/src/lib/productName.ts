@@ -478,19 +478,132 @@ function brandCandidates(companyName: string): string[] {
 //      really the first half of a compound product name, leaving "Shine
 //      Bars". An "&" or "+" after the match means the two sides belong
 //      together.
-function startsWithBrand(name: string, brand: string): boolean {
+// PUNCTUATION AND WORD SPLITS, ADDED 2026-11-09 (r38).
+//
+// A literal prefix test misses every case where the product name writes the
+// company's name with different punctuation or different word boundaries, and
+// `probe-company-leak.ts` measured that at 70 phrases / 158 products:
+//
+//   "Dsd Merchandisers, Yogurt Almonds"   <- D.S.D. Merchandisers Inc.
+//   "Choco Maker, Belgian Dessert Cups"   <- Chocomaker
+//   "Tgi Fridays, Whiskey Cake"           <- T.G.I. Fridays
+//   "Bassetts, Ice Cream, Peanut Butter"  <- Bassett's
+//   "Manini's, Lasagna"                   <- Maninis
+//   "Psst, Chicken Strips"                <- Psst...
+//
+// Each one printed the company's own name as the product title.
+//
+// THE SQUASH WALK IS A FALLBACK, NEVER A REPLACEMENT. The literal path runs
+// first and is untouched, so the 120,347 products the strip already handles
+// are bit-for-bit unchanged. Only a name the literal path rejects is walked
+// again ignoring punctuation.
+//
+// WHAT IT DELIBERATELY DOES NOT DO: it does not fuzzy-match. `Ella's Oven` is
+// not a punctuation variant of `Ellison Bakery` and must never be stripped --
+// it is a real shelf brand, and it is one of the rows the shelf-brand finding
+// exists to surface. Edit-distance matching here would delete it. That whole
+// class (256 phrases by `isSpellingOfLegalName`, a third of them real brands)
+// goes to the classifier, because telling `Aramouni's` from `Ella's Oven` is a
+// language judgement and no string rule reaches it.
+//
+// Returns how many characters of `name` the brand consumed, or null. On the
+// literal path that is brand.length, which is exactly what the previous
+// boolean meant.
+function brandPrefixLength(name: string, brand: string, sq: SquashIndex | null): number | null {
   const n = loose(name)
-  if (!n.startsWith(brand)) return false
 
-  const next = n.charAt(brand.length)
+  let consumed: number | null = n.startsWith(brand) ? brand.length : null
+
+  // `sq` is null when the caller could not guarantee that its index maps
+  // cleanly back into the string being sliced; then only the literal path runs.
+  if (consumed === null && sq !== null) {
+    consumed = squashPrefixLength(sq, brand)
+  }
+  if (consumed === null) return null
+
+  const next = n.charAt(consumed)
   // An apostrophe counts as part of the word, not a boundary (trap 2).
-  if (next !== '' && /[a-z0-9']/.test(next)) return false
+  if (next !== '' && /[a-z0-9']/.test(next)) return null
 
   // Look past the separator: a conjunction joins the two halves (trap 3).
-  const after = n.slice(brand.length).replace(/^[\s,:;.\-\u2013\u2014|/]+/, '')
-  if (/^[&+]/.test(after)) return false
+  const after = n.slice(consumed).replace(/^[\s,:;.\-\u2013\u2014|/]+/, '')
+  if (/^[&+]/.test(after)) return null
 
-  return true
+  return consumed
+}
+
+// The name squashed once, with a map back to the original string.
+//
+// ONE PASS PER PRODUCT, NOT PER CANDIDATE. A company offers several brand
+// candidates and most products match none of them, so a per-character fold
+// inside the candidate loop would run roughly 66 million times over a full
+// 416,382-product scan. Squashing once and testing each candidate with
+// startsWith turns that into one pass plus an O(1) lookup.
+//
+// `at[k]` is the index in the ORIGINAL string just past the character that
+// produced `s[k]`, which is what the caller needs in order to slice.
+interface SquashIndex {
+  s: string
+  at: number[]
+}
+
+function squashIndex(name: string): SquashIndex {
+  let s = ''
+  const at: number[] = []
+  for (let i = 0; i < name.length; i++) {
+    const ch = name.charAt(i)
+
+    // A COMMA ENDS THE INDEX, AND THIS SINGLE LINE IS WHAT KEEPS SQUASHING
+    // SAFE.
+    //
+    // r37 established that a comma in an Open Food Facts product_name is a
+    // FIELD DELIMITER. A brand is one field; it never spans two. Squashing
+    // ignores punctuation, so without this it happily matches across a comma,
+    // and brandCandidates offers every word-prefix of every dbaName -- which
+    // is where that goes wrong:
+    //
+    //   "Reese'S, Peanut Butter Cups"   dbaName "Reese's Peanut Butter Cups"
+    //     -> the prefix `reese's peanut butter` matches across the comma
+    //     -> title becomes "Cups"
+    //
+    //   "York, Peppermint Patties"      dbaName "York Peppermint Patties"
+    //     -> title becomes "Patties"
+    //
+    // Both were measured on live rows, and both are regressions the squash
+    // fallback introduced -- a literal test could never cross the comma, so
+    // the long candidate failed and the one-word brand stripped correctly.
+    // Three narrower patches were tried before this; stopping at the delimiter
+    // removes the whole class instead of its symptoms.
+    if (ch === ',') break
+
+    const c = squashed(ch)
+    // Other punctuation and whitespace are skipped, on both sides.
+    if (c.length === 0) continue
+    s += c
+    for (let k = 0; k < c.length; k++) at.push(i + 1)
+  }
+  return { s, at }
+}
+
+// Returns the index in the original name just past the character that matched
+// the brand's last alphanumeric, or null if the brand is not a squashed
+// prefix.
+//
+// A FOUR-CHARACTER FLOOR. brandCandidates already refuses a candidate under
+// three characters, but squashing is more permissive than a literal match --
+// it can cross a space -- so it gets a stricter floor of its own. "Psst..."
+// squashes to four and survives; shorter initialisms do not.
+//
+// The three boundary traps in brandPrefixLength still do their work, because
+// they are evaluated on the original string at the returned index. That is
+// what keeps trap 2 alive here: company "Campbell Soup Supply Co." matches its
+// one-word candidate `campbell` against "Campbell's Chicken Broth", stops with
+// an apostrophe next, and is rejected exactly as before.
+function squashPrefixLength(sq: SquashIndex, brand: string): number | null {
+  const b = squashed(brand)
+  if (b.length < 4) return null
+  if (!sq.s.startsWith(b)) return null
+  return sq.at[b.length - 1]
 }
 
 // FDC'S REDUNDANT TAIL CLAUSE.
@@ -610,23 +723,110 @@ export function productDisplayName(
     // Longest first across all the names a company goes by.
     .sort((a, b) => b.length - a.length)
 
-  for (const brand of candidates) {
-    if (!startsWithBrand(cleaned, brand)) continue
-    const rest = dropOrphanEntitySuffix(displayName(cleaned.slice(brand.length)))
-    // Never strip the brand if the brand IS the whole name, and never leave
-    // behind a fragment too short to identify anything. "Jovial" under
-    // Jovial Foods stays "Jovial"; a row with no name is worse than a
-    // repeated one.
-    //
-    // ONLY_ENTITY_SUFFIX is checked separately because "Inc" is three
-    // characters and passes the floor, so the floor alone let it through as
-    // a title.
-    if (rest.length >= 3 && /[a-z0-9]/i.test(rest) && !ONLY_ENTITY_SUFFIX.test(rest))
+  // THE STRIP REPEATS, BUT ONLY ACROSS A COMMA. Added 2026-11-09 (r38).
+  //
+  // Open Food Facts stores the brand twice on some products, because the
+  // field list was built by concatenating fields that already contained it:
+  //
+  //   "Brookside, Brookside, Dark Chocolate, Acai & Blueberry Flavors, ..."
+  //   "Reese'S, Reese'S, Peanut Butter Cups"
+  //   "York, York, Peppermint Patties"
+  //
+  // A single pass removes one copy and leaves the other sitting in the <h1>.
+  // trimRedundantTail handles a repeated TAIL; nothing handled a repeated
+  // HEAD. Measured at 11 phrases / 19 products after the squash fix landed.
+  //
+  // WHY THE COMMA IS REQUIRED, and this is the whole safety argument: without
+  // it, company "Polar" would strip "Polar, Polar Bear Cookies" down to
+  // "Bear Cookies", because pass two would match "Polar" against "Polar Bear
+  // Cookies" at a space boundary. A comma means OFF wrote two FIELDS; a space
+  // means the brand is part of a phrase and the pass must stop. So a
+  // space-bounded match still returns immediately, exactly as before.
+  //
+  // Three passes, the same bound dropOrphanEntitySuffix uses. Nothing in the
+  // corpus needs more and an unbounded loop on this input is not worth the
+  // risk.
+  let working = cleaned
+  for (let pass = 0; pass < 3; pass++) {
+    // INDEX SAFETY, checked rather than assumed. The squash index maps back
+    // into `working`, but brandPrefixLength does its literal test on
+    // loose(working). displayName has already collapsed whitespace runs and
+    // trimmed, and loose() only lowercases, maps three apostrophes to one and
+    // collapses whitespace -- all 1:1 on such a string. If the lengths
+    // disagree even so, the squash path is skipped for this pass and
+    // behaviour falls back to exactly what shipped before.
+    const sq = loose(working).length === working.length ? squashIndex(working) : null
+
+    let repeated = false
+    for (const brand of candidates) {
+      const consumed = brandPrefixLength(working, brand, sq)
+      if (consumed === null) continue
+
+      const tail = working.slice(consumed)
+      const rest = dropOrphanEntitySuffix(displayName(tail))
+
+      // Never strip the brand if the brand IS the whole name, and never leave
+      // behind a fragment too short to identify anything. "Jovial" under
+      // Jovial Foods stays "Jovial"; a row with no name is worse than a
+      // repeated one.
+      //
+      // ONLY_ENTITY_SUFFIX is checked separately because "Inc" is three
+      // characters and passes the floor, so the floor alone let it through as
+      // a title.
+      if (!(rest.length >= 3 && /[a-z0-9]/i.test(rest) && !ONLY_ENTITY_SUFFIX.test(rest))) {
+        // A LONGER CANDIDATE CAN NOW EAT THE WHOLE NAME, AND MUST NOT SHADOW
+        // THE SHORT ONE THAT WOULD HAVE WORKED. Caught by the probe, 2026-11-09,
+        // and it is a regression the squash fallback introduced:
+        //
+        //   Polar        dbaNames ["Polar Seltzer"]
+        //   York         dbaNames ["York Peppermint Patties"]
+        //   Reese's      dbaNames ["Reese's Peanut Butter Cups", ...]
+        //   Lesley Stowe dbaNames ["Lesley Stowe Raincoast Crisps"]
+        //
+        // Candidates are tried longest-first, and `polar seltzer` could never
+        // match "Polar, Seltzer" literally -- the comma was in the way, so the
+        // one-word `polar` matched and stripped correctly. Squashing crosses
+        // the comma, so the long dbaName now consumes everything, leaves no
+        // remainder, and this branch returned the whole name untouched.
+        //
+        // THE TEST IS WHETHER THE TAIL HOLDS ANY LETTER OR DIGIT, not whether
+        // `rest` was usable, and that distinction is the whole fix:
+        //
+        //   tail "" (nothing left)       -> the candidate ate the name; try a
+        //                                   shorter one.
+        //   tail " Company, Inc."        -> there IS more text and it is only a
+        //                                   legal suffix. Keep the full name,
+        //                                   exactly as before, or a shorter
+        //                                   candidate would title the product
+        //                                   ", Inc".
+        if (!/[a-z0-9]/i.test(tail)) continue
+        return titleCaseName(working)
+      }
+
+      // A comma boundary is a FIELD boundary: strip it and look again.
+      if (/^\s*,/.test(tail)) {
+        working = rest
+        repeated = true
+        break
+      }
+
+      // A space boundary means the brand is part of a phrase rather than a
+      // field of its own.
+      //
+      // ON THE FIRST PASS that is the ordinary strip and it returns, exactly
+      // as it always has. ON A LATER PASS IT MUST NOT STRIP, because the loop
+      // exists only to remove a duplicated FIELD -- letting it also perform a
+      // second ordinary strip turns "Polar, Polar Bear Cookies" into
+      // "Bear Cookies", which names a different product. The selftest for that
+      // row failed on the first draft of this loop and is why the rule is
+      // written this way.
+      if (pass > 0) return titleCaseName(working)
       return titleCaseName(rest)
-    return titleCaseName(cleaned)
+    }
+    if (!repeated) break
   }
 
-  return titleCaseName(cleaned)
+  return titleCaseName(working)
 }
 
 // ------------------------------------------------------------- the brand
@@ -1277,6 +1477,103 @@ if (process.argv[1]?.endsWith('productName.ts')) {
 
   // The brand IS the whole name: still never stripped to nothing.
   pdn('Jovial', 'Jovial Foods', 'Jovial')
+
+  // ---- THE BRAND STORED TWICE, r38. Real rows; OFF concatenated fields that
+  // already carried the brand. A single pass left the second copy in the h1.
+  pdn("Reese'S, Reese'S, Peanut Butter Cups", "Reese's", 'Peanut Butter Cups')
+  pdn('York, York, Peppermint Patties', 'York', 'Peppermint Patties')
+  pdn('Polar, Polar, Seltzer', 'Polar', 'Seltzer')
+  // Three copies: the three-pass bound is enough for anything in the corpus.
+  pdn('Hostess, Hostess, Hostess, Cupcakes', 'Hostess', 'Cupcakes')
+
+  // THE COMMA IS WHAT MAKES REPEATING SAFE. A space boundary means the brand
+  // is part of a phrase, so the pass stops -- otherwise this becomes
+  // "Bear Cookies", which names a different product.
+  pdn('Polar, Polar Bear Cookies', 'Polar', 'Polar Bear Cookies')
+
+  // ---- A dbaName EQUAL TO THE WHOLE PRODUCT NAME, r38. Real rows and real
+  // dbaNames. Squashing crosses the comma, so the long alias consumes
+  // everything; a shorter candidate must still get its turn.
+  pdn("Reese'S, Peanut Butter Cups", "Reese's", 'Peanut Butter Cups',
+      ["Reese's Peanut Butter Cups", "Reese's pieces"])
+  pdn('York, Peppermint Patties', 'York', 'Peppermint Patties', ['York Peppermint Patties'])
+  pdn('Polar, Seltzer', 'Polar', 'Seltzer', ['Polar Seltzer'])
+  pdn('Hostess, Cupcakes', 'Hostess', 'Cupcakes', ['Hostess CupCakes', 'Hostess Twinkies'])
+  pdn('Gatorade, Water', 'Gatorade', 'Water', ['Gatorade water', 'Gatorade Zero'])
+  pdn("J. Lee's, Gourmet Bbq Sauce", "J Lee's", 'Gourmet Bbq Sauce', ["J. Lee's Gourmet BBQ Sauce"])
+  pdn('Lesley Stowe, Raincoast Crisps', 'Lesley Stowe', 'Raincoast Crisps',
+      ['Lesley Stowe Raincoast Crisps'])
+
+  // THE GUARD THAT KEEPS THAT FIX NARROW. Here the tail is NOT empty -- it
+  // holds " Company, Inc." -- so the full name is kept, as it always was.
+  // Without the tail-has-no-alphanumerics test, the one-word candidate
+  // `smith` would get its turn and title this product ", Inc".
+  pdn('Smith Company, Inc.', 'Smith Company', 'Smith Company, Inc')
+
+  // ---- THE SQUASH FALLBACK, r38. Every case below is a real row from
+  // probe-company-leak.ts, where the company's own name was the title.
+  pdn('Dsd Merchandisers, Yogurt Almonds', 'D.S.D. Merchandisers Inc.', 'Yogurt Almonds')
+  pdn('Tgi Fridays, Whiskey Cake', 'T.G.I. Fridays', 'Whiskey Cake')
+  pdn('Choco Maker, Belgian Chocolate Large Dessert Cups', 'Chocomaker',
+      'Belgian Chocolate Large Dessert Cups')
+  pdn('Bassetts, Ice Cream, Peanut Butter Swirl', "Bassett's", 'Ice Cream, Peanut Butter Swirl')
+  pdn("Albertson's, Greek Frozen Yogurt, Black Raspberry", 'Albertsons',
+      'Greek Frozen Yogurt, Black Raspberry')
+  pdn("Manini's, Lasagna", 'Maninis', 'Lasagna')
+  pdn('Psst, Chicken Strips', 'Psst...', 'Chicken Strips')
+  pdn('Zemas Madhouse Foods, Brownie Bites, Black Bean', "Zema's Madhouse Foods Inc.",
+      'Brownie Bites, Black Bean')
+  pdn("Yancey's Fancy, Pasteurized Process Aged Cheddar Cheese", 'Yanceys Fancy Inc.',
+      'Pasteurized Process Aged Cheddar Cheese')
+  pdn('Salti Sweet Ice Cream Factory, Vanilla', 'Saltisweet Ice Cream Factory Llc', 'Vanilla')
+  pdn('George J Howe Company, Chocolate Nonpareils', 'George J. Howe Company',
+      'Chocolate Nonpareils')
+  pdn("Sisters Gourmet, Cookie Mix, Oatmeal Chocolate Chip", "Sisters' Gourmet",
+      'Cookie Mix, Oatmeal Chocolate Chip')
+
+  // ---- WHAT THE SQUASH FALLBACK MUST NOT DO.
+  //
+  // REAL SHELF BRANDS that merely resemble their parent company. Every one of
+  // these is a row isSpellingOfLegalName called a misspelling, and stripping
+  // any of them would delete the brand the shelf-brand finding exists to show.
+  pdn("Ella's Oven, Butter Cookies", 'Ellison Bakery Inc.', "Ella's Oven, Butter Cookies")
+  pdn('Pop Weaver, Microwave Popcorn', 'Weaver Popcorn Company Inc.',
+      'Pop Weaver, Microwave Popcorn')
+  pdn('Market Pantry, Fruit Punch', 'Target Brands Inc.', 'Market Pantry, Fruit Punch')
+  pdn('Just Desserts, Chocolate Cake', 'New Desserts Inc.', 'Just Desserts, Chocolate Cake')
+  pdn('Aloe Gloe, Original', 'L.A. Aloe', 'Aloe Gloe, Original')
+  // READY SNAX IS NOT A REGRESSION, AND THIS CASE RECORDS WHY.
+  //
+  // The expectation here was written as "Ready Snax, Apples & Cheese" from the
+  // phrase printed in probe-company-leak.ts, and it failed. Running the
+  // COMMITTED version of this file on the same input returns the same thing
+  // the new one does, so the squash fallback is not the cause:
+  //
+  //   OLD  "Ready Snax, Apples & Cheese" @ "Ready Pac Foods" -> "Snax, ..."
+  //
+  // The cause is the one-word candidate `ready` from `Ready Pac Foods`
+  // matching LITERALLY, which it has always done. A short leading word that is
+  // also an ordinary English adjective is its own bug class and is logged
+  // separately -- it wants a floor on one-word candidates, not a squash
+  // change. Kept as a regression guard so a future fix has a case to flip.
+  //
+  // THE LESSON: the probe prints the dropped PHRASE and a DISPLAYED example,
+  // never the raw stored name, so a test input cannot be reconstructed from
+  // its log. Every other case in this block is a real stored row.
+  pdn('Ready Snax, Apples & Cheese', 'Ready Pac Foods', 'Snax, Apples & Cheese')
+
+  // The three boundary traps, still alive through the squash path.
+  // Trap 2: the possessive means the brand word was longer than the match.
+  pdn("Campbell's Chicken Broth", 'Campbell Soup Supply Co.', "Campbell's Chicken Broth")
+  // Trap 3: a conjunction joins the two halves of a compound product name.
+  pdn('Rise & Shine Bars', 'Rise', 'Rise & Shine Bars')
+  // Trap 1: no boundary at all. Squashing must not turn this into "tto Rice".
+  pdn('Risotto Rice', 'Rise', 'Risotto Rice')
+  // A three-letter squash is a coincidence, not a brand.
+  pdn('In Season Fruit Cup', 'INS', 'In Season Fruit Cup')
+  // A longer candidate failing the squash must not stop a shorter literal one
+  // from working: "Nature's Path Foods" misses, "Nature's Path" strips.
+  pdn("Nature's Path Organic Flakes", "Nature's Path Foods", 'Organic Flakes')
 
   console.log(badBrand === 0 && badPB === 0 && badPDN === 0
     ? 'productBrand: all cases pass'
