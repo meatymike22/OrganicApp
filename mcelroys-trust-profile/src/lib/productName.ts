@@ -219,6 +219,42 @@ function recase(token: string, forced: boolean, shouting: boolean): string {
   const core = edge ? edge[1] : token
   const trailing = edge ? edge[2] : ''
 
+  // A HYPHENATED WORD IS SEVERAL WORDS, AND EACH GETS CASED.
+  //
+  // Michael, 2026-11-08, after being asked four times: "lets go with your
+  // recommendation". The defect, visible on live pages:
+  //
+  //   CHERRY, GRAPE, LEMON-LIME, MIXED BERRY -> ... LEMON-LIME ...
+  //   caffeine-free Soda                     (lower-case leading word)
+  //
+  // The pure-letters guard below exists to protect case that MEANS
+  // something -- "M &M'S", "55g", "1%", "iPhone", "A1/A2". A hyphen means
+  // none of that; it is a word boundary.
+  //
+  // EVERY SEGMENT MUST BE PURE LETTERS, which is what keeps this narrow.
+  // "A1/A2" has a slash, not a hyphen, and is untouched. "M&M'S" fails on
+  // the ampersand whether or not it is split. Only an ASCII hyphen counts:
+  // an en or em dash in a product name is punctuation between phrases, not
+  // inside a word, and splitting on it would recase across a real break.
+  //
+  // THE FIRST SEGMENT INHERITS `forced`, the rest do not. That is what makes
+  // "Cream-of-Wheat" keep its lower-case "of" while still capitalising a
+  // stopword that genuinely opens the name.
+  //
+  // Each segment then goes through recaseWord unchanged, so every existing
+  // protection still applies per segment: "Co-Jack" keeps both halves
+  // (mixed case is deliberate), and "non-GMO" becomes "Non-GMO" because a
+  // short all-caps token is read as an acronym.
+  if (core.includes('-')) {
+    const parts = core.split('-')
+    if (parts.length >= 2 && parts.every((x) => /^[A-Za-z]+$/.test(x))) {
+      const joined = parts
+        .map((x, i) => recaseWord(x, forced && i === 0, shouting))
+        .join('-')
+      return joined === core ? token : joined + trailing
+    }
+  }
+
   // Not pure letters: a digit, a symbol, an apostrophe, an ampersand. Leave
   // it exactly as the source wrote it. An empty core — a token that was
   // nothing but punctuation — lands here too.
@@ -300,7 +336,33 @@ if (process.argv[1]?.endsWith('productName.ts')) {
     'STRAWBERRY, RED RASPBERRY, BLACKBERRY, BLACK RASPBERRY, WHITE GRAPE, CHERRY BERRY FLAVORED WILD BERRIES GUMMIES',
     'Strawberry, Red Raspberry, Blackberry, Black Raspberry, White Grape, Cherry Berry Flavored Wild Berries Gummies'
   )
-  eq('CHERRY, GRAPE, LEMON-LIME, MIXED BERRY', 'Cherry, Grape, LEMON-LIME, Mixed Berry')
+  // HYPHENATED WORDS, added 2026-11-08. This expectation previously pinned
+  // the OPPOSITE -- "LEMON-LIME" shouting through an otherwise cased name --
+  // which was the defect Michael reported and was asked about four times.
+  eq('CHERRY, GRAPE, LEMON-LIME, MIXED BERRY', 'Cherry, Grape, Lemon-Lime, Mixed Berry')
+  eq('caffeine-free soda', 'Caffeine-Free Soda')
+  eq('Hy-vee premium potato chips', 'Hy-Vee Premium Potato Chips')
+  eq('X-RAY', 'X-Ray')
+  eq('self-rising flour', 'Self-Rising Flour')
+  // A STOPWORD INSIDE A HYPHENATED WORD STAYS LOWER, because only the first
+  // segment inherits the forced-capital that the first word of a name gets.
+  eq('CREAM-OF-WHEAT ORIGINAL', 'Cream-of-Wheat Original')
+  eq('ready-to-eat', 'Ready-to-Eat')
+  // EVERY SEGMENT MUST BE PURE LETTERS. These are the cases the guard
+  // protects, and each one would be damaged by a looser split.
+  eq('A2/A2 100% Grass-fed Milk', 'A2/A2 100% Grass-Fed Milk')   // slash untouched
+  eq("M &M'S Peanut Butter", "M &M'S Peanut Butter")             // ampersand, apostrophe
+  eq('Snickers Creamy Peanut Butter 55g', 'Snickers Creamy Peanut Butter 55g')
+  // Mixed case is a deliberate spelling on BOTH sides of the hyphen.
+  eq('Co-Jack Cheese', 'Co-Jack Cheese')
+  // The acronym guard still applies per segment when the name is not shouted.
+  eq('non-GMO soda', 'Non-GMO Soda')
+  // ONLY AN ASCII HYPHEN. An en dash separates phrases, not word parts, and
+  // splitting on it would recase across a real break.
+  eq('LEMON\u2013LIME', 'LEMON\u2013LIME')
+  // An empty segment means the hyphen is edge punctuation, not a joiner.
+  eq('well-', 'well-')
+  eq('-lime', '-lime')
   eq('MILK, 2%', 'Milk, 2%')
   eq('CHICKEN; BEEF: PORK.', 'Chicken; Beef: Pork.')
   // A stopword with a comma is still a stopword, and still not lowered when
@@ -477,6 +539,62 @@ export function trimRedundantTail(name: string): string {
   return out
 }
 
+// A LEGAL-ENTITY SUFFIX LEFT BEHIND BY THE BRAND STRIP IS NOT A TITLE.
+//
+// Found 2026-11-07 while censusing dropped title fields. Two live pages:
+//
+//   Lehi Valley Trading Company Inc.
+//     stored   "Lehi Valley Trading Co, Roasted & Salted Pepitas"
+//     showed   "Co, Roasted & Salted Pepitas"
+//   Dawn Food Products Inc.
+//     stored   "Dawn Food Products, Inc., Brownie Platter"
+//     showed   "Inc., Brownie Platter"
+//
+// WHY IT HAPPENS. brandCandidates offers every word-prefix of the legal name,
+// longest first. The product name abbreviates the corporate word -- "Co" for
+// "Company" -- so the longest prefix fails to match, the next one down
+// succeeds, and the abbreviation is stranded at the front of what is left.
+// Measured at up to 721 products carrying a corporate abbreviation
+// immediately before a comma.
+//
+// THIS LIST IS DELIBERATELY NARROWER THAN CORPORATE_WORDS, which also holds
+// `the`, `of`, `and`, `foods`, `farms`, `brands`, `north`, `america`.
+// Every one of those can legitimately begin a product name -- "Farms Fresh
+// Eggs", "The Original Sauce" -- and stripping them would delete real
+// titles. Only words that are purely legal form belong here. `sa`, `ag`,
+// `nv`, `bv` and `us` are left out too: two letters is a coincidence
+// waiting to happen.
+//
+// THE COMMA IS REQUIRED, and it is what makes this safe. "Co" alone is
+// ambiguous; "Co," at the head of a name that has just had its brand removed
+// is not. "Cocoa, Dark" is untouched, because the lookahead needs a comma
+// immediately after the suffix and finds `coa` instead.
+const ENTITY_SUFFIX_ALTERNATION =
+  'incorporated|corporation|holdings|company|limited|corp|inc|llc|llp|ltd|gmbh|plc|co'
+const ORPHAN_ENTITY_SUFFIX = new RegExp(
+  `^(?:${ENTITY_SUFFIX_ALTERNATION})\\.?(?=\\s*,)`,
+  'i'
+)
+// The whole remainder is a legal suffix and nothing else, so there is no
+// title in it at all. "Inc" clears the three-character floor, which is why
+// the floor alone does not catch this.
+const ONLY_ENTITY_SUFFIX = new RegExp(
+  `^(?:${ENTITY_SUFFIX_ALTERNATION})\\.?$`,
+  'i'
+)
+
+// Loops because a name can strand more than one: "... Co., Inc., Brownie".
+// Three passes is well past anything observed and still terminates.
+function dropOrphanEntitySuffix(rest: string): string {
+  let out = rest
+  for (let i = 0; i < 3; i++) {
+    const m = out.match(ORPHAN_ENTITY_SUFFIX)
+    if (m === null) break
+    out = displayName(out.slice(m[0].length))
+  }
+  return out
+}
+
 export function productDisplayName(
   rawName: string,
   companyName: string | null | undefined,
@@ -494,12 +612,17 @@ export function productDisplayName(
 
   for (const brand of candidates) {
     if (!startsWithBrand(cleaned, brand)) continue
-    const rest = displayName(cleaned.slice(brand.length))
+    const rest = dropOrphanEntitySuffix(displayName(cleaned.slice(brand.length)))
     // Never strip the brand if the brand IS the whole name, and never leave
     // behind a fragment too short to identify anything. "Jovial" under
     // Jovial Foods stays "Jovial"; a row with no name is worse than a
     // repeated one.
-    if (rest.length >= 3 && /[a-z0-9]/i.test(rest)) return titleCaseName(rest)
+    //
+    // ONLY_ENTITY_SUFFIX is checked separately because "Inc" is three
+    // characters and passes the floor, so the floor alone let it through as
+    // a title.
+    if (rest.length >= 3 && /[a-z0-9]/i.test(rest) && !ONLY_ENTITY_SUFFIX.test(rest))
+      return titleCaseName(rest)
     return titleCaseName(cleaned)
   }
 
@@ -1107,7 +1230,55 @@ if (process.argv[1]?.endsWith('productName.ts')) {
   pb('CROPP Cooperative', [], 'Organic Valley')
   pb('cropp cooperative', ['anything'], 'Organic Valley')
   pb('Nurture LLC', [], 'Happy Baby')
-  console.log(badBrand === 0 && badPB === 0
+  // ---- productDisplayName ----
+  //
+  // THIS FUNCTION HAD NO SELFTESTS until 2026-11-07, despite being what the
+  // product <h1>, the search rows, the breadcrumb and the page <title> are
+  // all built from. The orphan-suffix defect below lived on live pages
+  // because nothing here would have caught it.
+  let badPDN = 0
+  const pdn = (name: string, legal: string, want: string, dbas: string[] = []) => {
+    const got = productDisplayName(name, legal, dbas)
+    const ok = got === want
+    if (!ok) badPDN++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} display ${JSON.stringify(name)} @ ${JSON.stringify(legal)} -> ${JSON.stringify(got)}${ok ? '' : ` want ${JSON.stringify(want)}`}`)
+  }
+
+  // THE TWO REAL DEFECTS, both observed on live pages 2026-11-07.
+  pdn('Lehi Valley Trading Co, Roasted & Salted Pepitas',
+      'Lehi Valley Trading Company Inc.',
+      'Roasted & Salted Pepitas')
+  pdn('Dawn Food Products, Inc., Brownie Platter',
+      'Dawn Food Products Inc.',
+      'Brownie Platter')
+
+  // The ordinary strip, unchanged by the fix.
+  pdn('Borden, singles american cheese slices', 'Borden',
+      'Singles American Cheese Slices')
+  pdn('Cadia, organic tomato paste', 'Cadia', 'Organic Tomato Paste')
+
+  // NEAR MISSES THE FIX MUST NOT TOUCH. Each begins with letters that start
+  // a legal-entity suffix, and each is a real word that belongs in a title.
+  pdn('Cocoa, Dark', 'Someone Else', 'Cocoa, Dark')
+  pdn('Cookies, Vanilla', 'Someone Else', 'Cookies, Vanilla')
+  pdn('Colada, Pina', 'Someone Else', 'Colada, Pina')
+  pdn('Incredible, Bars', 'Someone Else', 'Incredible, Bars')
+  // No comma after the suffix, so nothing is stranded and nothing is cut.
+  pdn('Co Jack Cheese', 'Someone Else', 'Co Jack Cheese')
+
+  // THE WHOLE REMAINDER IS A LEGAL SUFFIX, so there is no title in it. The
+  // three-character floor passes "Inc" on its own, which is why this needs
+  // its own guard; the name falls back to the full stored string.
+  // The trailing period is gone because displayName strips TRAILING edge
+  // punctuation, which is pre-existing and deliberate -- not the fix. This
+  // expectation was written as "Inc." first and the selftest caught it,
+  // which is the whole argument for having added these.
+  pdn('Smith Company, Inc.', 'Smith Company', 'Smith Company, Inc')
+
+  // The brand IS the whole name: still never stripped to nothing.
+  pdn('Jovial', 'Jovial Foods', 'Jovial')
+
+  console.log(badBrand === 0 && badPB === 0 && badPDN === 0
     ? 'productBrand: all cases pass'
-    : `productBrand: ${badBrand + badPB} FAILURES`)
+    : `productBrand: ${badBrand + badPB + badPDN} FAILURES`)
 }
