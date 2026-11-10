@@ -57,7 +57,7 @@ async function main() {
   try {
     type Row = { id: string; name: string; legalName: string | null; dbaNames: string[] | null }
     // phrase -> class, company, product count, examples
-    const phrases = new Map<string, { k: Klass; company: string; products: number; examples: string[] }>()
+    const phrases = new Map<string, { k: Klass; company: string; companies: Set<string>; products: number; examples: string[] }>()
     let scanned = 0
     let withDropped = 0
     let cursor = ''
@@ -91,10 +91,11 @@ async function main() {
         }
         let e = phrases.get(ns.dropped)
         if (e === undefined) {
-          e = { k, company: legal ?? '(none)', products: 0, examples: [] }
+          e = { k, company: legal ?? '(none)', companies: new Set<string>(), products: 0, examples: [] }
           phrases.set(ns.dropped, e)
         }
         e.products++
+        e.companies.add(legal ?? '(none)')
         if (e.examples.length < 2) e.examples.push(displayed)
       }
       scanned += rows.length
@@ -155,6 +156,32 @@ async function main() {
         log(`  ${String(v.products).padStart(4)}  ${JSON.stringify(phrase).padEnd(42)} <- ${v.company}`)
         if (k !== 'not_company') for (const e of v.examples) log(`        e.g. ${e}`)
       }
+    }
+
+    // ---- DOES THE PHRASE KEY COLLIDE?
+    //
+    // DroppedPhraseVerdict is keyed on `phrase` alone and holds ONE verdict
+    // per phrase. That is right for `Lindor`, which belongs to Lindt and to
+    // nobody else. It is a problem for a generic word several companies use:
+    // the classifier is shown the phrase with ONE company and three of ITS
+    // product names, and the verdict it returns is then applied to every
+    // company that shares the phrase.
+    //
+    // This assumption was built into the schema before it was measured, which
+    // is the wrong order. Measuring it now.
+    const shared = [...phrases.entries()].filter(([, v]) => v.companies.size > 1)
+    const sharedProducts = shared.reduce((n, [, v]) => n + v.products, 0)
+    log('')
+    log('===== THE PHRASE KEY: HOW OFTEN DOES ONE PHRASE SPAN COMPANIES? =====')
+    log(`  phrases used by more than one company: ${shared.length.toLocaleString()} of ${phrases.size.toLocaleString()} (${((shared.length / phrases.size) * 100).toFixed(1)}%)`)
+    log(`  products they cover:                   ${sharedProducts.toLocaleString()}`)
+    log('')
+    log('  DroppedPhraseVerdict stores ONE verdict per phrase. Every row below')
+    log('  gets a single verdict decided from ONE of these companies.')
+    log('')
+    for (const [phrase, v] of shared.sort((a, b) => b[1].companies.size - a[1].companies.size).slice(0, 40)) {
+      log(`  ${String(v.companies.size).padStart(3)} companies, ${String(v.products).padStart(4)} products  ${JSON.stringify(phrase)}`)
+      log(`        ${[...v.companies].slice(0, 6).join(' | ')}${v.companies.size > 6 ? ' | ...' : ''}`)
     }
 
     log('')
