@@ -147,6 +147,81 @@ const GLOSSARY: {
     notMeans:
       'That the ingredients are all safe, or that we have researched them. It is a statement about what kind of ingredients they are.',
   },
+  // --- THE GLUTEN-FREE ROW ---
+  //
+  // Michael, 2026-11-10: "dont forget to update the 'what each answer means'
+  // link with the appropriate reasoning for each gluten free state." And:
+  // "For context, I am gluten insensitive so I care about this section a
+  // lot."
+  //
+  // This row has more answers than any other, and that is deliberate: it is
+  // the one row on the page where a reader can be physically harmed by
+  // over-reading an answer, so each shade of certainty gets its own word
+  // rather than being rounded to yes or no. The "does not mean" lines here
+  // are the load-bearing half.
+  {
+    question: 'Gluten-free',
+    answer: 'Certified',
+    state: 'confirmed',
+    means:
+      'The package carries a gluten-free certification mark, so a certifying body audited the product rather than the maker simply asserting it. GFCO, the common US mark, certifies at 10 parts per million against an audited standard — stricter than the federal limit of 20.',
+    notMeans:
+      'That we hold the certificate. We record the mark as it was transcribed from the package, and a mark can be out of date on packaging still in a warehouse. The certifier’s own directory is the authority.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'Claimed',
+    state: 'confirmed',
+    means:
+      'The package claims gluten free and names no certifying body. This is not marketing: in the United States the claim is regulated by 21 CFR 101.91, which requires under 20 parts per million and deems a food bearing the claim that fails it misbranded. The same rule covers “no gluten”, “free of gluten” and “without gluten”.',
+    notMeans:
+      'That anyone tested it. No certification or registration is required to make the claim — the rule is enforced after the fact, if at all. It is the maker’s statement, backed by a legal threshold.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'Claimed, shared line',
+    state: 'confirmed',
+    means:
+      'The package claims gluten free — or carries a certification mark, which reads "Certified, shared line" — and the same package also warns that the product is made on equipment that handles gluten. Both are the label speaking, and no gluten grain appears in the ingredient list. The claim is the regulated one and a voluntary cross-contact warning does not cancel it, so the product is still held to under 20 parts per million.',
+    notMeans:
+      'That the warning is boilerplate you can ignore. It is on the row and in the ingredients tab because how much it matters depends on how sensitive you are, and that is not ours to decide. This answer is green because of the CLAIM, not because the ingredient list has no gluten grain in it — on its own, an absent grain is never enough.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'Label conflicts',
+    state: 'openResearch',
+    means:
+      'The package claims gluten free and its own ingredient list names a gluten grain — wheat, barley, rye or malt. Those cannot both be right.',
+    notMeans:
+      'That the maker is lying. A transcription error, a recipe change, or a reformulated product under an old label would all look like this. We show the conflict rather than picking a side.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'Contains gluten',
+    state: 'nothingOnFile',
+    means:
+      'A gluten grain appears in the ingredient list — wheat, barley, rye, spelt, semolina, malt and the rest. This is our reading of the declaration the maker published.',
+    notMeans:
+      'That anything is wrong with the product. Bread containing gluten is not a defect, it is bread, which is why this answer is grey rather than red. It also is not a measurement: it is what the list names.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'May contain',
+    state: 'openResearch',
+    means:
+      'One of two things. Either the label carries a cross-contact warning for gluten — made on equipment that also handles it — or the allergen data recorded for the label names gluten while no gluten grain appears in the ingredient list. The second case is usually oats, which are not a gluten grain but are commonly handled alongside them.',
+    notMeans:
+      'That gluten is in the food. In the first case the maker is warning about traces; in the second our two sources disagree and we show that rather than resolving it.',
+  },
+  {
+    question: 'Gluten-free',
+    answer: 'Not declared',
+    state: 'nothingOnFile',
+    means:
+      'The label makes no gluten-free claim, and where we hold an ingredient list, no gluten grain appears in it.',
+    notMeans:
+      'Gluten free. This is the answer most likely to be over-read, and the gap is cross-contact: an ingredient list cannot see it. A product with no gluten ingredient, made on shared equipment, can still exceed the 20 parts per million the claim requires — which is the whole reason certification exists and the reason the federal rule is written in parts per million rather than in ingredients. We will not turn a missing claim into a claim.',
+  },
   {
     question: 'Any question',
     answer: 'Not checked',
@@ -361,8 +436,10 @@ export default function SourcingPage() {
           What each answer means
         </h2>
         <p style={{ margin: '10px 0 0', fontSize: 14, lineHeight: 1.65, color: colors.ink2, maxWidth: '62ch' }}>
-          Every product page opens with a table of the same six questions. These are the answers it
-          can give, and exactly how much each one claims.
+          Every product page opens with a table of the same seven questions. These are the answers it
+          can give, and exactly how much each one claims. The gluten-free row has the most, on
+          purpose: it is the one row where over-reading an answer can make somebody ill, so each
+          shade of certainty keeps its own word instead of being rounded to yes or no.
         </p>
 
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>

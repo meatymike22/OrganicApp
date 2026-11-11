@@ -8,8 +8,9 @@ import { additive, colors, font, isoDate, layout, status } from '@/lib/design'
 import { AdditiveMark } from '@/components/AdditiveMark'
 import { baseDyeOf, categoryHelp, familiesPresent, familyFor, familyHelp } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
-import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
+import { flaggedSignal, glutenSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { canAssertAbsence, hasAnyIngredientList, PARTIAL_LIST_NOTE } from '@/lib/ingredientDisclosure'
+import { extractLabelStatements } from '@/lib/ingredientParsing'
 import {
   companyDisplayName,
   headingWithBrand,
@@ -72,6 +73,17 @@ const PRODUCT_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
+  // REQUIRED BY glutenSignal, and nothing type-checks that. `forSignals` below
+  // is `product as unknown as ProductForSignals`, a double cast, so a field
+  // added to that type and forgotten here compiles cleanly and throws at
+  // runtime. Added 2026-11-10 with the gluten row.
+  labelClaims: true,
+  labelClaimsCheckedAt: true,
+  labelAllergens: true,
+  labelAllergenTraces: true,
+  // The label text itself, so the ingredients tab can show the two
+  // statements that are not ingredients. See LabelStatements below.
+  ingredientsTextRaw: true,
   ingredientSourceUrl: true,
   importSource: true,
   productIngredients: {
@@ -327,6 +339,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const organic = organicSignal(forSignals)
   const nonGmo = nonGmoSignal(forSignals)
   const owner = ownerSignal(forSignals)
+  const gluten = glutenSignal(forSignals)
   const count = ingredientCount(forSignals)
 
   // Ingredients in the order they appear on the label. Label order is itself
@@ -739,6 +752,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   signal: nonGmo,
                   href: `/products/${product.id}/sources`,
                   help: 'Does the product have genetically modified ingredients?',
+                },
+                {
+                  // Michael, 2026-11-10: "there is not a section on the product
+                  // page that says whether a product is gluten free."
+                  //
+                  // PLACED WITH THE OTHER TWO CLAIM ROWS rather than higher up.
+                  // /sourcing states the ordering rule -- "the order says what
+                  // is most worth reading about first" -- and a label claim sits
+                  // with the other label claims, below recalls and open
+                  // research. Arguable: for a coeliac shopper this is the most
+                  // important row on the page, and if it should lead the claim
+                  // cluster that is a one-line move.
+                  //
+                  // "Gluten-free" is the question, and the colours answer it:
+                  // Michael, 2026-11-10 — "Green in this case means certified
+                  // or congruent with the positive of the column (in this
+                  // case, is it gluten free? Yes = green, maybe = amber,
+                  // no - gray)."
+                  //
+                  // So this row's colours track the ANSWER rather than the
+                  // state of the record, which is a deliberate break from the
+                  // other five. It is the one row a reader will take colour as
+                  // safety from whether or not we intend it, and the states
+                  // are named so the words never overstate the colour.
+                  question: 'Gluten-free',
+                  signal: gluten,
+                  help: 'Is this product gluten free, according to its own label?',
                 },
                 {
                   // Michael, 2026-10-20 (VZybn428zXsG): "shouldnt this say 'The
@@ -1809,7 +1849,12 @@ function Ingredients({
   research,
 }: {
   ingredients: IngredientRows
-  product: { id: string; ingredientSource: string | null; ingredientDisclosureStatus: string }
+  product: {
+    id: string
+    ingredientSource: string | null
+    ingredientDisclosureStatus: string
+    ingredientsTextRaw: string | null
+  }
   hasOrder: boolean
   signal: Signal
   // The querystring that tells the ingredient page how to get back here.
@@ -1871,6 +1916,7 @@ function Ingredients({
                 />
               ))}
             </div>
+            <LabelStatements raw={product.ingredientsTextRaw} />
             <SourceNote productId={product.id} what="This ingredient list" />
           </>
         )}
@@ -2003,6 +2049,98 @@ function filterHref(category: string): string {
 // (features item 34). An uncoloured row means "no category on file", which
 // is a fact about OUR records, not about the food. The one line under the
 // swatches says exactly that, and it is the only sentence in this block.
+// THE LABEL'S OTHER TWO STATEMENTS, which are not ingredients and are no
+// longer stored as if they were.
+//
+// Michael, 2026-11-10, on 'Dark chocolate coconut almond bites': "it says
+// 'Gluten/wheat' is an ingredient but I never see this on the ingredient
+// list. It looks like this is a ingredient list issue where the cross
+// contamination information made it into the ingredient list, which it
+// shouldnt. In fact the cross contamination information should be its own
+// subsection in the ingredients tab."
+//
+// Both halves of that are implemented: extractLabelStatements() in
+// ingredientParsing.ts stops the text becoming ingredient rows, and this
+// renders it where he asked for it.
+//
+// THE TWO STATEMENTS ARE KEPT APART BECAUSE THEY MEAN OPPOSITE THINGS.
+// "Contains: milk" says the milk is IN the food — a FALCPA requirement,
+// restating the ingredient list. "Produced on equipment that processes
+// gluten" says the gluten is NOT in the food, and might be there anyway.
+// Printed as one list, as Open Food Facts' allergen field does, the
+// distinction is lost — which is exactly how 47 products ended up reading as
+// self-contradicting labels. A reader deciding what to eat needs to know
+// which of the two they are looking at.
+//
+// Derived from the stored text at render time rather than from columns of its
+// own. One regex pass over one string, and it cannot drift from the parser,
+// because it IS the parser.
+function LabelStatements({ raw }: { raw: string | null }) {
+  if (raw === null) return null
+  const { contains, crossContact } = extractLabelStatements(raw)
+  if (contains === null && crossContact === null) return null
+
+  return (
+    <div style={{ marginTop: 15, display: 'grid', gap: 10 }}>
+      {contains !== null && (
+        <LabelStatement
+          title="Contains, per the label"
+          help={
+            "The maker's own allergen statement. US law requires it to name the major allergens the food contains, so it restates substances that are already in the ingredient list above rather than adding new ones."
+          }
+          text={contains}
+          accent={colors.lineStrong}
+        />
+      )}
+      {crossContact !== null && (
+        <LabelStatement
+          title="Made on shared equipment"
+          help={
+            'A voluntary precautionary statement. These are NOT ingredients: the maker is warning that the product is made somewhere that also handles them, so traces may be present. It is the one allergen fact that cannot be read off an ingredient list, which is why it is shown separately rather than merged into one.'
+          }
+          text={crossContact}
+          accent={status.openResearch.fg}
+        />
+      )}
+    </div>
+  )
+}
+
+function LabelStatement({
+  title,
+  help,
+  text,
+  accent,
+}: {
+  title: string
+  help: string
+  text: string
+  accent: string
+}) {
+  return (
+    <div style={{ borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: 0.35,
+          textTransform: 'uppercase',
+          color: colors.ink3,
+        }}
+      >
+        {title}
+        <InfoDot text={help} />
+      </div>
+      {/* VERBATIM. This is the package's own sentence, and paraphrasing it
+          would make it ours. */}
+      <div style={{ marginTop: 3, fontSize: 13, lineHeight: 1.45, color: colors.ink2 }}>{text}</div>
+    </div>
+  )
+}
+
 function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
   const families = familiesPresent(ingredients.map((pi) => pi.ingredient.category))
   if (families.length === 0) return null
