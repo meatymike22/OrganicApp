@@ -29,6 +29,18 @@ const TRACE_SECTION_PATTERNS: { pattern: RegExp; note: (m: RegExpMatchArray) => 
   { pattern: /(?:contains\s+)?(\d+(?:\.\d+)?)\s*(?:%|percent)\s+or\s+less\s+of/i, note: (m) => `${m[1]}% or less` },
   { pattern: /(?:contains\s+)?(one|two|three)\s+percent\s+or\s+less\s+of(?:\s+the\s+following)?/i, note: (m) => `${{ one: 1, two: 2, three: 3 }[m[1].toLowerCase() as 'one' | 'two' | 'three']}% or less` },
   { pattern: /(?:contains\s+)?(?:less\s+than|not\s+more\s+than|no\s+more\s+than)\s+(\d+(?:\.\d+)?)\s*(?:%|percent)\s+of/i, note: (m) => `less than ${m[1]}%` },
+  // WIDENED 2026-11-10 from the dry run over 7,467 declarations. The three
+  // patterns above all require the literal word "of" after the percentage,
+  // so every colon form, symbol form, fraction and typo fell through and
+  // those ingredients were never marked as minor components:
+  //   "contains less than 2%: corn starch"      colon instead of "of"
+  //   "contains less than 2% turmeric"           neither
+  //   "contains <2% of:"                         symbol
+  //   "contains less than ½% of"                 fraction
+  //   "contains 2%or less of"                    no space
+  //   "contains les than 2% of:"                 typo
+  { pattern: /(?:contains\s+)?(?:les{1,2}\s+than|under|<\s*)\s*(\d+(?:\.\d+)?|[\u00bd\u00bc\u215b])\s*(?:%|percent)/i, note: (m) => `less than ${m[1]}%` },
+  { pattern: /(?:contains\s+)?(\d+(?:\.\d+)?)\s*(?:%|percent)\s*or\s+less/i, note: (m) => `${m[1]}% or less` },
   { pattern: /\btrace\s+amounts?\s+of/i, note: () => 'trace' },
   { pattern: /\bcontains\s+trace\s+of/i, note: () => 'trace' },
 ]
@@ -103,6 +115,11 @@ export type ParseOptions = {
   // from a single substance with "and" in its name.) 10,371 such combined
   // rows were found in the 2026-09-28 review.
   isKnownIngredient?: (normalizedName: string) => boolean
+  // When true the input is taken to be an ingredient declaration ALREADY
+  // separated from the label's allergen statements, so extractLabelStatements
+  // is not run over it again. Used to parse a STATEMENT on its own, which
+  // would otherwise strip itself to nothing.
+  skipLabelStatements?: boolean
 }
 
 // Splits one label item that names several ingredients into its parts.
@@ -314,8 +331,200 @@ function prepareDeclaration(raw: string): string {
     .trim()
 }
 
+// ------------------------------------------------- allergen statements
+// A US label's ingredient declaration is commonly followed by up to two more
+// statements, and NEITHER of them lists ingredients:
+//
+//   "...sunflower lecithin. Contains: tree nuts (almonds), milk.
+//    Produced on equipment that processes peanuts, tree nuts, soy, egg,
+//    gluten/wheat."
+//
+// The first is the FALCPA "Contains" statement: major allergens that ARE in
+// the food, restating substances already named in the list. The second is a
+// voluntary precautionary statement: allergens that are NOT in the food and
+// may be present by cross-contact. The regulatory distinction matters to a
+// reader — one is an ingredient, the other is a manufacturing risk.
+//
+// Reported by Michael, 2026-11-10, on 'Dark chocolate coconut almond bites':
+// "it says 'Gluten/wheat' is an ingredient but I never see this on the
+// ingredient list ... It looks like this is a ingredient list issue where the
+// cross contamination information made it into the ingredient list, which it
+// shouldnt."
+//
+// He was right, and the cause is sequencing rather than a missing rule. TWO
+// rules for this already existed — cleanName() truncates an item at
+// "contains", and processItem() drops a "Contains:" GROUP HEADER — but both
+// run AFTER splitTopLevel() has cut the text on commas. By then the statement
+// is five separate items and only the first still carries the word
+// "Contains"; "milk", "soy", "egg" and "gluten/wheat" arrive as bare names
+// indistinguishable from ingredients. On that product they were stored as
+// ingredients, rows 14-19, isTrace false. So the cut has to happen BEFORE the
+// split, at sentence level, which is all this function does.
+//
+// THE DISCRIMINATOR IS THE SENTENCE BOUNDARY, and that is deliberate.
+// "contains" is a legitimate word mid-declaration: "contains 2% or less of"
+// opens a trace section (TRACE_SECTION_PATTERNS) and must be kept, and
+// "whey (contains milk)" is a parenthetical annotation. Requiring a statement
+// to BEGIN a sentence leaves both untouched. The same anchor is what makes
+// the cross-contact test safe on this very product, whose second ingredient
+// is "unsweetened chocolate (processed with alkali)" — a phrase that would
+// match a cross-contact pattern searched for anywhere in the text.
+//
+// A sentence that matches nothing stays in the declaration wherever it sits.
+// An earlier draft treated EVERYTHING after the first statement as tail, and
+// that would silently delete a real ingredient from a label reading
+// "Sugar, milk. Contains: milk. Cocoa processed with alkali." This file's own
+// rule applies: deleting a substance a reader needs is worse than leaving a
+// prose row for the cleanup pass.
+// THE DISCRIMINATOR IS "DOES IT NAME AN ALLERGEN FIRST", and that replaced a
+// much looser test after the 2026-11-10 dry run read its own output.
+//
+// The first version treated any sentence-initial "contains" as an allergen
+// statement. The dry run over 7,467 products showed what that actually
+// catches, and it is a whole family of legitimate mid-declaration
+// constructs — every one of which would have had its ingredients DELETED:
+//
+//   contains less than 2%: corn starch, sea salt, yellow corn flour
+//   contains less than 2% turmeric, paprika and lemon juice concentrate
+//   contains <2% of: acacia, caramel color, citric acid, glycine
+//   contains les than 2% of: natural flavor, magnesium oxide         (typo)
+//   contains less than ½% of salt, spice, xanthan gum                (fraction)
+//   contains 2%or less of each of the following: soy flour, egg      (no space)
+//   contains 25 or less of whey, coconut oil, red #40 lake           (OCR of 2%)
+//   contains up to 15% chicken broth, salt, natural flavorings
+//   contains the following live cultures: lactobacillus bulgaricus
+//
+// TRACE_SECTION_PATTERNS was supposed to exclude those and is far narrower
+// than the data: it requires the literal word "of" after the percentage, so
+// every colon form, every symbol form and every typo fell through. Widening
+// it is worth doing on its own merits — those ingredients should be marked
+// isTrace — but it can never be the whole guard, because "contains the
+// following live cultures" is not a trace marker at all.
+//
+// So the test is positive rather than negative: an allergen statement NAMES
+// AN ALLERGEN, immediately. `contains: wheat, milk, soy` does. `contains less
+// than 2%: corn starch` does not, and neither does `contains up to 15%
+// chicken broth` — chicken is not an allergen.
+//
+// IT ERRS IN THE RECOVERABLE DIRECTION. A missed statement leaves a phantom
+// ingredient row, which is the bug we already have. A false positive deletes
+// real ingredients. So an unrecognised first item means "leave it alone".
+const ALLERGEN_TERM =
+  /\b(milks?|eggs?|fish|crustacean|shellfish|shrimps?|crabs?|lobsters?|tree\s*nuts?|nuts?|almonds?|brazil\s*nuts?|cashews?|hazelnuts?|filberts?|pecans?|pistachios?|walnuts?|macadamias?|pine\s*nuts?|coconuts?|peanuts?|wheat|soya?|soybeans?|sesame|gluten|tuna|salmon|anchov(?:y|ies)|cod|haddock|tilapia|sulfites?|sulphites?|mustard|celery|lupin|mollus[ck]s?|oysters?|clams?|scallops?|squid)\b/i
+
+// What can sit between the opener and the first allergen named.
+//
+// "one or more of the following" is here because 21 CFR 101.4(b)(14) makes it
+// a MAY-CONTAIN list — `contains one or more of the following: walnuts,
+// macadamia nuts, hazelnuts, pecans` asserts that one of them is present, not
+// all four. Reading it as composition claims presence the label denies. That
+// construct was logged as unguarded in
+// claude/ingredient-parenthetical-classification.md; this is the guard.
+const STATEMENT_CONNECTIVE =
+  /^(?:\s*:\s*|\s+)*(?:(?:traces?|trace\s+amounts?)\s+of\s+|one\s+or\s+more\s+of\s+the\s+following\s*:?\s*|any\s+of\s+the\s+following\s*:?\s*|the\s+following\s*:?\s*|also\s+)*\s*/i
+
+function namesAnAllergenFirst(body: string, opener: RegExp): boolean {
+  const rest = body.replace(opener, '').replace(STATEMENT_CONNECTIVE, '')
+  // THE FIRST DELIMITED ITEM ONLY. An allergen statement leads with an
+  // allergen; a trace section leads with "corn starch" or "less than 2%".
+  const first = rest.split(/[,;:]|\band\b|\bor\b/)[0] ?? ''
+  return ALLERGEN_TERM.test(first)
+}
+
+export type LabelStatements = {
+  // The ingredient declaration alone — the only part that names ingredients.
+  declaration: string
+  // The label's own FALCPA "Contains" statement, verbatim, or null.
+  contains: string | null
+  // The voluntary precautionary / cross-contact statement, verbatim, or null.
+  crossContact: string | null
+}
+
+// Lead-ins that introduce a statement without being part of it.
+const STATEMENT_LEAD_IN =
+  /^(?:\(?\s*(?:allergen|allergy)\s+(?:information|advice|statement|warning)\s*:?\s*|this\s+(?:product|item)\s+(?:is|was|may\s+be)\s+|product\s+(?:is|was)\s+)?/i
+
+// A FACILITY PHRASE IS UNAMBIGUOUS ON ITS OWN and needs no allergen test:
+// "produced on equipment that…" is never an ingredient list. The facility
+// nouns are limited to four. "plant" and "line" are excluded on purpose:
+// \bplant\b matches "plant-based protein" and would read a declaration as a
+// cross-contact statement.
+const CROSS_CONTACT_FACILITY =
+  /^(?:produced|manufactured|made|packaged|packed|processed|prepared|bottled)\s+(?:on|in|using|with)\s(?:[^.]{0,40}?\s)?(?:equipment|machinery|facilit(?:y|ies)|premises)\b/i
+
+// "may contain" alone is NOT unambiguous, and the dry run found why:
+//
+//   may contain: natural smoke flavoring, sodium phosphate, sodium
+//   erythorbate), pepperoni pizza topping (pepperoni made with pork, chicken
+//   and beef (pork, mechanically separated chicken, beef, salt, spice…
+//
+// That is a 21 CFR 101.4(b)(14) may-contain list inside a compound-ingredient
+// parenthetical that lost its brackets, and the sentence then runs on into
+// the product's real ingredients. Cutting there deletes a whole pizza. So it
+// takes the same allergen test as "contains".
+const MAY_CONTAIN_OPENER = /^may\s+(?:also\s+)?contain\b/i
+const CONTAINS_OPENER = /^contains\b/i
+
+export function extractLabelStatements(rawInput: string): LabelStatements {
+  const prepared = prepareDeclaration(rawInput)
+  const declaration: string[] = []
+  const contains: string[] = []
+  const crossContact: string[] = []
+
+  // Sentence split requires whitespace after the period, which keeps
+  // "No. 5", "Vit. A" and "U.S.A." in one piece.
+  for (const sentence of prepared.split(/(?<=\.)\s+/)) {
+    const s = sentence.trim()
+    if (s.length === 0) continue
+    const body = s.replace(STATEMENT_LEAD_IN, '').trim()
+
+    if (CROSS_CONTACT_FACILITY.test(body)) {
+      crossContact.push(s)
+      continue
+    }
+    if (MAY_CONTAIN_OPENER.test(body) && namesAnAllergenFirst(body, MAY_CONTAIN_OPENER)) {
+      crossContact.push(s)
+      continue
+    }
+    if (
+      CONTAINS_OPENER.test(body) &&
+      !TRACE_SECTION_PATTERNS.some((t) => t.pattern.test(body)) &&
+      namesAnAllergenFirst(body, CONTAINS_OPENER)
+    ) {
+      // "contains one or more of the following: walnuts, macadamia nuts"
+      // asserts that ONE of them is present, not all four (21 CFR
+      // 101.4(b)(14)). Filed as precautionary rather than as a "Contains"
+      // statement, which would claim every name in it.
+      if (/one\s+or\s+more\s+of\s+the\s+following|any\s+of\s+the\s+following/i.test(body)) {
+        crossContact.push(s)
+      } else {
+        contains.push(s)
+      }
+      continue
+    }
+    declaration.push(s)
+  }
+
+  // LAST RESORT: a label has ingredients. Some write the ingredient list
+  // itself behind "Contains:", and if its first item happens to be an
+  // allergen ("Contains: milk, sugar, water") every rule above fires and the
+  // declaration comes back empty. Nothing is worth that, so the split is
+  // abandoned rather than returning a product with no ingredients.
+  if (declaration.length === 0 && (contains.length > 0 || crossContact.length > 0)) {
+    return { declaration: prepared, contains: null, crossContact: null }
+  }
+
+  return {
+    declaration: declaration.join(' ').trim(),
+    contains: contains.length > 0 ? contains.join(' ').trim() : null,
+    crossContact: crossContact.length > 0 ? crossContact.join(' ').trim() : null,
+  }
+}
+
 export function parseIngredientsText(rawInput: string, opts: ParseOptions = {}): ParsedIngredient[] {
-  const raw = prepareDeclaration(rawInput)
+  const raw = opts.skipLabelStatements === true
+    ? prepareDeclaration(rawInput)
+    : extractLabelStatements(rawInput).declaration
   const results: Omit<ParsedIngredient, 'listPosition'>[] = []
 
   // Tracks whether we've passed a "contains 2% or less of:" style marker.
@@ -747,6 +956,125 @@ if (process.argv[1]?.endsWith('ingredientParsing.ts')) {
   eq('Sodium Phosphate (Mono- and Dibasic)', ['sodium phosphate'])
   eq('Flour (Wheat) and/or Rice Flour', ['flour', 'rice flour'])
   eq('water, sugar', ['water', 'sugar'])
+
+  // ---------------------------------------------- allergen statements
+  // Michael, 2026-11-10, on 'Dark chocolate coconut almond bites'. The raw
+  // string below is that product's stored ingredientsTextRaw, copied
+  // verbatim from the database, not a reconstruction of it.
+  const BITES =
+    'Coconut, unsweetened chocolate (processed with alkali), tapioca syrup, ' +
+    'cane sugar, almonds, chicory root fiber, cocoa butter, agave syrup, ' +
+    'maple sugar, cocoa powder, vanilla, sea salt, sunflower lecithin. ' +
+    'Contains: tree nuts (almonds), milk. Produced on equipment that ' +
+    'processes peanuts, tree nuts, soy, egg, gluten/wheat.'
+
+  const stmt = (raw: string, wantDecl: string, wantContains: string | null, wantCross: string | null) => {
+    const got = extractLabelStatements(raw)
+    const want = { declaration: wantDecl, contains: wantContains, crossContact: wantCross }
+    const ok = JSON.stringify(got) === JSON.stringify(want)
+    if (!ok) bad++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} stmt ${JSON.stringify(raw).slice(0, 62)}`)
+    if (!ok) {
+      console.log(`      got  ${JSON.stringify(got)}`)
+      console.log(`      want ${JSON.stringify(want)}`)
+    }
+  }
+
+  console.log('\nAllergen and cross-contact statements are not ingredients')
+  stmt(
+    BITES,
+    'Coconut, unsweetened chocolate (processed with alkali), tapioca syrup, cane sugar, almonds, chicory root fiber, cocoa butter, agave syrup, maple sugar, cocoa powder, vanilla, sea salt, sunflower lecithin.',
+    'Contains: tree nuts (almonds), milk.',
+    'Produced on equipment that processes peanuts, tree nuts, soy, egg, gluten/wheat.',
+  )
+  // THE REPORTED DEFECT, end to end: six rows that are not ingredients.
+  // "gluten/wheat" at the end is the one he saw on the page.
+  eq(BITES, [
+    'coconut', 'unsweetened chocolate', 'tapioca syrup', 'cane sugar', 'almond',
+    'chicory root fiber', 'cocoa butter', 'agave syrup', 'maple sugar',
+    'cocoa powder', 'vanilla', 'sea salt', 'sunflower lecithin',
+  ])
+
+  console.log('\n...and the ways "contains" legitimately appears must survive')
+  // A sentence-initial trace marker. If this is misread as an allergen
+  // statement, every ingredient after it disappears.
+  stmt('Sugar, cocoa. Contains 2% or less of: salt, citric acid.',
+       'Sugar, cocoa. Contains 2% or less of: salt, citric acid.', null, null)
+  eq('Sugar, cocoa. Contains 2% or less of: salt, citric acid.',
+     ['sugar', 'cocoa', 'salt[trace]', 'citric acid[trace]'])
+  // A parenthetical annotation, mid-sentence.
+  stmt('whey (contains milk), sugar', 'whey (contains milk), sugar', null, null)
+  // THE ANCHOR'S REASON FOR EXISTING: this product's own second ingredient
+  // contains a phrase that a cross-contact search would match anywhere.
+  stmt('Cocoa (processed with alkali), sugar', 'Cocoa (processed with alkali), sugar', null, null)
+  // A trailing sentence that matches no statement stays an ingredient.
+  stmt('Sugar, milk. Cocoa processed with alkali.',
+       'Sugar, milk. Cocoa processed with alkali.', null, null)
+
+  console.log('\nThe precautionary wordings that actually occur')
+  stmt('Wheat flour, water. May contain traces of peanuts.',
+       'Wheat flour, water.', null, 'May contain traces of peanuts.')
+  stmt('Oats. Manufactured in a facility that also processes wheat.',
+       'Oats.', null, 'Manufactured in a facility that also processes wheat.')
+  stmt('Oats. Made on shared equipment with wheat.',
+       'Oats.', null, 'Made on shared equipment with wheat.')
+  stmt('Rice. Allergen information: may also contain soy.',
+       'Rice.', null, 'Allergen information: may also contain soy.')
+  stmt('Corn. CONTAINS WHEAT AND SOY INGREDIENTS.',
+       'Corn.', 'CONTAINS WHEAT AND SOY INGREDIENTS.', null)
+  // No statement at all: declaration comes back unchanged.
+  stmt('water, sugar', 'water, sugar', null, null)
+
+  console.log('\nThe "contains" wordings the 2026-11-10 dry run found, all of which')
+  console.log('name REAL INGREDIENTS and must stay in the declaration')
+  // Every string in this block is a real stored declaration, shortened. The
+  // first version of extractLabelStatements cut all of them and the dry run
+  // would have deleted 125 "sugar", 118 "natural flavor", 117 "salt" and 86
+  // "citric acid" links across the catalogue.
+  const keeps = (raw: string) => {
+    const got = extractLabelStatements(raw)
+    const ok = got.declaration === raw && got.contains === null && got.crossContact === null
+    if (!ok) bad++
+    console.log(`${ok ? 'ok  ' : 'FAIL'} keeps ${JSON.stringify(raw).slice(0, 66)}`)
+    if (!ok) console.log(`      got  ${JSON.stringify(got)}`)
+  }
+  keeps('Sugar, cocoa. Contains less than 2%: corn starch, sea salt.')
+  keeps('Sugar. Contains less than 2% turmeric, paprika and lemon juice concentrate.')
+  keeps('Sugar. Contains <2% of: acacia, caramel color, citric acid, glycine.')
+  keeps('Sugar. Contains les than 2% of: natural flavor, magnesium oxide.')
+  keeps('Salt. Contains less than two percent silicon dioxide as an anti-caking agent.')
+  keeps('Sugar. Contains 2%or less of each of the following: soy flour, nonfat dry milk.')
+  keeps('Whey. Contains 25 or less of coconut oil, red #40 lake, propylene glycol.')
+  keeps('Chicken. Contains up to 15% chicken broth, salt, natural flavorings.')
+  keeps('Turkey. Contains up to 20% solution.')
+  keeps('Cultured milk. Contains the following live cultures: lactobacillus bulgaricus.')
+  // THE PIZZA. A may-contain list inside a compound-ingredient parenthetical
+  // that lost its brackets, running on into the product's real ingredients.
+  keeps('Crust. May contain: natural smoke flavoring, sodium phosphate), pepperoni pizza topping (pepperoni made with pork, chicken and beef.')
+
+  console.log('\n...and the statements that must still be separated')
+  stmt('Corn. CONTAINS WHEAT AND SOY INGREDIENTS.',
+       'Corn.', 'CONTAINS WHEAT AND SOY INGREDIENTS.', null)
+  stmt('Wheat flour, water. May contain traces of peanuts.',
+       'Wheat flour, water.', null, 'May contain traces of peanuts.')
+  stmt('Rice. Allergen information: may also contain soy.',
+       'Rice.', null, 'Allergen information: may also contain soy.')
+  stmt('Oats. Manufactured in a facility that also processes wheat.',
+       'Oats.', null, 'Manufactured in a facility that also processes wheat.')
+  // 21 CFR 101.4(b)(14): "one or more of the following" asserts that ONE is
+  // present, not all four, so it is routed to the precautionary bucket rather
+  // than to a "Contains" statement that would claim all of them.
+  stmt('Cashews. Contains one or more of the following: walnuts, macadamia nuts, pecans.',
+       'Cashews.', null, 'Contains one or more of the following: walnuts, macadamia nuts, pecans.')
+  // Boilerplate rides out with the statement it is attached to, which is
+  // correct: an address is not an ingredient either.
+  stmt('Flour. CONTAINS: WHEAT MADE WITH PRIDE AND CARE BY H-E-B.',
+       'Flour.', 'CONTAINS: WHEAT MADE WITH PRIDE AND CARE BY H-E-B.', null)
+
+  console.log('\nA label has ingredients: the split is abandoned before it empties one')
+  // Some labels write the ingredient list itself behind "Contains:". If its
+  // first item is an allergen, every rule fires and nothing is left.
+  keeps('Contains: milk, sugar, water.')
 
   console.log(bad === 0 ? '\nparseIngredientsText: all cases pass' : `\nparseIngredientsText: ${bad} FAILURES`)
   if (bad > 0) process.exitCode = 1
