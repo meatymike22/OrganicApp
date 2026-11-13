@@ -39,6 +39,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import fs from 'node:fs'
 import path from 'node:path'
 import { buildPrompt, parseSplit, selftest, validateSplit, type SplitVerdict } from '../src/lib/titleSplit'
+import { fetchImageAsBase64, imageBlock } from '../src/lib/imageFetch'
 
 const argv = process.argv.slice(2)
 const has = (f: string) => argv.includes(f)
@@ -89,7 +90,17 @@ type Ask =
 async function ask(name: string, company: string, imageUrl: string | null, model: string): Promise<Ask> {
   const prompt = buildPrompt(name, company, imageUrl !== null)
   const content: unknown[] = []
-  if (imageUrl !== null) content.push({ type: 'image', source: { type: 'url', url: imageUrl } })
+
+  // BYTES, NOT A URL. Every `source: {type:'url'}` call failed with "The
+  // request timed out while trying to download the file" on 2026-11-03 and
+  // again fifteen hours later, while this machine fetched the same images in
+  // about a second each (five sampled: 0.9-1.2s, 18-44 KB). The API's fetcher
+  // cannot reach the OFF CDN; we can. Same visual-token cost either way.
+  if (imageUrl !== null) {
+    const img = await fetchImageAsBase64(imageUrl)
+    if (!img.ok) return { ok: false, reason: 'image_fetch_failed', detail: img.reason }
+    content.push(imageBlock(img))
+  }
   content.push({ type: 'text', text: prompt })
 
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -313,6 +324,13 @@ async function main() {
           const mark = check.ok ? 'SPLIT  ' : `REJECT(${check.reason})`
           out.push(`      ${label}: ${mark} ${describe(a.verdict)}`)
           out.push(`              conf=${a.verdict.confidence}  evidence: ${a.verdict.typography}`)
+          // A package that shows a different product or brand than the stored
+          // string is a DATA DEFECT WORTH COLLECTING, not a reason to refuse
+          // the split. The first pilot found three in twenty rows and threw
+          // them away by treating them as failures.
+          if (a.verdict.package_note.trim() !== '') {
+            out.push(`              !! PACKAGE DIFFERS: ${a.verdict.package_note}`)
+          }
           bump(`${label}:${check.ok ? 'split' : check.reason}`)
         }
 

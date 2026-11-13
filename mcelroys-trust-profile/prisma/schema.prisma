@@ -1594,3 +1594,91 @@ model IngredientAuthorityAssessment {
   @@index([ingredientId])
   @@index([authority])
 }
+
+// A judgement on a leading name field: is it a product line, a motto, or
+// the company again?
+//
+// Open Food Facts stores product_name as a comma-delimited field list. r37
+// established that the field holding a product-type noun is the title and
+// what follows it describes the product. What LEADS it is none of those
+// things, and 12,780 products have one.
+//
+// WHY A TABLE AND NOT A FUNCTION: two structural tests were tried first and
+// both failed. "A line belongs to one company" — 6,973 of 7,470 phrases
+// belong to exactly one company, so it separates nothing. "A line covers a
+// meaningful share of its company's catalogue" — inverted: "our specialty"
+// sits at 8.4% while lindor is 1.0% and oikos 0.2%. Nothing in the
+// catalogue encodes the difference, so the judgement is made once by a
+// model, checked by a second model on the risky slice, and stored.
+// Rationale and measurements: claude/round-38-dropped-phrase-classification.md
+//
+// NO RELATION TO Product. The key is the phrase, so judging "Lindor" once
+// serves every Lindt product carrying it — and a human correcting one row
+// corrects every page it touches.
+model DroppedPhraseVerdict {
+  id String @id @default(dbgenerated("gen_random_uuid()"))
+
+  // The phrase exactly as splitByProductNoun returns it, lower-cased. It
+  // must come from that function and nowhere else: a second normaliser here
+  // would drift from the first and every lookup would miss silently, which
+  // has already cost this project a false clean run twice (r30, r33).
+  phrase String
+
+  // product_line | motto | company_name | unclear
+  //
+  // 'unclear' is a real answer and is not shown. The prompt encourages it
+  // and the parser fails closed on anything unrecognised, because an honest
+  // refusal beats a confident guess about what a shopper reads.
+  //
+  // No enum, for the same reason Product.imageKind has none: the taxonomy
+  // is expected to gain a value, the only writer is one script reading one
+  // constant, and a migration per label is friction with no payoff.
+  verdict String
+  reason  String?
+
+  // Provenance, and not decoration — this verdict cannot be re-derived from
+  // the source tables, because no query can tell a brand from a slogan. A
+  // verdict without its model is a number with no provenance.
+  //
+  // The prompt is provenance too and deliberately lives in
+  // scripts/classify-dropped-phrases.ts, not here: changing it invalidates
+  // the hand scoring, and a copy in the database would drift from the one
+  // actually being sent.
+  model    String
+  judgedAt DateTime @default(now())
+
+  // The second opinion, on ~7.5% of rows: those the first pass called a
+  // brand where the catalogue recognises a food word inside the phrase.
+  //
+  // A DIFFERENT MODEL ASKED A DIFFERENT QUESTION. Re-asking the same model
+  // the same question is not verification — it agrees with itself, raising
+  // confidence without raising accuracy, which is worse than no check
+  // because it looks like one. verifierCall is name | description | unsure,
+  // deliberately not the same vocabulary as verdict so the two can never be
+  // read for each other.
+  verifier       String?
+  verifierCall   String?
+  verifierReason String?
+  verifiedAt     DateTime?
+
+  // A HUMAN CORRECTION, WHICH WINS OVER EVERYTHING ABOVE.
+  //
+  // Separate from `verdict` rather than overwriting it, so that a
+  // correction is visible AS a correction, a re-run can never silently undo
+  // one, and the model's accuracy stays measurable against the rows a
+  // person actually checked — the only ground truth there will ever be.
+  humanVerdict String?
+  humanNote    String?
+  humanAt      DateTime?
+
+  // How many products carried the phrase when it was judged. For review
+  // ordering only: it tells a reviewer which rows are worth their attention
+  // first. It is a snapshot and goes stale, so never read it as a current
+  // count — a query over Product answers that properly.
+  productCount Int @default(0)
+
+  // The unique index is also what lets the classifier resume: it upserts,
+  // so an interrupted run costs only the calls it had not yet made.
+  @@unique([phrase])
+  @@index([verdict])
+}

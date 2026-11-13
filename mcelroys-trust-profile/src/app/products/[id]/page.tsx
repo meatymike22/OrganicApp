@@ -8,8 +8,9 @@ import { additive, colors, font, isoDate, layout, status } from '@/lib/design'
 import { AdditiveMark } from '@/components/AdditiveMark'
 import { baseDyeOf, categoryHelp, familiesPresent, familyFor, familyHelp } from '@/lib/ingredientDisplay'
 import { describeCategory } from '@/lib/categoryDisplay'
-import { flaggedSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
+import { flaggedSignal, glutenSignal, ingredientCount, nonGmoSignal, organicSignal, ownerSignal, recallSignal, type ProductForSignals, type Signal } from '@/lib/productSignals'
 import { canAssertAbsence, hasAnyIngredientList, PARTIAL_LIST_NOTE } from '@/lib/ingredientDisclosure'
+import { extractLabelStatements } from '@/lib/ingredientParsing'
 import {
   companyDisplayName,
   headingWithBrand,
@@ -18,6 +19,7 @@ import {
   productDisplayName,
   shortProductName,
 } from '@/lib/productName'
+import { splitAndOrient } from '@/lib/titleOrientation'
 import { assessmentWeight, classificationMeaning } from '@/lib/authorities'
 import { plainReason } from '@/lib/plainRecall'
 import { getRelatedProducts, type RelatedProduct, type RelatedSet } from '@/lib/relatedProducts'
@@ -71,6 +73,17 @@ const PRODUCT_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
+  // REQUIRED BY glutenSignal, and nothing type-checks that. `forSignals` below
+  // is `product as unknown as ProductForSignals`, a double cast, so a field
+  // added to that type and forgotten here compiles cleanly and throws at
+  // runtime. Added 2026-11-10 with the gluten row.
+  labelClaims: true,
+  labelClaimsCheckedAt: true,
+  labelAllergens: true,
+  labelAllergenTraces: true,
+  // The label text itself, so the ingredients tab can show the two
+  // statements that are not ingredients. See LabelStatements below.
+  ingredientsTextRaw: true,
   ingredientSourceUrl: true,
   importSource: true,
   productIngredients: {
@@ -157,8 +170,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   //
   // Same title as the missing-record case, because the response IS a 404.
   if (!product || product.publicationStatus !== 'published') return { title: 'Product not found' }
+  // Oriented, for the same reason the h1 is: a browser tab and a search
+  // result must lead with the words the page itself calls the product. An
+  // unoriented <title> would read "Our Speciality — Rich Products Corp."
+  // over a page whose heading says "Strawberry Frosted Sugar Cookies".
   const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
-  return { title: `${title} — ${companyDisplayName(product.company.legalName)}` }
+  const oriented = splitAndOrient(title)
+  const full = oriented.secondary ? `${oriented.title}, ${oriented.secondary}` : oriented.title
+  return { title: `${full} — ${companyDisplayName(product.company.legalName)}` }
 }
 
 // CACHED, which is the whole point of the back-link change below.
@@ -234,6 +253,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   // the breadcrumb, the glyph label and the h1 cannot disagree.
   const title = productDisplayName(product.name, product.company.legalName, product.company.dbaNames)
 
+  // THE SECONDARY TITLE. Michael, 2026-11-02, on a Member's Mark record:
+  // "remove this and simply put the secondary title beneath the product
+  // title, which in this case is 'Peanut butter filled wafer sticks with
+  // strawberry dip'".
+  //
+  // Open Food Facts stores `product_name` as a comma-delimited field list,
+  // so 29,209 products carry a title and a secondary already separated by a
+  // delimiter nobody was reading. splitAndOrient splits on it and then
+  // decides which side is the product, from a lexicon generated out of the
+  // catalogue itself. See round-37-comma-delimited-names.md; 47,862 products
+  // print a comma inside their title today.
+  const oriented = splitAndOrient(title)
+
+  // ONE LINE, LEADING WITH THE SAME WORDS AS THE <h1>.
+  //
+  // The trail entry and the photograph's label have no room for a second
+  // line, so they keep the whole name. But they must not lead with DIFFERENT
+  // words than the heading: when orientation swaps the two halves, the
+  // stored order no longer matches what the page says the product is, and a
+  // trail reading "Our Speciality, Strawberry Frosted Sugar Cookies" beside
+  // an h1 reading "Strawberry Frosted Sugar Cookies" is the disagreement the
+  // comment above exists to prevent. So this recomposes from the oriented
+  // halves rather than reusing `title`.
+  const oneLineTitle = oriented.secondary
+    ? `${oriented.title}, ${oriented.secondary}`
+    : oriented.title
+
   const forSignals = product as unknown as ProductForSignals
 
   // Related products cost about 250 ms (measured; see relatedProducts.ts), so
@@ -293,6 +339,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const organic = organicSignal(forSignals)
   const nonGmo = nonGmoSignal(forSignals)
   const owner = ownerSignal(forSignals)
+  const gluten = glutenSignal(forSignals)
   const count = ingredientCount(forSignals)
 
   // Ingredients in the order they appear on the label. Label order is itself
@@ -436,7 +483,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           falls back to BackLink when there is only one stop, so there is one
           bar and never two. See the long note in VisitTrail.tsx for why this
           is not the breadcrumb returning. */}
-      <VisitTrail label={title}>
+      <VisitTrail label={oneLineTitle}>
         {/* THE SUSPENSE BOUNDARY IS LOAD-BEARING. A static page that calls
             useSearchParams from a client component MUST wrap it, or `next build`
             fails with "Missing Suspense boundary with useSearchParams" -- and
@@ -482,7 +529,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             // Same em-based sizing as the search row; see ProductThumb.
             size="clamp(112px, 13vw, 184px)"
             intrinsic={320}
-            label={title}
+            label={oneLineTitle}
             // Portrait frame, so a package photograph fills it instead of
             // shrinking to fit a square. See the note on `tall` in
             // ProductThumb.tsx.
@@ -528,7 +575,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 any tail cut, so "A2/A2 100% Grass-fed Regenerative Organic
                 Probiotic Kefir" reads "Probiotic Kefir" rather than losing the
                 word "Kefir" off the end — which is what it did before.
-              The stored name in full is on the line below. */}
+
+              r37 added a THIRD half: the name is split on Open Food Facts'
+              own comma delimiter, so the h1 now carries only the product
+              title and the secondary sits on its own line below. What was
+              "the stored name in full is on the line below" is now two
+              lines: the secondary always, and the "On the label" line only
+              when the title half is itself being trimmed. */}
           <h1
             style={{
               margin: '7px 0 0',
@@ -540,18 +593,48 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             }}
           >
             {headingWithBrand(
-              shortProductName(title),
+              shortProductName(oriented.title),
               productBrand(product.company.legalName, product.company.dbaNames)
             )}
           </h1>
 
-          {/* The stored name in full, whenever the heading is showing less
-              than all of it. This line is what makes shortening safe —
-              nothing is hidden, it is just no longer the first thing you
-              have to read. See shortProductName in productName.ts. */}
-          {isShortened(title) && (
+          {/* THE SECONDARY TITLE, BENEATH THE PRODUCT TITLE — exactly what
+              Michael asked for on 2026-11-02. It is smaller and lighter than
+              the h1 but larger than the "On the label" line below it,
+              because it is part of the product's name rather than a note
+              about the record. */}
+          {oriented.secondary && (
+            <div
+              style={{
+                fontFamily: font.display,
+                fontSize: 17,
+                lineHeight: 1.3,
+                fontWeight: 400,
+                color: colors.ink2,
+                marginTop: 4,
+                maxWidth: '54ch',
+              }}
+            >
+              {oriented.secondary}
+            </div>
+          )}
+
+          {/* The title in full, whenever the heading is showing less than all
+              of it. This line is what makes shortening safe — nothing is
+              hidden, it is just no longer the first thing you have to read.
+              See shortProductName in productName.ts.
+
+              IT TESTS THE ORIENTED TITLE, NOT THE STORED NAME. Michael asked
+              for this line to be REPLACED by the secondary, and for the
+              wafer-sticks case it is: the split accounts for the whole name,
+              so isShortened is false and this does not render. But when the
+              title HALF is itself long enough to be trimmed, words would
+              otherwise disappear with nothing saying so — and "nothing is
+              hidden" is a guarantee r29 and r33 both built on. So the line
+              survives, scoped to the half the heading is actually showing. */}
+          {isShortened(oriented.title) && (
             <div style={{ fontSize: 13, lineHeight: 1.5, color: colors.ink3, marginTop: 7, maxWidth: '68ch' }}>
-              On the label: {title}
+              On the label: {oriented.title}
             </div>
           )}
 
@@ -669,6 +752,33 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   signal: nonGmo,
                   href: `/products/${product.id}/sources`,
                   help: 'Does the product have genetically modified ingredients?',
+                },
+                {
+                  // Michael, 2026-11-10: "there is not a section on the product
+                  // page that says whether a product is gluten free."
+                  //
+                  // PLACED WITH THE OTHER TWO CLAIM ROWS rather than higher up.
+                  // /sourcing states the ordering rule -- "the order says what
+                  // is most worth reading about first" -- and a label claim sits
+                  // with the other label claims, below recalls and open
+                  // research. Arguable: for a coeliac shopper this is the most
+                  // important row on the page, and if it should lead the claim
+                  // cluster that is a one-line move.
+                  //
+                  // "Gluten-free" is the question, and the colours answer it:
+                  // Michael, 2026-11-10 — "Green in this case means certified
+                  // or congruent with the positive of the column (in this
+                  // case, is it gluten free? Yes = green, maybe = amber,
+                  // no - gray)."
+                  //
+                  // So this row's colours track the ANSWER rather than the
+                  // state of the record, which is a deliberate break from the
+                  // other five. It is the one row a reader will take colour as
+                  // safety from whether or not we intend it, and the states
+                  // are named so the words never overstate the colour.
+                  question: 'Gluten-free',
+                  signal: gluten,
+                  help: 'Is this product gluten free, according to its own label?',
                 },
                 {
                   // Michael, 2026-10-20 (VZybn428zXsG): "shouldnt this say 'The
@@ -1739,7 +1849,12 @@ function Ingredients({
   research,
 }: {
   ingredients: IngredientRows
-  product: { id: string; ingredientSource: string | null; ingredientDisclosureStatus: string }
+  product: {
+    id: string
+    ingredientSource: string | null
+    ingredientDisclosureStatus: string
+    ingredientsTextRaw: string | null
+  }
   hasOrder: boolean
   signal: Signal
   // The querystring that tells the ingredient page how to get back here.
@@ -1801,6 +1916,7 @@ function Ingredients({
                 />
               ))}
             </div>
+            <LabelStatements raw={product.ingredientsTextRaw} />
             <SourceNote productId={product.id} what="This ingredient list" />
           </>
         )}
@@ -1933,6 +2049,102 @@ function filterHref(category: string): string {
 // (features item 34). An uncoloured row means "no category on file", which
 // is a fact about OUR records, not about the food. The one line under the
 // swatches says exactly that, and it is the only sentence in this block.
+// THE LABEL'S OTHER TWO STATEMENTS, which are not ingredients and are no
+// longer stored as if they were.
+//
+// Michael, 2026-11-10, on 'Dark chocolate coconut almond bites': "it says
+// 'Gluten/wheat' is an ingredient but I never see this on the ingredient
+// list. It looks like this is a ingredient list issue where the cross
+// contamination information made it into the ingredient list, which it
+// shouldnt. In fact the cross contamination information should be its own
+// subsection in the ingredients tab."
+//
+// Both halves of that are implemented: extractLabelStatements() in
+// ingredientParsing.ts stops the text becoming ingredient rows, and this
+// renders it where he asked for it.
+//
+// THE TWO STATEMENTS ARE KEPT APART BECAUSE THEY MEAN OPPOSITE THINGS.
+// "Contains: milk" says the milk is IN the food — a FALCPA requirement,
+// restating the ingredient list. "Produced on equipment that processes
+// gluten" says the gluten is NOT in the food, and might be there anyway.
+// Printed as one list, as Open Food Facts' allergen field does, the
+// distinction is lost — which is exactly how 47 products ended up reading as
+// self-contradicting labels. A reader deciding what to eat needs to know
+// which of the two they are looking at.
+//
+// Derived from the stored text at render time rather than from columns of its
+// own. One regex pass over one string, and it cannot drift from the parser,
+// because it IS the parser.
+function LabelStatements({ raw }: { raw: string | null }) {
+  if (raw === null) return null
+  const { contains, crossContact } = extractLabelStatements(raw)
+  if (contains === null && crossContact === null) return null
+
+  return (
+    <div style={{ marginTop: 15, display: 'grid', gap: 10 }}>
+      {contains !== null && (
+        <LabelStatement
+          title="Contains, per the label"
+          help={
+            "The maker's own allergen statement. US law requires it to name the major allergens the food contains, so it restates substances that are already in the ingredient list above rather than adding new ones."
+          }
+          text={contains}
+          accent={colors.lineStrong}
+        />
+      )}
+      {crossContact !== null && (
+        <LabelStatement
+          title="Made on shared equipment"
+          help={
+            'A voluntary precautionary statement. These are NOT ingredients: the maker is warning that the product is made somewhere that also handles them, so traces may be present. It is the one allergen fact that cannot be read off an ingredient list, which is why it is shown separately rather than merged into one.'
+          }
+          text={crossContact}
+          accent={status.openResearch.fg}
+        />
+      )}
+    </div>
+  )
+}
+
+function LabelStatement({
+  title,
+  help,
+  text,
+  accent,
+}: {
+  title: string
+  help: string
+  text: string
+  accent: string
+}) {
+  return (
+    <div style={{ borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: 0.35,
+          color: colors.ink3,
+        }}
+      >
+        {/* THE UPPERCASE SITS ON THE TEXT, NOT THE ROW. With it on the flex
+            container, InfoDot's lowercase "i" glyph inherited it and rendered
+            as a capital I — the only two of the eleven InfoDots on this page
+            that did, which is exactly the kind of thing `tsc` cannot see and
+            only looking at the page finds. Caught 2026-11-12. */}
+        <span style={{ textTransform: 'uppercase' }}>{title}</span>
+        <InfoDot text={help} />
+      </div>
+      {/* VERBATIM. This is the package's own sentence, and paraphrasing it
+          would make it ours. */}
+      <div style={{ marginTop: 3, fontSize: 13, lineHeight: 1.45, color: colors.ink2 }}>{text}</div>
+    </div>
+  )
+}
+
 function AdditiveLegend({ ingredients }: { ingredients: IngredientRows }) {
   const families = familiesPresent(ingredients.map((pi) => pi.ingredient.category))
   if (families.length === 0) return null
