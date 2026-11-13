@@ -2127,11 +2127,15 @@ function LabelStatement({
           fontSize: 11,
           fontWeight: 600,
           letterSpacing: 0.35,
-          textTransform: 'uppercase',
           color: colors.ink3,
         }}
       >
-        {title}
+        {/* THE UPPERCASE SITS ON THE TEXT, NOT THE ROW. With it on the flex
+            container, InfoDot's lowercase "i" glyph inherited it and rendered
+            as a capital I — the only two of the eleven InfoDots on this page
+            that did, which is exactly the kind of thing `tsc` cannot see and
+            only looking at the page finds. Caught 2026-11-12. */}
+        <span style={{ textTransform: 'uppercase' }}>{title}</span>
         <InfoDot text={help} />
       </div>
       {/* VERBATIM. This is the package's own sentence, and paraphrasing it
