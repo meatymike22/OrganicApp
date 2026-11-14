@@ -1024,7 +1024,8 @@ function ResultRow({
               the label held, and the product page's table keeps its words.
               The colour key above these results shows each mark beside its
               term, which is what makes the row readable at all. */}
-          <SignalStrip signals={signals} glyphs />
+          {/* inLink: this whole row is an <a>, so the chips must not be. */}
+          <SignalStrip signals={signals} glyphs inLink />
         </div>
       </div>
 

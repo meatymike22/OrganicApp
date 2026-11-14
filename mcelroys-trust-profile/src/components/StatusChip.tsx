@@ -255,7 +255,30 @@ function numberIn(label: string): string | null {
   return m ? m[0] : null
 }
 
-export function SignalStrip({ signals, glyphs }: { signals: Signal[]; glyphs?: boolean }) {
+// `inLink` says this strip is already inside a link, which changes what a
+// chip is allowed to render.
+//
+// ⚠️ A CHIP WITH AN href BECOMES AN <a>, AND A SEARCH ROW IS ITSELF AN <a>.
+// Nesting them is invalid HTML, and React does not merely warn: the mismatch
+// between the server's markup and what the browser's parser produces throws
+// out the server HTML and re-renders the whole results tree on the client,
+// on every single search. It had been doing that on every result page.
+//
+// Suppressing the link rather than unwrapping the row costs close to nothing,
+// which is what makes this the right side to give. Of the three signals that
+// carry an href, `flagged` and `recalls` point at the SAME product page the
+// row already links to and differ only by a #fragment; only `owner` has a
+// different destination, and a company link inside a row-wide product link
+// was never reliably clickable anyway.
+export function SignalStrip({
+  signals,
+  glyphs,
+  inLink,
+}: {
+  signals: Signal[]
+  glyphs?: boolean
+  inLink?: boolean
+}) {
   return (
     // .rt-signals re-lays this as two columns below 900px. Measured on the
     // live site at 375px: these five fixed columns are 504px before any gap,
@@ -278,7 +301,9 @@ export function SignalStrip({ signals, glyphs }: { signals: Signal[]; glyphs?: b
           <StatusChip
             key={sig.column}
             state={sig.state}
-            href={sig.href}
+            // See the note on inLink: inside a row that is itself an
+            // anchor, a chip renders as a <span> instead of a nested <a>.
+            href={inLink === true ? undefined : sig.href}
             // The label is not lost, it moved. It leads the hover, because
             // "Recalled 2016" is what the reader is trying to recover.
             title={[asGlyph ? sig.label : null, sig.detail, sig.asOf ? `Read ${sig.asOf}` : null]
