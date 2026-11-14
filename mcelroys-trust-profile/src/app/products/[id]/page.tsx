@@ -280,7 +280,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     ? `${oriented.title}, ${oriented.secondary}`
     : oriented.title
 
-  const forSignals = product as unknown as ProductForSignals
+  const forSignals: ProductForSignals = product
 
   // Related products cost about 250 ms (measured; see relatedProducts.ts), so
   // they go in the same Promise.all as the recall queries rather than in
