@@ -595,11 +595,18 @@ export function glutenSignal(p: ProductForSignals): Signal {
     }
   }
 
-  // DEFENSIVE, because the type system does not reach here: the product page
-  // passes `product as unknown as ProductForSignals`, a double cast, so a page
-  // whose Prisma select omits a field arrives with it undefined and `.includes`
-  // throws. Treating a missing field as "we could not check" is the honest
-  // reading of not having the data.
+  // DEFENSIVE, AND KEPT ON PURPOSE NOW THAT THE TYPE SYSTEM DOES REACH HERE.
+  //
+  // Both callers lost their `as unknown as ProductForSignals` on 2026-11-13
+  // and 2026-11-14, so a forgotten Prisma select is now a build error naming
+  // the field. Removing the cast from the search page found FIVE it had been
+  // hiding: the four label fields and productIngredients.isTrace.
+  //
+  // The fallbacks stay anyway, because of what each failure costs. Without
+  // them a missing field is `.includes` on undefined — a 500 on every food
+  // page. With them it is "Not checked", which is wrong but survivable and
+  // is the honest reading of not having the data. The compiler is the real
+  // guard; this is the net under it, and the selftests below pin it.
   const claims = p.labelClaims ?? null
   const allergens = p.labelAllergens ?? []
   const traces = p.labelAllergenTraces ?? []
@@ -981,10 +988,10 @@ if (process.argv[1]?.endsWith('productSignals.ts') && process.argv.includes('--s
   // match creeping in -- `en:gluten` must match exactly.
   gl({ labelAllergens: ['en:milk', 'en:soybeans'] }, 'Not declared', 'nothingOnFile')
 
-  // THE DOUBLE CAST ON THE PRODUCT PAGE MEANS THESE CAN ARRIVE UNDEFINED.
-  // `product as unknown as ProductForSignals` type-checks whatever it is
-  // given, so a page that forgets a field in its Prisma select reaches here
-  // with it missing. It must not throw on a live product page.
+  // A MISSING FIELD MUST NOT THROW, even though the compiler now prevents
+  // one reaching here. Both callers are checked as of 2026-11-14 — these
+  // cases guard the fallbacks themselves, so that anyone removing them as
+  // "dead code" has to delete a passing test to do it.
   gl({ labelClaims: undefined as unknown as string[] }, 'Not checked', 'unchecked')
   gl({ labelAllergens: undefined as unknown as string[], labelClaims: ['en:no-gluten'] },
      'Claimed', 'confirmed')

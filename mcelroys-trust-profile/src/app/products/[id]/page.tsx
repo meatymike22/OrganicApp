@@ -73,10 +73,12 @@ const PRODUCT_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
-  // REQUIRED BY glutenSignal, and nothing type-checks that. `forSignals` below
-  // is `product as unknown as ProductForSignals`, a double cast, so a field
-  // added to that type and forgotten here compiles cleanly and throws at
-  // runtime. Added 2026-11-10 with the gluten row.
+  // REQUIRED BY glutenSignal, and the compiler now checks that. `forSignals`
+  // below is a plain annotated assignment, so a field added to
+  // ProductForSignals and forgotten here is a build error naming the field,
+  // not a 500 on every food product page. It was a double cast until
+  // 2026-11-13 and the hazard was real: a near miss on 2026-11-10 when these
+  // four were added, and again on 2026-11-11.
   labelClaims: true,
   labelClaimsCheckedAt: true,
   labelAllergens: true,

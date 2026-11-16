@@ -89,6 +89,22 @@ const ROW_FIELDS = {
   ingredientDisclosureStatus: true,
   ingredientCheckedAt: true,
   ingredientSource: true,
+  // REQUIRED BY ProductForSignals, and the compiler now checks it — same
+  // guard as the image fields above.
+  //
+  // ⚠️ THESE FOUR WERE MISSING UNTIL 2026-11-14 and a double cast hid it.
+  // Nothing was visibly wrong, because productSignals() returns five signals
+  // and glutenSignal is not one of them, so no caller here read them. The
+  // trap was the next change, not this one: the moment glutenSignal joins
+  // that list — which is exactly what a gluten glyph on a search card needs —
+  // every row would have read "Not checked", silently and with no error,
+  // because glutenSignal treats a missing field as "we could not look".
+  // That defensive branch exists for the product page's old cast and it would
+  // have turned a wiring bug into plausible wrong answers on 25 rows a page.
+  labelClaims: true,
+  labelClaimsCheckedAt: true,
+  labelAllergens: true,
+  labelAllergenTraces: true,
   // Required by ProductImageFields, so a forgotten select is a compile error
   // rather than a nutrition panel back on the page.
   imageKind: true,
@@ -98,6 +114,11 @@ const ROW_FIELDS = {
   productIngredients: {
     select: {
       listPosition: true,
+      // Also required by ProductForSignals: glutenSignal reads a gluten grain
+      // out of the ingredient list and counts a trace row as present, because
+      // "contains 2% or less of: malted barley flour" is a minor component,
+      // not an absent one. The fifth field the double cast was hiding.
+      isTrace: true,
       ingredient: { select: { name: true, flaggedForResearch: true } },
     },
   },
@@ -335,7 +356,7 @@ async function loadResults(
   const results = pageRows
     .map((r) => ({
       product: r,
-      signals: productSignals(r as unknown as ProductForSignals, listedRecalls.get(r.id)),
+      signals: productSignals(r, listedRecalls.get(r.id)),
     }))
     .sort((a, b) => mostToReadAbout(a.signals, b.signals))
 
